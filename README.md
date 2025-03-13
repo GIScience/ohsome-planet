@@ -41,6 +41,7 @@ To see all available parameters, call the tool with `--help` parameter.
 By passing the parameter `--country-file` you can performa a spatial join to enrich OSM contributions with country codes.
 The country file should be provided in `.csv` format.
 Geometries should we represented as `WKT` (well-known text) string.
+The current version only supports `POLYGON` or `MULTIPOLYGON` geometries.
 
 Basically, the file should look like this:
 ```
