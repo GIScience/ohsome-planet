@@ -37,6 +37,22 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
 The parameters `--country-file`, `--output` and `--overwrite` are optional.
 To see all available parameters, call the tool with `--help` parameter.
 
+### Country Data
+By passing the parameter `--country-file` you can performa a spatial join to enrich OSM contributions with country codes.
+The country file should be provided in `.csv` format.
+Geometries should we represented as `WKT` (well-known text) string.
+
+Basically, the file should look like this:
+```
+id;wkt
+DEU;POLYGON ((7.954102 49.781264, 11.118164 49.781264, 11.118164 51.563412, 7.954102 51.563412, 7.954102 49.781264))
+FRA;POLYGON ((1.186523 45.058001, 4.833984 45.058001, 4.833984 48.545705, 1.186523 48.545705, 1.186523 45.058001))
+ITA;POLYGON ((10.766602 41.211722, 14.985352 41.211722, 14.985352 44.024422, 10.766602 44.024422, 10.766602 41.211722))
+```
+
+### Changesets
+We will add the functionality to join OSM changeset metadata soon. Stay tuned!
+
 ## Output Structure
 
 When using a history PBF file, the output files are split into `history` and `latest` contributions. 
