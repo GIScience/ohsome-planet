@@ -34,25 +34,34 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
     --output out-karlsruhe \
     --overwrite 
 ```
-The parameters `--country-file`, `--output` and `--overwrite` are optional. To see all available parameters, call the tool with `--help` parameter.
+The parameters `--country-file`, `--output` and `--overwrite` are optional.
+To see all available parameters, call the tool with `--help` parameter.
 
 ## Output Structure
 
+When using a history PBF file, the output files are split into `history` and `latest` contributions. 
+All contributions which are a) not deleted and b) visible in OSM at the timestamp of the extract are considered as `latest`.
+The remaining contributions, e.g. deleted or old versions, are considered as `history`.
 
 ```
-out-karlsruhe
-    contributions/latest
-    minorNodes/
-    minorWays/
-    node-000.parquet
-    node-001.parquet
-    ...
-    relation-000.parquet
-    relation-001.parquet
-    ...
-    way-000.parquet
-    way-001.parquet
-    ...
+out-karlruhe
+├── contributions
+│   ├── history
+│   │   ├── node-0-163811-history.parquet
+│   │   ├── ...
+│   │   ├── way-0-2496473-history.parquet
+│   │   ├── ...
+│   │   ├── relation-0-12345-history.parquet
+│   │   └── ...
+│   └── latest
+│       ├── node-0-163811-latest.parquet
+│       ├── ...
+│       ├── way-0-2496473-latest.parquet
+│       ├── ...
+│       ├── relation-0-12345-latest.parquet
+│       └── ...
+├── minorNodes (rocksdb)
+└── minorWays (rocksdb)
 ```
 
 ## Inspect Results
