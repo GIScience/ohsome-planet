@@ -100,12 +100,13 @@ DESCRIBE FROM read_parquet('out-karlruhe/*.parquet');
 │ osm_id            │ BIGINT                                                                                                                                     │ YES     │         │         │         │
 │ osm_version       │ INTEGER                                                                                                                                    │ YES     │         │         │         │
 │ osm_minor_version │ INTEGER                                                                                                                                    │ YES     │         │         │         │
+│ osm_edits         │ INTEGER                                                                                                                                    │ YES     │         │         │         │
+│ osm_last_edit     │ TIMESTAMP WITH TIME ZONE                                                                                                                   │ YES     │         │         │         │
 │ user              │ STRUCT(id INTEGER, "name" VARCHAR)                                                                                                         │ YES     │         │         │         │
 │ tags              │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
-│ tags_added        │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
-│ tags_removed      │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
+│ tags_before       │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
 │ changeset         │ STRUCT(id BIGINT, created_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, tags MAP(VARCHAR, VARCHAR), hashtags VARCHAR[]) │ YES     │         │         │         │
-│ bbox              │ STRUCT(minX DOUBLE, minY DOUBLE, maxX DOUBLE, maxY DOUBLE)                                                                                 │ YES     │         │         │         │
+│ bbox              │ STRUCT(xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE)                                                                                 │ YES     │         │         │         │
 │ centroid          │ STRUCT(x DOUBLE, y DOUBLE)                                                                                                                 │ YES     │         │         │         │
 │ geometry_type     │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
 │ geometry          │ BLOB                                                                                                                                       │ YES     │         │         │         │
@@ -115,9 +116,11 @@ DESCRIBE FROM read_parquet('out-karlruhe/*.parquet');
 │ length_delta      │ DOUBLE                                                                                                                                     │ YES     │         │         │         │
 │ contrib_type      │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
 │ refs              │ BIGINT[]                                                                                                                                   │ YES     │         │         │         │
-│ members           │ STRUCT("type" VARCHAR, id BIGINT, "role" VARCHAR, geometry BLOB)[]                                                                         │ YES     │         │         │         │
+│ members           │ STRUCT("type" VARCHAR, id BIGINT, "role" VARCHAR, geometry_type VARCHAR, geometry BLOB)[]                                                  │ YES     │         │         │         │
+│ country_iso       │ VARCHAR[]                                                                                                                                  │ YES     │         │         │         │
+│ build_time        │ BIGINT                                                                                                                                     │ YES     │         │         │         │
 ├───────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─────────┴─────────┴─────────┴─────────┤
-│ 23 rows                                                                                                                                                                                      6 columns │
+│ 26 rows                                                                                                                                                                                      6 columns │
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
