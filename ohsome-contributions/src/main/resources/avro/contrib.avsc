@@ -1,0 +1,99 @@
+{
+"namespace": "org.heigit.ohsome.contributions.avro",
+"name": "Contrib",
+"type": "record",
+"fields": [
+  { "name": "status", "type": "string" },
+
+  { "name": "valid_from", "type": {
+    "type": "long",
+    "logicalType": "timestamp-micros",
+    "adjust-to-utc": true
+  }
+  },
+  { "name": "valid_to", "type": {
+    "type": "long",
+    "logicalType": "timestamp-micros",
+    "adjust-to-utc": true
+  }
+  },
+
+  { "name": "osm_type", "type": "string", "doc": "node/way/relation" },
+  { "name": "osm_id", "type": "long" },
+  { "name": "osm_version", "type": "int" },
+  { "name": "osm_minor_version", "type": "int" },
+  { "name": "osm_edits", "type": "int" },
+  { "name": "osm_last_edit", "type": ["null", {
+    "type": "long",
+    "logicalType": "timestamp-micros",
+    "adjust-to-utc": true
+  }]
+  },
+
+  { "name": "user", "type": {
+    "type": "record",
+    "name": "ContribUser",
+    "fields": [
+      { "name": "id", "type": "int" },
+      { "name": "name", "type": "string" }
+    ]
+  }},
+
+  { "name": "tags", "type": {"type": "map", "values": "string", "default":{}}},
+  { "name": "tags_before", "type": {"type": "map", "values": "string", "default":{}}},
+
+  { "name": "changeset", "type": {
+    "type": "record",
+    "name": "ContribChangeset",
+    "fields": [
+      { "name": "id", "type": "long" },
+      { "name": "created_at", "type": { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }},
+      { "name": "closed_at", "type": { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }},
+      { "name": "tags", "type": {"type": "map", "values": "string", "default":{}}},
+      { "name": "hashtags", "type": {"type": "array", "items": "string" }}
+    ]
+  }},
+
+  { "name": "bbox", "type":  ["null", {
+    "type": "record",
+    "name": "BBox",
+    "fields": [
+      { "name": "xmin", "type": "double"},
+      { "name": "ymin", "type": "double"},
+      { "name": "xmax", "type": "double"},
+      { "name": "ymax", "type": "double"}
+    ]
+  }], "default": null},
+  { "name": "centroid", "type": ["null", {
+    "type": "record",
+    "name": "Centroid",
+    "fields": [
+      { "name": "x", "type": "double" },
+      { "name": "y", "type": "double" }
+    ]
+  }], "default": null},
+  { "name": "geometry_type", "type": ["null", "string"], "default": null },
+  { "name": "geometry", "type": ["null", "bytes"], "default": null},
+  { "name": "area", "type": "double", "doc": "area in square meter" },
+  { "name": "area_delta", "type": "double", "doc": "area delta in square meter" },
+  { "name": "length", "type": "double", "doc": "length in meter"},
+  { "name": "length_delta", "type": "double", "doc": "length delta in meter"},
+
+  { "name": "contrib_type", "type": "string", "doc": "CREATED, DELETED, TAG, GEOMETRY, TAG_GEOMETRY"},
+
+  { "name": "refs", "type": ["null", {"type": "array", "items": "long" }], "default": null},
+  { "name": "members", "type": ["null", { "type": "array", "items": {
+    "name": "Member",
+    "type": "record",
+    "fields": [
+      { "name": "type", "type": "string" },
+      { "name": "id", "type": "long" },
+      { "name": "role", "type": "string" },
+      { "name": "geometry_type", "type": ["null", "string"], "default": null},
+      { "name": "geometry", "type": ["null", "bytes"], "default": null}
+    ]}
+    }], "default": null
+  },
+  { "name": "countries", "type": ["null", {"type": "array", "items": "string" }], "default": null},
+  { "name": "build_time", "type": "long"}
+]}

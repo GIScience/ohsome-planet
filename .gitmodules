@@ -1,0 +1,3 @@
+[submodule "osm-geometry/src/test/resources/osm-testdata"]
+	path = osm-geometry/src/test/resources/osm-testdata
+	url = https://github.com/osmcode/osm-testdata.git

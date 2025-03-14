@@ -1,0 +1,18 @@
+{
+    "test_id": 729,
+    "description": "Multipolygon with three layers of outer rings nested in each other.",
+    "areas": {
+        "default": [
+            {
+                "from_id": 729900,
+                "from_type": "relation",
+                "wkt": "MULTIPOLYGON(((7.99 1.29,7.99 1.20,7.90 1.20,7.90 1.29,7.99 1.29),(7.98 1.28,7.98 1.21,7.91 1.21,7.91 1.28,7.98 1.28)),((7.97 1.27,7.97 1.22,7.92 1.22,7.92 1.27,7.97 1.27),(7.96 1.26,7.96 1.23,7.93 1.23,7.93 1.26,7.96 1.26)),((7.95 1.25,7.95 1.24,7.94 1.24,7.94 1.25,7.95 1.25)))",
+                    "tags": {
+                    "landuse": "forest",
+                    "test:section": "mp-geom",
+                    "test:id": "729"
+                }
+            }
+        ]
+    }
+}
