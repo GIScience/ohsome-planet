@@ -29,7 +29,7 @@ import static org.heigit.ohsome.contributions.transformer.TransformerWays.proces
 
 @Command(name = "contributions", aliases = {"contribs"},
         mixinStandardHelpOptions = true,
-        version = "0.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
+        version = "ohsome-planet contribution 1.0.0", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
         description = "generates parquet files")
 public class Contributions2Parquet implements Callable<Integer> {
 
