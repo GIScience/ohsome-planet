@@ -55,7 +55,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     @Option(names = {"--chunks"}, description = "number of chunks which will processed. Default parallel")
     private int chunkFactor = 0;
 
-    @Option(names = {"--include-tags"})
+    @Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
     private String includeTags = "";
 
     public static void main(String[] args) {
