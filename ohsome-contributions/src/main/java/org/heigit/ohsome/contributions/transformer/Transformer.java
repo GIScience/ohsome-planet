@@ -173,19 +173,6 @@ public abstract class Transformer {
         return Iterables.any(osh, osm -> !osm.tags().isEmpty());
     }
 
-    protected <T extends OSMEntity> boolean filter(
-            List<T> osh, List<String> tags
-    ) {
-        if (tags==null) return false;
-        Map<String, Predicate<String>> required = new HashMap<>();
-        tags.forEach(tag -> required.put(tag, alwaysTrue()));
-        return osh.stream()
-                .map(OSMEntity::tags)
-                .map(Map::entrySet)
-                .flatMap(Collection::stream)
-                .noneMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue()));
-    }
-
     public static void moveSstToRocksDb(Path rocksDbPath) throws RocksDBException, IOException {
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
              var rocksDb = RocksDB.open(options, rocksDbPath.toString())) {
