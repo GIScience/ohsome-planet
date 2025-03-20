@@ -56,7 +56,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     private int chunkFactor = 0;
 
     @Option(names = {"--include-tags"})
-    private String includeTags;
+    private String includeTags = "";
 
     public static void main(String[] args) {
         var main = new Contributions2Parquet();
@@ -85,7 +85,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         var blobHeaders = getBlobHeaders(pbf);
         var blobTypes = pbf.blobsByType(blobHeaders);
 
-        List<String> tags = Arrays.asList(includeTags.split(","));
+        var tags = includeTags.isBlank() ? List.<String>of() : Arrays.asList(includeTags.split(","));
 
         if (debug) {
             printBlobInfo(blobTypes);

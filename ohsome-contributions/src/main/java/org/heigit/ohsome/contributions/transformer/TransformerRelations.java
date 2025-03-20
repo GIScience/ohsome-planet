@@ -45,7 +45,7 @@ public class TransformerRelations extends Transformer {
         this.minorNodeStorage = minorNodeStorage;
         this.minorWayStorage = minorWayStorage;
 
-        if (includeTags!=null) {
+        if (!includeTags.isEmpty()) {
             this.keyFilter = new HashMap<>();
             includeTags.forEach(tag -> keyFilter.put(tag, alwaysTrue()));
         } else {
@@ -162,7 +162,7 @@ public class TransformerRelations extends Transformer {
     }
 
     protected <T extends OSMEntity> boolean filter(List<T> osh) {
-        if (keyFilter ==null) return false;
+        if (keyFilter == null) return false;
         return osh.stream()
                 .map(OSMEntity::tags)
                 .map(Map::entrySet)
