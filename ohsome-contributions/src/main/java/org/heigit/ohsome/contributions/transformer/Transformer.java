@@ -179,16 +179,11 @@ public abstract class Transformer {
         if (tags==null) return false;
         Map<String, Predicate<String>> required = new HashMap<>();
         tags.forEach(tag -> required.put(tag, alwaysTrue()));
-        osh.stream()
+        return osh.stream()
                 .map(OSMEntity::tags)
                 .map(Map::entrySet)
-
                 .flatMap(Collection::stream)
-                .anyMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue()))
-
-
-                ;
-        return !osh.stream().anyMatch(osm -> osm.tags().entrySet().stream().anyMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue())));
+                .noneMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue()));
     }
 
     public static void moveSstToRocksDb(Path rocksDbPath) throws RocksDBException, IOException {
