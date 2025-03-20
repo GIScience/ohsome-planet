@@ -106,7 +106,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         try (var minorNodes = MinorNodeStorage.inRocksMap(minorNodesPath)) {
             processWays(pbf, blobTypes, out, parallel, chunkFactor, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
             try (var minorWays = MinorWayStorage.inRocksMap(minorWaysPath)) {
-                processRelations(pbf, blobTypes, out, parallel, chunkFactor, minorNodes, minorWays, countryJoiner, changesetDb);
+                processRelations(pbf, blobTypes, out, parallel, chunkFactor, minorNodes, minorWays, countryJoiner, changesetDb, includeTags);
             }
         }
 

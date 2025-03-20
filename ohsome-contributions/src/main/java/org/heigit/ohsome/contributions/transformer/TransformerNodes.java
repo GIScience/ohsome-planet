@@ -34,7 +34,7 @@ public class TransformerNodes extends Transformer {
 
 
     public TransformerNodes(OSMPbf pbf, Path out, int parallel, int chunkFactor, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(NODE, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb, includeTags);
+        super(NODE, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
         this.sstDirectory = sstDirectory;
     }
 

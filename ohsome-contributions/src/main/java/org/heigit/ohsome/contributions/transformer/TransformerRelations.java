@@ -33,7 +33,7 @@ public class TransformerRelations extends Transformer {
 
     private final MinorNodeStorage minorNodeStorage;
     private final MinorWayStorage minorWayStorage;
-    private final SpatialJoiner countryJoiner;
+
     private final List<String> includeTags;
 
     public TransformerRelations(OSMPbf pbf, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodeStorage, MinorWayStorage minorWayStorage, SpatialJoiner countryJoiner, Changesets changesetDb, List<String> includeTags) {
@@ -43,11 +43,10 @@ public class TransformerRelations extends Transformer {
                 parallel,
                 chunkFactor,
                 countryJoiner,
-                changesetDb,
-                includeTags);
+                changesetDb);
         this.minorNodeStorage = minorNodeStorage;
         this.minorWayStorage = minorWayStorage;
-        this.countryJoiner = countryJoiner;
+
         this.includeTags = includeTags;
     }
 

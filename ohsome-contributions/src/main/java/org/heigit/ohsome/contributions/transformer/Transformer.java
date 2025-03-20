@@ -49,7 +49,7 @@ public abstract class Transformer {
     protected final SpatialJoiner countryJoiner;
     protected final Changesets changesetDb;
 
-    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, int chunkFactor, SpatialJoiner countryJoiner, Changesets changesetDb, List<String> includeTags) {
+    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, int chunkFactor, SpatialJoiner countryJoiner, Changesets changesetDb) {
         this.osmType = type;
         this.pbf = pbf;
         this.outputDir = out;
@@ -176,6 +176,7 @@ public abstract class Transformer {
     protected <T extends OSMEntity> boolean filter(
             List<T> osh, List<String> tags
     ) {
+        if (tags==null) return false;
         Map<String, Predicate<String>> required = new HashMap<>();
         tags.forEach(tag -> required.put(tag, alwaysTrue()));
         osh.stream()

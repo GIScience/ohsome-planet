@@ -47,7 +47,7 @@ public class TransformerWays extends Transformer {
     private final LongPredicate writeMinor;
 
     public TransformerWays(OSMPbf pbf, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(WAY, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb, includeTags);
+        super(WAY, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
         this.minorNodesStorage = minorNodesStorage;
         this.sstDirectory = sstDirectory;
         this.writeMinor = writeMinor;
