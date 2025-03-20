@@ -58,6 +58,9 @@ public class Contributions2Parquet implements Callable<Integer> {
     @Option(names = {"--chunks"}, description = "number of chunks which will processed. Default parallel")
     private int chunkFactor = 0;
 
+    @Option(names = {"--include-tags"})
+    private List<String> includeTags;
+
     public static void main(String[] args) {
         var main = new Contributions2Parquet();
         var exit = new CommandLine(main).execute(args);

@@ -33,15 +33,26 @@ public class TransformerRelations extends Transformer {
 
     private final MinorNodeStorage minorNodeStorage;
     private final MinorWayStorage minorWayStorage;
+    private final SpatialJoiner countryJoiner;
+    private final List<String> includeTags;
 
-    public TransformerRelations(OSMPbf pbf, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodeStorage, MinorWayStorage minorWayStorage, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(RELATION, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
+    public TransformerRelations(OSMPbf pbf, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodeStorage, MinorWayStorage minorWayStorage, SpatialJoiner countryJoiner, Changesets changesetDb, List<String> includeTags) {
+        super(RELATION,
+                pbf,
+                out,
+                parallel,
+                chunkFactor,
+                countryJoiner,
+                changesetDb,
+                includeTags);
         this.minorNodeStorage = minorNodeStorage;
         this.minorWayStorage = minorWayStorage;
+        this.countryJoiner = countryJoiner;
+        this.includeTags = includeTags;
     }
 
-    public static void processRelations(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodeStorage, MinorWayStorage minorWayStorage, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException {
-        var transformer = new TransformerRelations(pbf, out, parallel, chunkFactor, minorNodeStorage, minorWayStorage, countryJoiner, changesetDb);
+    public static void processRelations(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodeStorage, MinorWayStorage minorWayStorage, SpatialJoiner countryJoiner, Changesets changesetDb, List<String> includeTags) throws IOException {
+        var transformer = new TransformerRelations(pbf, out, parallel, chunkFactor, minorNodeStorage, minorWayStorage, countryJoiner, changesetDb, includeTags);
         transformer.process(blobsByType);
     }
 
@@ -101,14 +112,7 @@ public class TransformerRelations extends Transformer {
                     progress.step();
                 }
             }
-            var tags = List.of(
-                    "aerialway", "aeroway", "amenity", "barrier", "boundary", "building",
-                    "craft", "emergency", "geological", "healthcare", "highway", "historic",
-                    "landuse", "leisure", "man_made", "military", "natural", "office", "place",
-                    "power", "public_transport", "railway", "route", "shop", "sport",
-                    "telecom", "tourism", "water", "waterway"
-            );
-            if (!hasTags(osh) || filter(osh, tags)) {
+            if (!hasTags(osh) || filter(osh, this.includeTags)) {
                 continue;
             }
 

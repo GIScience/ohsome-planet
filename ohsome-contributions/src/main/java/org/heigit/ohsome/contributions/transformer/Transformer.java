@@ -49,7 +49,7 @@ public abstract class Transformer {
     protected final SpatialJoiner countryJoiner;
     protected final Changesets changesetDb;
 
-    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, int chunkFactor, SpatialJoiner countryJoiner, Changesets changesetDb) {
+    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, int chunkFactor, SpatialJoiner countryJoiner, Changesets changesetDb, List<String> includeTags) {
         this.osmType = type;
         this.pbf = pbf;
         this.outputDir = out;
