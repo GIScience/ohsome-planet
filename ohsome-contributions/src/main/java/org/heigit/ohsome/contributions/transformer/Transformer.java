@@ -33,7 +33,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
+import static com.google.common.base.Predicates.alwaysFalse;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
 
 public abstract class Transformer {
@@ -168,6 +171,23 @@ public abstract class Transformer {
 
     protected <T extends OSMEntity> boolean hasTags(List<T> osh) {
         return Iterables.any(osh, osm -> !osm.tags().isEmpty());
+    }
+
+    protected <T extends OSMEntity> boolean filter(
+            List<T> osh, List<String> tags
+    ) {
+        Map<String, Predicate<String>> required = new HashMap<>();
+        tags.forEach(tag -> required.put(tag, alwaysTrue()));
+        osh.stream()
+                .map(OSMEntity::tags)
+                .map(Map::entrySet)
+
+                .flatMap(Collection::stream)
+                .anyMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue()))
+
+
+                ;
+        return !osh.stream().anyMatch(osm -> osm.tags().entrySet().stream().anyMatch(tag -> required.getOrDefault(tag.getKey(), alwaysFalse()).test(tag.getValue())));
     }
 
     public static void moveSstToRocksDb(Path rocksDbPath) throws RocksDBException, IOException {

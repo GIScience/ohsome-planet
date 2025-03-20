@@ -101,8 +101,14 @@ public class TransformerRelations extends Transformer {
                     progress.step();
                 }
             }
-
-            if (!hasTags(osh)) {
+            var tags = List.of(
+                    "aerialway", "aeroway", "amenity", "barrier", "boundary", "building",
+                    "craft", "emergency", "geological", "healthcare", "highway", "historic",
+                    "landuse", "leisure", "man_made", "military", "natural", "office", "place",
+                    "power", "public_transport", "railway", "route", "shop", "sport",
+                    "telecom", "tourism", "water", "waterway"
+            );
+            if (!hasTags(osh) || filter(osh, tags)) {
                 continue;
             }
 
