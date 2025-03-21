@@ -5,6 +5,7 @@ import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.contributions.minor.MinorNodeStorage;
@@ -17,10 +18,7 @@ import picocli.CommandLine.Option;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
@@ -48,8 +46,17 @@ public class Contributions2Parquet implements Callable<Integer> {
     @Option(names = {"--country-file"})
     private Path countryFilePath;
 
+    @Option(names = {"--changesetDb"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+    private String changesetDbUrl = "";
+
     @Option(names = {"--debug"}, description = "Print debug information.")
     private boolean debug = false;
+
+    @Option(names = {"--chunks"}, description = "number of chunks which will processed. Default parallel")
+    private int chunkFactor = 0;
+
+    @Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
+    private String includeTags = "";
 
     public static void main(String[] args) {
         var main = new Contributions2Parquet();
@@ -60,14 +67,8 @@ public class Contributions2Parquet implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
-        FileInfo.printInfo(pbf);
-
-        var total = Stopwatch.createStarted();
-
-        var blobHeaders = getBlobHeaders(pbf);
-        var blobTypes = pbf.blobsByType(blobHeaders);
         if (debug) {
-            printBlobInfo(blobTypes);
+            FileInfo.printInfo(pbf);
         }
 
         if (Files.exists(out)) {
@@ -79,19 +80,32 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
         }
 
+        var total = Stopwatch.createStarted();
+
+        var blobHeaders = getBlobHeaders(pbf);
+        var blobTypes = pbf.blobsByType(blobHeaders);
+
+        var tagsToInclude = includeTags.isBlank() ? List.<String>of() : Arrays.asList(includeTags.split(","));
+
+        if (debug) {
+            printBlobInfo(blobTypes);
+        }
+
         var countryJoiner = Optional.ofNullable(countryFilePath)
                 .map(SpatialJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
+        var changesetDb = Changesets.open(changesetDbUrl, parallel);
+
         RocksDB.loadLibrary();
         var minorNodesPath = out.resolve("minorNodes");
-        processNodes(pbf, blobTypes, out, parallel, minorNodesPath, countryJoiner);
+        processNodes(pbf, blobTypes, out, parallel, chunkFactor, minorNodesPath, countryJoiner, changesetDb);
 
         var minorWaysPath = out.resolve("minorWays");
         try (var minorNodes = MinorNodeStorage.inRocksMap(minorNodesPath)) {
-            processWays(pbf, blobTypes, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner);
+            processWays(pbf, blobTypes, out, parallel, chunkFactor, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
             try (var minorWays = MinorWayStorage.inRocksMap(minorWaysPath)) {
-                processRelations(pbf, blobTypes, out, parallel, minorNodes, minorWays, countryJoiner);
+                processRelations(pbf, blobTypes, out, parallel, chunkFactor, minorNodes, minorWays, countryJoiner, changesetDb, tagsToInclude);
             }
         }
 
@@ -112,12 +126,13 @@ public class Contributions2Parquet implements Callable<Integer> {
         try (var progress = new ProgressBarBuilder()
                 .setTaskName("read blocks")
                 .setInitialMax(pbf.size())
-                .setUnit("MiB", 1L << 20)
+                .setUnit(" MiB", 1L << 20)
                 .build()) {
             pbf.blobs().forEach(blobHeader -> {
                 progress.stepTo(blobHeader.offset() + blobHeader.dataSize());
                 blobHeaders.add(blobHeader);
             });
+            progress.setExtraMessage(blobHeaders.size() + " blocks");
         }
         return blobHeaders;
     }

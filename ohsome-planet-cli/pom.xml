@@ -54,6 +54,12 @@
                                     </includes>
                                 </filter>
                                 <filter>
+                                    <artifact>org.postgresql:postgresql</artifact>
+                                    <includes>
+                                        <include>**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/*.SF</exclude>

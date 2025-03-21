@@ -1,16 +1,11 @@
 package org.heigit.ohsome.contributions.contrib;
 
-import org.heigit.ohsome.contributions.avro.BBox;
-import org.heigit.ohsome.contributions.avro.Centroid;
-import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.avro.ContribChangeset;
-import org.heigit.ohsome.contributions.avro.ContribUser;
-import org.heigit.ohsome.contributions.avro.Member;
+import org.heigit.ohsome.contributions.avro.*;
+import org.heigit.ohsome.contributions.util.XZCode;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.AbstractIterator;
-import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
 
@@ -22,10 +17,12 @@ import java.util.function.Function;
 import static java.util.function.Predicate.not;
 import static org.heigit.ohsome.contributions.util.GeometryTools.areaOf;
 import static org.heigit.ohsome.contributions.util.GeometryTools.lengthOf;
+import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private static final Instant VALID_TO = Instant.parse("2222-01-01T00:00:00Z");
     private static final Set<String> COLLECTION_TYPES = Set.of(Geometry.TYPENAME_GEOMETRYCOLLECTION);
+    private static final XZCode XZ_CODE = new XZCode(16);
 
     private final OSMType type;
     private final Contributions contributions;
@@ -33,6 +30,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private final Contrib.Builder builder = Contrib.newBuilder();
     private final ContribUser.Builder userBuilder = ContribUser.newBuilder();
     private final Centroid.Builder centroidBuilder = Centroid.newBuilder();
+    private final ContribXZCode.Builder xzCodeBuilder = ContribXZCode.newBuilder();
     private final BBox.Builder bboxBuilder = BBox.newBuilder();
     private final Member.Builder memberBuilder = Member.newBuilder();
 
@@ -43,7 +41,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private int minorVersion;
     private int edits;
     private Geometry geometryBefore;
-    private Geometry[] memberGeometriesBefore;
+    private List<Geometry> memberGeometries;
     private double areaBefore;
     private double lengthBefore;
 
@@ -110,7 +108,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
 
         final double area;
         final double length;
-        if (geometry != null && !geometry.isEmpty() && geometry.isValid()) {
+        if (geometry != null && !geometry.isEmpty()) {
             var env = geometry.getEnvelopeInternal();
             var centroid = geometry.getCentroid();
             builder.setBboxBuilder(bboxBuilder
@@ -121,9 +119,12 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
             builder.setCentroidBuilder(centroidBuilder
                     .setX(centroid.getX())
                     .setY(centroid.getY()));
+            var xz = XZ_CODE.getId(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY());
+            builder.setXzcodeBuilder(xzCodeBuilder.setLevel(xz.level()).setCode(xz.code()));
             var geometryType = geometry.getGeometryType();
             builder.setGeometryType(geometry.getGeometryType());
             if (COLLECTION_TYPES.contains(geometryType)) {
+                // only store bbox for collection types!
                 builder.setGeometry(wkb(ContributionGeometry.geometry(env)));
             } else {
                 builder.setGeometry(wkb(geometry));
@@ -135,26 +136,25 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
         } else {
             builder.clearBbox();
             builder.clearCentroid();
-            if (!contribution.members().isEmpty()) {
-                var env = new Envelope();
-                for (var member : contribution.members()) {
-                    var contrib = member.contrib();
-                    if (contrib != null) {
-                        env.expandToInclude(geometry(contrib).getEnvelopeInternal());
-                    }
-                }
-                var centre = env.centre();
-                if (centre != null) {
-                    builder.setBboxBuilder(bboxBuilder
-                            .setXmin(env.getMinX())
-                            .setYmin(env.getMinY())
-                            .setXmax(env.getMaxX())
-                            .setYmax(env.getMaxY()));
-                    builder.setCentroidBuilder(centroidBuilder.setX(centre.getX()).setY(centre.getY()));
-                }
+            builder.setXzcodeBuilder(xzCodeBuilder.setLevel(-1).setCode(0));
+            var collection = ContributionGeometry.geometry(contribution);
+            if (!collection.isEmpty()) {
+                var env = collection.getEnvelopeInternal();
+                var centroid = collection.getCentroid();
+                builder.setBboxBuilder(bboxBuilder
+                        .setXmin(env.getMinX())
+                        .setYmin(env.getMinY())
+                        .setXmax(env.getMaxX())
+                        .setYmax(env.getMaxY()));
+                builder.setCentroidBuilder(centroidBuilder.setX(centroid.getX()).setY(centroid.getY()));
+                var xz = XZ_CODE.getId(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY());
+                builder.setXzcodeBuilder(xzCodeBuilder.setLevel(xz.level()).setCode(xz.code()));
             }
 
             builder.clearGeometryType();
+            if (geometry != null) {
+                builder.setGeometryType(geometry.getGeometryType());
+            }
             builder.clearGeometry();
             area = 0.0;
             length = 0.0;
@@ -190,11 +190,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
         if (type == OSMType.WAY) {
             builder.setRefs(((OSMEntity.OSMWay) entity).refs());
         } else if (type == OSMType.RELATION) {
-            if (status.equals("invalid") || COLLECTION_TYPES.contains(geometry.getGeometryType())) {
-                builder.setMembers(contribution.members().stream().map(this::member).toList());
-            } else {
-                builder.setMembers(null);
-            }
+            builder.setMembers(contribution.members().stream().map(this::member).toList());
         }
         geometryBefore = geometry;
         return Optional.of(builder.setBuildTime(System.nanoTime() - buildTime).build());
@@ -221,12 +217,23 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
         return contribution.data("geometry", ContributionGeometry::geometry);
     }
 
-//    private boolean noGeometryChange(Contribution contribution) {
-//        var memberGeometries = ContributionGeometry.memberGeometries(contribution);
-//        var sameGeometry = memberGeometriesBefore != null && memberGeometriesBefore.length > 0 && Arrays.equals(memberGeometries, memberGeometriesBefore);
-//        memberGeometriesBefore = memberGeometries;
-//        return sameGeometry;
-//    }
+    private boolean noGeometryChange(Contribution contribution) {
+        if (!ContributionGeometry.relIsMultipolygon(contribution)) {
+            return false;
+        }
+
+        var memberGeometriesBefore = memberGeometries;
+        var newMemberGeometries = contribution.members().stream()
+                .filter(member -> member.type().equals(WAY))
+                .filter(member -> member.role().isBlank() || "outer".equals(member.role()) || "inner".equals(member.role()))
+                .map(ContribMember::contrib)
+                .filter(Objects::nonNull)
+                .map(member -> member.data("geometry", ContributionGeometry::geometry))
+                .filter(not(Geometry::isEmpty))
+                .toList();
+        memberGeometries = newMemberGeometries;
+        return newMemberGeometries.equals(memberGeometriesBefore);
+    }
 
     private ByteBuffer wkb(Contribution contribution) {
         return contribution.data("wkb", this::contributionWkb);
@@ -239,19 +246,4 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private ByteBuffer wkb(Geometry geometry) {
         return ByteBuffer.wrap(wkb.write(geometry));
     }
-
-//    private void setTags(Map<String, String> tags, Map<String, String> tagsBefore) {
-//        var tagsDifference = Maps.difference(tagsBefore, tags);
-//
-//        var tagsRemoved = tagsDifference.entriesDiffering().entrySet().stream()
-//                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().leftValue()));
-//        var tagsAdded = tagsDifference.entriesDiffering().entrySet().stream()
-//                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().rightValue()));
-//
-//        tagsRemoved.putAll(tagsDifference.entriesOnlyOnLeft());
-//        tagsAdded.putAll(tagsDifference.entriesOnlyOnRight());
-//
-//        builder.setTagsAdded(Map.copyOf(tagsAdded));
-//        builder.setTagsRemoved(Map.copyOf(tagsRemoved));
-//    }
 }

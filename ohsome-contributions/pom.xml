@@ -34,6 +34,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>osm-changesets</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -48,7 +54,6 @@
             <artifactId>rocksdbjni</artifactId>
             <version>9.7.3</version>
         </dependency>
-
 
         <dependency>
             <groupId>info.picocli</groupId>

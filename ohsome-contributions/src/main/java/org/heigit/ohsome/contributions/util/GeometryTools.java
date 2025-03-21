@@ -26,7 +26,7 @@ public class GeometryTools {
         return switch (geom) {
             case LineString line -> lengthOf(line);
             case MultiLineString multiLine -> lengthOf(multiLine);
-            case GeometryCollection geometryCollection -> lengthOf(geometryCollection);
+//            case GeometryCollection geometryCollection -> lengthOf(geometryCollection);
             default -> 0.0;
         };
     }
@@ -85,7 +85,7 @@ public class GeometryTools {
         return switch (geom) {
             case Polygon polygon -> areaOf(polygon);
             case MultiPolygon multiPolygon -> areaOf(multiPolygon);
-            case GeometryCollection geometryCollection -> areaOf(geometryCollection);
+//            case GeometryCollection geometryCollection -> areaOf(geometryCollection);
             default -> 0.0;
         };
     }

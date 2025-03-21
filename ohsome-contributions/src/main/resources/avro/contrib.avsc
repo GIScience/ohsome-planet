@@ -48,9 +48,11 @@
     "fields": [
       { "name": "id", "type": "long" },
       { "name": "created_at", "type": { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }},
-      { "name": "closed_at", "type": { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }},
-      { "name": "tags", "type": {"type": "map", "values": "string", "default":{}}},
-      { "name": "hashtags", "type": {"type": "array", "items": "string" }}
+      { "name": "closed_at", "type": ["null", { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }], "default" : null },
+      { "name": "tags", "type": {"type": "map", "values": "string"}, "default": {}},
+      { "name": "hashtags", "type": {"type": "array", "items": "string" }, "default": []},
+      { "name": "editor", "type": ["null","string"], "default": null},
+      { "name": "numChanges", "type": "int", "default": -1}
     ]
   }},
 
@@ -72,6 +74,10 @@
       { "name": "y", "type": "double" }
     ]
   }], "default": null},
+  { "name": "xzcode", "type": { "name": "ContribXZCode", "type": "record", "fields": [
+    { "name": "level", "type": "int"},
+    { "name": "code", "type": "long" }
+  ]}},
   { "name": "geometry_type", "type": ["null", "string"], "default": null },
   { "name": "geometry", "type": ["null", "bytes"], "default": null},
   { "name": "area", "type": "double", "doc": "area in square meter" },

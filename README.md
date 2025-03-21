@@ -31,10 +31,11 @@ To process a given PBF file, provide it in the `--pbf` parameter in the followin
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
     --pbf data/karlsruhe.osh.pbf \
     --country-file data/world.csv \
+    --changesetDb "jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD" \
     --output out-karlsruhe \
     --overwrite 
 ```
-The parameters `--country-file`, `--output` and `--overwrite` are optional.
+The parameters `--country-file`, `--changesetDb`, `--output` and `--overwrite` are optional.
 To see all available parameters, call the tool with `--help` parameter.
 
 ### Country Data
@@ -51,8 +52,30 @@ FRA;POLYGON ((1.186523 45.058001, 4.833984 45.058001, 4.833984 48.545705, 1.1865
 ITA;POLYGON ((10.766602 41.211722, 14.985352 41.211722, 14.985352 44.024422, 10.766602 44.024422, 10.766602 41.211722))
 ```
 
+Passing this option will populate the `countries` attribute in the parquet files.
+
 ### Changesets
-We will add the functionality to join OSM changeset metadata soon. Stay tuned!
+By passing the parameter `--changesetDb` you can join OSM changeset information.
+It is expected that you pass the database connection as JDBC URL, e.g. `jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD`.
+Currently, ohsome-planet can connect to a database following the schema of [ChangesetMD](https://github.com/ToeBee/ChangesetMD).
+
+The changeset join will populate the `changeset` struct attribute in the parquet files with the following information:
+- `closed_at`
+- `tags`
+- `hashtags`
+- `editor`
+- `numChanges`
+
+
+### Tag Filtering
+At the moment, there is only limited support for tag filtering.
+By passing the `--include-tags` parameter you can specify a comma separated list of OSM tag keys, e.g. `highway,building,landuse`.
+These tag keys will be used to filter OSM relations only.
+Currently, filtering for OSM nodes or ways is not implemented.
+
+In case you have more complex tag filtering needs, please refer to the [osmium documentation](https://docs.osmcode.org/osmium/latest/osmium-tags-filter.html) in order to prepare the input OSM pbf file.
+
+We are planning to add more tag filtering options in the future.
 
 ## Output Structure
 
@@ -89,39 +112,40 @@ You can inspect your results easily using [DuckDB](https://duckdb.org/docs/insta
 DESCRIBE FROM read_parquet('out-karlruhe/*.parquet');
 
 -- result
-┌───────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬─────────┬─────────┬─────────┬─────────┐
-│    column_name    │                                                                column_type                                                                 │  null   │   key   │ default │  extra  │
-│      varchar      │                                                                  varchar                                                                   │ varchar │ varchar │ varchar │ varchar │
-├───────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────┼─────────┼─────────┼─────────┤
-│ status            │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
-│ valid_from        │ TIMESTAMP WITH TIME ZONE                                                                                                                   │ YES     │         │         │         │
-│ valid_to          │ TIMESTAMP WITH TIME ZONE                                                                                                                   │ YES     │         │         │         │
-│ osm_type          │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
-│ osm_id            │ BIGINT                                                                                                                                     │ YES     │         │         │         │
-│ osm_version       │ INTEGER                                                                                                                                    │ YES     │         │         │         │
-│ osm_minor_version │ INTEGER                                                                                                                                    │ YES     │         │         │         │
-│ osm_edits         │ INTEGER                                                                                                                                    │ YES     │         │         │         │
-│ osm_last_edit     │ TIMESTAMP WITH TIME ZONE                                                                                                                   │ YES     │         │         │         │
-│ user              │ STRUCT(id INTEGER, "name" VARCHAR)                                                                                                         │ YES     │         │         │         │
-│ tags              │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
-│ tags_before       │ MAP(VARCHAR, VARCHAR)                                                                                                                      │ YES     │         │         │         │
-│ changeset         │ STRUCT(id BIGINT, created_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, tags MAP(VARCHAR, VARCHAR), hashtags VARCHAR[]) │ YES     │         │         │         │
-│ bbox              │ STRUCT(xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE)                                                                                 │ YES     │         │         │         │
-│ centroid          │ STRUCT(x DOUBLE, y DOUBLE)                                                                                                                 │ YES     │         │         │         │
-│ geometry_type     │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
-│ geometry          │ BLOB                                                                                                                                       │ YES     │         │         │         │
-│ area              │ DOUBLE                                                                                                                                     │ YES     │         │         │         │
-│ area_delta        │ DOUBLE                                                                                                                                     │ YES     │         │         │         │
-│ length            │ DOUBLE                                                                                                                                     │ YES     │         │         │         │
-│ length_delta      │ DOUBLE                                                                                                                                     │ YES     │         │         │         │
-│ contrib_type      │ VARCHAR                                                                                                                                    │ YES     │         │         │         │
-│ refs              │ BIGINT[]                                                                                                                                   │ YES     │         │         │         │
-│ members           │ STRUCT("type" VARCHAR, id BIGINT, "role" VARCHAR, geometry_type VARCHAR, geometry BLOB)[]                                                  │ YES     │         │         │         │
-│ country_iso       │ VARCHAR[]                                                                                                                                  │ YES     │         │         │         │
-│ build_time        │ BIGINT                                                                                                                                     │ YES     │         │         │         │
-├───────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─────────┴─────────┴─────────┴─────────┤
-│ 26 rows                                                                                                                                                                                      6 columns │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬─────────┬─────────┬─────────┬─────────┐
+│    column_name    │                                                                                  column_type                                                                                   │  null   │   key   │ default │  extra  │
+│      varchar      │                                                                                    varchar                                                                                     │ varchar │ varchar │ varchar │ varchar │
+├───────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┼─────────┼─────────┼─────────┼─────────┤
+│ status            │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ valid_from        │ TIMESTAMP WITH TIME ZONE                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
+│ valid_to          │ TIMESTAMP WITH TIME ZONE                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_type          │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_id            │ BIGINT                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_version       │ INTEGER                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_minor_version │ INTEGER                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_edits         │ INTEGER                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ osm_last_edit     │ TIMESTAMP WITH TIME ZONE                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
+│ user              │ STRUCT(id INTEGER, "name" VARCHAR)                                                                                                                                             │ YES     │ NULL    │ NULL    │ NULL    │
+│ tags              │ MAP(VARCHAR, VARCHAR)                                                                                                                                                          │ YES     │ NULL    │ NULL    │ NULL    │
+│ tags_before       │ MAP(VARCHAR, VARCHAR)                                                                                                                                                          │ YES     │ NULL    │ NULL    │ NULL    │
+│ changeset         │ STRUCT(id BIGINT, created_at TIMESTAMP WITH TIME ZONE, closed_at TIMESTAMP WITH TIME ZONE, tags MAP(VARCHAR, VARCHAR), hashtags VARCHAR[], editor VARCHAR, numChanges INTEGER) │ YES     │ NULL    │ NULL    │ NULL    │
+│ bbox              │ STRUCT(xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DOUBLE)                                                                                                                     │ YES     │ NULL    │ NULL    │ NULL    │
+│ centroid          │ STRUCT(x DOUBLE, y DOUBLE)                                                                                                                                                     │ YES     │ NULL    │ NULL    │ NULL    │
+│ xzcode            │ STRUCT("level" INTEGER, code BIGINT)                                                                                                                                           │ YES     │ NULL    │ NULL    │ NULL    │
+│ geometry_type     │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ geometry          │ BLOB                                                                                                                                                                           │ YES     │ NULL    │ NULL    │ NULL    │
+│ area              │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+│ area_delta        │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+│ length            │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+│ length_delta      │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+│ contrib_type      │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ refs              │ BIGINT[]                                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
+│ members           │ STRUCT("type" VARCHAR, id BIGINT, "role" VARCHAR, geometry_type VARCHAR, geometry BLOB)[]                                                                                      │ YES     │ NULL    │ NULL    │ NULL    │
+│ countries         │ VARCHAR[]                                                                                                                                                                      │ YES     │ NULL    │ NULL    │ NULL    │
+│ build_time        │ BIGINT                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
+├───────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─────────┴─────────┴─────────┴─────────┤
+│ 27 rows                                                                                                                                                                                                                          6 columns │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Getting Started as Developer
@@ -147,3 +171,7 @@ How to build OSM geometries (for multipolygons)?
 * https://wiki.openstreetmap.org/wiki/Relation:multipolygon#Examples_in_XML
 * https://osmcode.org/osm-testdata/
 * https://github.com/GIScience/oshdb/blob/a196cc990a75fa35841ca0908f323c3c9fc06b9a/oshdb-util/src/main/java/org/heigit/ohsome/oshdb/util/geometry/OSHDBGeometryBuilderInternal.java#L469
+
+
+## Further Notes
+* For relations that consist of more than 500 members we skip `MultiPolygon` geometry building and fall back to `GeometryCollection`. Check `MEMBERS_THRESHOLD` in `ohsome-contributions/src/main/java/org/heigit/ohsome/contributions/contrib/ContributionGeometry.java`.

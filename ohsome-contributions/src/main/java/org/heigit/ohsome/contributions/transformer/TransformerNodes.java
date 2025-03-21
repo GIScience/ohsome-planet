@@ -9,6 +9,7 @@ import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
@@ -28,19 +29,18 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static org.heigit.ohsome.osm.OSMType.NODE;
 
-public class TransformerNodes extends Transformer<OSMNode, Long> {
+public class TransformerNodes extends Transformer {
     private final Path sstDirectory;
-    private final SpatialJoiner countryJoiner;
 
-    public TransformerNodes(OSMPbf pbf, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner) {
-        super(NODE, pbf, out, parallel);
+
+    public TransformerNodes(OSMPbf pbf, Path out, int parallel, int chunkFactor, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb) {
+        super(NODE, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
         this.sstDirectory = sstDirectory;
-        this.countryJoiner = countryJoiner;
     }
 
-    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner) throws IOException, RocksDBException {
+    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, int chunkFactor, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerNodes(pbf, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner);
+        var transformer = new TransformerNodes(pbf, out, parallel, chunkFactor, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb);
         transformer.process(blobsByType);
         moveSstToRocksDb(rocksDbPath);
     }
@@ -65,7 +65,7 @@ public class TransformerNodes extends Transformer<OSMNode, Long> {
 
     }
 
-    private void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws RocksDBException, IOException {
+    private void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
@@ -130,7 +130,7 @@ public class TransformerNodes extends Transformer<OSMNode, Long> {
 
             for (var osh : batch) {
                 var contributions = new ContributionsNode(osh);
-                var converter = new ContributionsAvroConverter(contributions, getChangeset(changesets), countryJoiner);
+                var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 
                 while (converter.hasNext()) {
                     var contrib = converter.next();

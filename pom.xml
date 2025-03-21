@@ -27,6 +27,7 @@
         <module>osm-pbf</module>
         <module>osm-types</module>
         <module>osm-xml</module>
+        <module>osm-changesets</module>
     </modules>
 
     <dependencyManagement>

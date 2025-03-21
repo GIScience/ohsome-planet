@@ -12,9 +12,9 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static java.util.Optional.ofNullable;
+import static org.heigit.ohsome.osm.OSMType.RELATION;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionGeometry {
@@ -22,6 +22,7 @@ public class ContributionGeometry {
     public static final Map<String, Predicate<String>> polygonFeatures;
     private static final GeometryFactory geometryFactory = new GeometryFactory();
     private static final Geometry EMPTY_POINT = geometryFactory.createEmpty(0);
+    private static final int MEMBERS_THRESHOLD = 500;
 
     static {
         var map = new HashMap<String, Predicate<String>>();
@@ -66,6 +67,13 @@ public class ContributionGeometry {
     }
 
     public static boolean relIsMultipolygon(Contribution contribution) {
+        if (contribution.entity().type() != RELATION) {
+            return false;
+        }
+
+        if (contribution.members().size() > MEMBERS_THRESHOLD) {
+            return false;
+        }
         var type = contribution.entity().tags().getOrDefault("type", "");
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
@@ -90,12 +98,15 @@ public class ContributionGeometry {
                 .map(geometry -> Arrays.asList(geometry.getCoordinates()))
                 .toList();
         try {
-            return GeometryBuilder.buildMultiPolygon(outer, inner);
+            var geometry = GeometryBuilder.buildMultiPolygon(outer, inner);
+            if (geometry.isValid()) {
+                return geometry;
+            }
         } catch (GeometryBuilderException ignored) {
         } catch (Exception e) {
-            System.err.println("Failed building multipolygon: " + e.getMessage());
+//            System.err.println("Failed building multipolygon: " + e.getMessage());
         }
-        return geometryFactory.createGeometryCollection();
+        return geometryFactory.createMultiPolygon();
     }
 
     public static Geometry relGeometryCollection(Contribution contribution) {
@@ -105,23 +116,24 @@ public class ContributionGeometry {
                 .map(member -> member.data("geometry", ContributionGeometry::geometry))
                 .filter(Predicate.not(Geometry::isEmpty))
                 .toArray(Geometry[]::new);
-        var types = Arrays.stream(geometries).map(Geometry::getGeometryType).collect(Collectors.toSet());
-        if (types.size() != 1) {
-            return geometryFactory.createGeometryCollection(geometries);
-        }
-        var type = types.iterator().next();
-        return switch (type) {
-            case Geometry.TYPENAME_LINESTRING -> geometryFactory.createMultiLineString(Arrays.stream(geometries)
-                            .map(LineString.class::cast)
-                            .toArray(LineString[]::new));
-            case Geometry.TYPENAME_POLYGON -> geometryFactory.createMultiPolygon(Arrays.stream(geometries)
-                            .map(Polygon.class::cast)
-                            .toArray(Polygon[]::new));
-            case Geometry.TYPENAME_POINT -> geometryFactory.createMultiPoint(Arrays.stream(geometries)
-                            .map(Point.class::cast)
-                            .toArray(Point[]::new));
-            default -> throw new IllegalStateException("unknown single geometry_type: " + type);
-        };
+        return geometryFactory.createGeometryCollection(geometries);
+//        var types = Arrays.stream(geometries).map(Geometry::getGeometryType).collect(Collectors.toSet());
+//        if (types.size() != 1) {
+//            return geometryFactory.createGeometryCollection(geometries);
+//        }
+//        var type = types.iterator().next();
+//        return switch (type) {
+//            case Geometry.TYPENAME_LINESTRING -> geometryFactory.createMultiLineString(Arrays.stream(geometries)
+//                            .map(LineString.class::cast)
+//                            .toArray(LineString[]::new));
+//            case Geometry.TYPENAME_POLYGON -> geometryFactory.createMultiPolygon(Arrays.stream(geometries)
+//                            .map(Polygon.class::cast)
+//                            .toArray(Polygon[]::new));
+//            case Geometry.TYPENAME_POINT -> geometryFactory.createMultiPoint(Arrays.stream(geometries)
+//                            .map(Point.class::cast)
+//                            .toArray(Point[]::new));
+//            default -> throw new IllegalStateException("unknown single geometry_type: " + type);
+//        };
     }
 
     public static Geometry wayGeometry(Contribution contribution) {
@@ -137,7 +149,8 @@ public class ContributionGeometry {
 
         if (isArea(contribution) && isValidLineRing(coordinates)) {
             return geometryFactory.createPolygon(coordinates);
-        } else if (isValidLineString(coordinates)) {
+        }
+        if (isValidLineString(coordinates)) {
             return geometryFactory.createLineString(coordinates);
         }
         return geometryFactory.createPoint(coordinates[0]);
@@ -186,20 +199,4 @@ public class ContributionGeometry {
     public static Geometry geometry(Envelope env) {
         return geometryFactory.toGeometry(env);
     }
-
-//    public static Geometry[] memberGeometries(Contribution contribution) {
-//        if (!contribution.entity().type().equals(RELATION)) {
-//            return null;
-//        }
-//        var str = relIsMultipolygon(contribution) ?
-//                contribution.members().stream()
-//                : contribution.members().stream()
-//                .filter(member -> member.type().equals(WAY))
-//                .filter(member -> member.role().isBlank() || "outer".equals(member.role()) || "inner".equals(member.role()));
-//        return str.map(ContribMember::contrib)
-//                .filter(Objects::nonNull)
-//                .map(member -> member.data("geometry", ContributionGeometry::geometry))
-//                .filter(Predicate.not(Geometry::isEmpty))
-//                .toArray(Geometry[]::new);
-//    }
 }
