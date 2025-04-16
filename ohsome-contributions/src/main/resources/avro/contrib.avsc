@@ -85,7 +85,7 @@
   { "name": "length", "type": "double", "doc": "length in meter"},
   { "name": "length_delta", "type": "double", "doc": "length delta in meter"},
 
-  { "name": "contrib_type", "type": "string", "doc": "CREATED, DELETED, TAG, GEOMETRY, TAG_GEOMETRY"},
+  { "name": "contrib_type", "type": "string", "doc": "CREATION, DELETION, TAG, GEOMETRY, TAG_GEOMETRY"},
 
   { "name": "refs", "type": ["null", {"type": "array", "items": "long" }], "default": null},
   { "name": "members", "type": ["null", { "type": "array", "items": {
