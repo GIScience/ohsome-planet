@@ -1,105 +1,373 @@
 {
-"namespace": "org.heigit.ohsome.contributions.avro",
-"name": "Contrib",
-"type": "record",
-"fields": [
-  { "name": "status", "type": "string" },
-
-  { "name": "valid_from", "type": {
-    "type": "long",
-    "logicalType": "timestamp-micros",
-    "adjust-to-utc": true
-  }
-  },
-  { "name": "valid_to", "type": {
-    "type": "long",
-    "logicalType": "timestamp-micros",
-    "adjust-to-utc": true
-  }
-  },
-
-  { "name": "osm_type", "type": "string", "doc": "node/way/relation" },
-  { "name": "osm_id", "type": "long" },
-  { "name": "osm_version", "type": "int" },
-  { "name": "osm_minor_version", "type": "int" },
-  { "name": "osm_edits", "type": "int" },
-  { "name": "osm_last_edit", "type": ["null", {
-    "type": "long",
-    "logicalType": "timestamp-micros",
-    "adjust-to-utc": true
-  }]
-  },
-
-  { "name": "user", "type": {
-    "type": "record",
-    "name": "ContribUser",
-    "fields": [
-      { "name": "id", "type": "int" },
-      { "name": "name", "type": "string" }
-    ]
-  }},
-
-  { "name": "tags", "type": {"type": "map", "values": "string", "default":{}}},
-  { "name": "tags_before", "type": {"type": "map", "values": "string", "default":{}}},
-
-  { "name": "changeset", "type": {
-    "type": "record",
-    "name": "ContribChangeset",
-    "fields": [
-      { "name": "id", "type": "long" },
-      { "name": "created_at", "type": { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }},
-      { "name": "closed_at", "type": ["null", { "type": "long", "logicalType": "timestamp-micros", "adjust-to-utc": true }], "default" : null },
-      { "name": "tags", "type": {"type": "map", "values": "string"}, "default": {}},
-      { "name": "hashtags", "type": {"type": "array", "items": "string" }, "default": []},
-      { "name": "editor", "type": ["null","string"], "default": null},
-      { "name": "numChanges", "type": "int", "default": -1}
-    ]
-  }},
-
-  { "name": "bbox", "type":  ["null", {
-    "type": "record",
-    "name": "BBox",
-    "fields": [
-      { "name": "xmin", "type": "double"},
-      { "name": "ymin", "type": "double"},
-      { "name": "xmax", "type": "double"},
-      { "name": "ymax", "type": "double"}
-    ]
-  }], "default": null},
-  { "name": "centroid", "type": ["null", {
-    "type": "record",
-    "name": "Centroid",
-    "fields": [
-      { "name": "x", "type": "double" },
-      { "name": "y", "type": "double" }
-    ]
-  }], "default": null},
-  { "name": "xzcode", "type": { "name": "ContribXZCode", "type": "record", "fields": [
-    { "name": "level", "type": "int"},
-    { "name": "code", "type": "long" }
-  ]}},
-  { "name": "geometry_type", "type": ["null", "string"], "default": null },
-  { "name": "geometry", "type": ["null", "bytes"], "default": null},
-  { "name": "area", "type": "double", "doc": "area in square meter" },
-  { "name": "area_delta", "type": "double", "doc": "area delta in square meter" },
-  { "name": "length", "type": "double", "doc": "length in meter"},
-  { "name": "length_delta", "type": "double", "doc": "length delta in meter"},
-
-  { "name": "contrib_type", "type": "string", "doc": "CREATION, DELETION, TAG, GEOMETRY, TAG_GEOMETRY"},
-
-  { "name": "refs", "type": ["null", {"type": "array", "items": "long" }], "default": null},
-  { "name": "members", "type": ["null", { "type": "array", "items": {
-    "name": "Member",
-    "type": "record",
-    "fields": [
-      { "name": "type", "type": "string" },
-      { "name": "id", "type": "long" },
-      { "name": "role", "type": "string" },
-      { "name": "geometry_type", "type": ["null", "string"], "default": null},
-      { "name": "geometry", "type": ["null", "bytes"], "default": null}
-    ]}
-    }], "default": null
-  },
-  { "name": "countries", "type": ["null", {"type": "array", "items": "string" }], "default": null},
-  { "name": "build_time", "type": "long"}
-]}
+  "namespace": "org.heigit.ohsome.contributions.avro",
+  "name": "Contrib",
+  "type": "record",
+  "fields": [
+    {
+      "name": "status",
+      "type": "string",
+      "doc": "`latest`: currently visible OSM element, `history`: historic versions of OSM element, `deleted`: deleted OSM feature which is not visible, `invalid`: OSM element with invalid geometries"
+    },
+    {
+      "name": "valid_from",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-micros",
+        "adjust-to-utc": true
+      },
+      "doc": "timstamp when this version of the OSM feature was uploaded, adjusted to UTC"
+    },
+    {
+      "name": "valid_to",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-micros",
+        "adjust-to-utc": true
+      },
+      "doc": "timestamp when this version of the OSM feature was overwritten by newer edit, will be `2222-01-01 01:00:00+01` when status is `latest` or `deleted`, adjusted to UTC"
+    },
+    {
+      "name": "osm_type",
+      "type": "string",
+      "doc": "`node`, `way` or `relation`"
+    },
+    {
+      "name": "osm_id",
+      "type": "long",
+      "doc": "identifier of the OSM element"
+    },
+    {
+      "name": "osm_version",
+      "type": "int",
+      "doc": "version of the OSM element according to OSM API, does not consider all geometric changes"
+    },
+    {
+      "name": "osm_minor_version",
+      "type": "int",
+      "doc": "minor version of the OSM element which considers all geometric changes, starts from `0` for each (major) OSM version"
+    },
+    {
+      "name": "osm_edits",
+      "type": "int",
+      "doc": "cumulative number of all edits / minor versions for this OSM element"
+    },
+    {
+      "name": "osm_last_edit",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros",
+          "adjust-to-utc": true
+        }
+      ],
+      "doc": "the timestamp when this OSM element was edited previously, adjusted to UTC"
+    },
+    {
+      "name": "user",
+      "type": {
+        "type": "record",
+        "name": "ContribUser",
+        "fields": [
+          {
+            "name": "id",
+            "type": "int",
+            "doc": "identifier of the OSM user account"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "doc": "name of the OSM user at time of the data extract"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tags",
+      "type": {
+        "type": "map",
+        "values": "string",
+        "default": {}
+      },
+      "doc": "tag key values pairs of this OSM element"
+    },
+    {
+      "name": "tags_before",
+      "type": {
+        "type": "map",
+        "values": "string",
+        "default": {}
+      },
+      "doc": "previous version of the tag key values pairs of this OSM element"
+    },
+    {
+      "name": "changeset",
+      "type": {
+        "type": "record",
+        "name": "ContribChangeset",
+        "fields": [
+          {
+            "name": "id",
+            "type": "long",
+            "doc": "identifier of the OSM changeset"
+          },
+          {
+            "name": "created_at",
+            "type": {
+              "type": "long",
+              "logicalType": "timestamp-micros",
+              "adjust-to-utc": true
+            },
+            "doc": "timestamp when this changeset was opened, adjusted to UTC"
+          },
+          {
+            "name": "closed_at",
+            "type": [
+              "null",
+              {
+                "type": "long",
+                "logicalType": "timestamp-micros",
+                "adjust-to-utc": true
+              }
+            ],
+            "default": null,
+            "doc": "timestamp when this changeset was closed, adjusted to UTC"
+          },
+          {
+            "name": "tags",
+            "type": {
+              "type": "map",
+              "values": "string"
+            },
+            "default": {},
+            "doc": "tag key values pairs of this OSM changeset"
+          },
+          {
+            "name": "hashtags",
+            "type": {
+              "type": "array",
+              "items": "string"
+            },
+            "default": [],
+            "doc": "list of changeset hashtags, derived from changeset tag keys `comment` and `hashtags`"
+          },
+          {
+            "name": "editor",
+            "type": [
+              "null",
+              "string"
+            ],
+            "default": null,
+            "doc": "editing software used to upload this OSM changeset, derived from the changeset tag key `created_by`"
+          },
+          {
+            "name": "numChanges",
+            "type": "int",
+            "default": -1,
+            "doc": "number of edits contained by this OSM changeset"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bbox",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "BBox",
+          "fields": [
+            {
+              "name": "xmin",
+              "type": "double",
+              "doc": "minimum longitude bounding box coordinates in degree / WGS84"
+            },
+            {
+              "name": "ymin",
+              "type": "double",
+              "doc": "minimum latitude bounding box coordinates in degree / WGS84"
+            },
+            {
+              "name": "xmax",
+              "type": "double",
+              "doc": "maximum longitude bounding box coordinates in degree / WGS84"
+            },
+            {
+              "name": "ymax",
+              "type": "double",
+              "doc": "maximum latitude bounding box coordinates in degree / WGS84"
+            }
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "bounding box geographical coordinates for this OSM element"
+    },
+    {
+      "name": "centroid",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Centroid",
+          "fields": [
+            {
+              "name": "x",
+              "type": "double",
+              "doc": "centroid longitude coordinates in degree / WGS84"
+            },
+            {
+              "name": "y",
+              "type": "double",
+              "doc": "centroid latitude coordinates in degree / WGS84"
+            }
+          ]
+        }
+      ],
+      "default": null,
+      "doc": "centroid geographical coordinate for this OSM element"
+    },
+    {
+      "name": "xzcode",
+      "type": {
+        "name": "ContribXZCode",
+        "type": "record",
+        "fields": [
+          {
+            "name": "level",
+            "type": "int",
+            "doc": "resolution, roughly represents extend / size of the OSM elements, very large OSM elements will be grouped into a low level, nodes will always fall in the highest level"
+          },
+          {
+            "name": "code",
+            "type": "long",
+            "doc": "index value used for sorting"
+          }
+        ]
+      },
+      "doc": "xz-ordering spatial index as defined by Böhm et al (1999) in https://www.dbs.ifi.lmu.de/Publikationen/Boehm/Ordering_99.pdf"
+    },
+    {
+      "name": "geometry_type",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "`Point`, `LineString`, `Polygon`, `MultiPolygon`"
+    },
+    {
+      "name": "geometry",
+      "type": [
+        "null",
+        "bytes"
+      ],
+      "default": null,
+      "doc": "geometry in “Well-known binary” (WKB) format"
+    },
+    {
+      "name": "area",
+      "type": "double",
+      "doc": "area of the OSM element in square meter for `Polygon` and `MultiPolygon` geometry types"
+    },
+    {
+      "name": "area_delta",
+      "type": "double",
+      "doc": "area difference / delta in square meter for `Polygon` and `MultiPolygon` geometry types in comparison to previous version of this OSM element"
+    },
+    {
+      "name": "length",
+      "type": "double",
+      "doc": "length in meter of the OSM element in square meter for `LineString` geometry types"
+    },
+    {
+      "name": "length_delta",
+      "type": "double",
+      "doc": "length difference / delta in meter for `LineString` geometry types in comparison to previous version of this OSM element"
+    },
+    {
+      "name": "contrib_type",
+      "type": "string",
+      "doc": "`CREATION`, `DELETION`, `TAG`, `GEOMETRY`, `TAG_GEOMETRY`"
+    },
+    {
+      "name": "refs",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "long"
+        }
+      ],
+      "default": null,
+      "doc": "only used for `ways`, list of OSM node id references that are part of this `way`"
+    },
+    {
+      "name": "members",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": {
+            "name": "Member",
+            "type": "record",
+            "fields": [
+              {
+                "name": "type",
+                "type": "string",
+                "doc": "`node`, `way` or `relation`"
+              },
+              {
+                "name": "id",
+                "type": "long",
+                "doc": "identifier of the OSM element"
+              },
+              {
+                "name": "role",
+                "type": "string",
+                "doc": "describes the function that the member plays within a relation, e.g. `inner`/`outer` to build multipolygons"
+              },
+              {
+                "name": "geometry_type",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "default": null,
+                "doc": "member geometry in “Well-known binary” (WKB) format"
+              },
+              {
+                "name": "geometry",
+                "type": [
+                  "null",
+                  "bytes"
+                ],
+                "default": null,
+                "doc": "`Point`, `LineString`, `Polygon`, `MultiPolygon`"
+              }
+            ]
+          }
+        }
+      ],
+      "default": null,
+      "doc": "only used for `relations`, list of OSM relation members"
+    },
+    {
+      "name": "countries",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "default": null,
+      "doc": "list of ISO A3 country codes"
+    },
+    {
+      "name": "build_time",
+      "type": "long",
+      "doc": "processing time in nano (10^−9) seconds to build this contribution with all attributes"
+    }
+  ]
+}
