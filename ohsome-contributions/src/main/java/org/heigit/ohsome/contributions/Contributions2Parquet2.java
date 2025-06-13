@@ -370,7 +370,7 @@ public class Contributions2Parquet2 implements Callable<Integer> {
     }
 
     protected static <T extends OSMEntity> boolean filter(List<T> osh, Map<String, Predicate<String>> keyFilter) {
-        if (keyFilter == null) return false;
+        if (keyFilter.isEmpty()) return false;
         return osh.stream()
                 .map(OSMEntity::tags)
                 .map(Map::entrySet)
