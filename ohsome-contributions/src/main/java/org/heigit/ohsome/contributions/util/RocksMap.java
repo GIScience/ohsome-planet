@@ -45,8 +45,8 @@ public class RocksMap implements AutoCloseable {
 //        options.close();
     }
 
-    public <T> Map<Long, T> get(Set<Long> nodes, BiFunction<Long, byte[], T> deserializer) {
-        var keys = nodes.stream()
+    public static  <T> Map<Long, T> get(RocksDB db, Set<Long> ids, BiFunction<Long, byte[], T> deserializer) {
+        var keys = ids.stream()
                 .map(id -> ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(id).array())
                 .toList();
         try {
@@ -65,5 +65,11 @@ public class RocksMap implements AutoCloseable {
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
+
+    }
+
+
+    public <T> Map<Long, T> get(Set<Long> nodes, BiFunction<Long, byte[], T> deserializer) {
+        return get(db, nodes, deserializer);
     }
 }

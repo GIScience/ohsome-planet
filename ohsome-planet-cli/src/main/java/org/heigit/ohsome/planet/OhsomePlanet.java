@@ -1,6 +1,7 @@
 package org.heigit.ohsome.planet;
 
 import org.heigit.ohsome.contributions.Contributions2Parquet;
+import org.heigit.ohsome.contributions.Contributions2Parquet2;
 import org.heigit.ohsome.contributions.FileInfo;
 import picocli.CommandLine;
 
@@ -15,6 +16,7 @@ import static picocli.CommandLine.Command;
         subcommands = {
             FileInfo.class,
             Contributions2Parquet.class,
+            Contributions2Parquet2.class,
         })
 public class OhsomePlanet implements Callable<Integer> {
 
