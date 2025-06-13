@@ -162,8 +162,10 @@ public class Contributions2Parquet2 implements Callable<Integer> {
                     .reduce(Long::sum)
                     .blockOptional().orElseThrow();
         }
-        return count;
 
+        writers.forEach(Writer::close);
+
+        return count;
     }
 
     private static long processNodes(List<List<List<OSMEntity>>> batch, BlockingQueue<Writer> writers, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodes) throws Exception {

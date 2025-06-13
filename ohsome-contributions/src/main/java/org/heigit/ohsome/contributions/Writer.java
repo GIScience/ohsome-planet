@@ -78,11 +78,13 @@ class Writer implements AutoCloseable {
                 suppressed.add(e);
             }
         });
+        /*
         if (!suppressed.isEmpty()) {
             var exceptions = new IOException("error closing parquet writers!");
             suppressed.forEach(exceptions::addSuppressed);
             throw new UncheckedIOException(exceptions);
         }
+        */
     }
 
     public ByteBuffer keyBuffer(long id) {
