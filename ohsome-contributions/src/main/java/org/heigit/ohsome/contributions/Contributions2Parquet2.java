@@ -7,9 +7,13 @@ import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
 import org.heigit.ohsome.contributions.contrib.*;
 import org.heigit.ohsome.contributions.minor.MinorNode;
+import org.heigit.ohsome.contributions.minor.MinorNodeStorage;
 import org.heigit.ohsome.contributions.minor.MinorWay;
+import org.heigit.ohsome.contributions.minor.MinorWayStorage;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.transformer.TransformerNodes;
+import org.heigit.ohsome.contributions.transformer.TransformerWays;
 import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
@@ -40,6 +44,9 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
+import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
+import static org.heigit.ohsome.contributions.transformer.TransformerRelations.processRelations;
+import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.osm.OSMType.*;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blobBuffer;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blockBuffer;
@@ -110,17 +117,26 @@ public class Contributions2Parquet2 implements Callable<Integer> {
 
         Files.createDirectories(output);
 
-        readerScheduler =
-//                     Schedulers.newSingle("file reader", true);
-                Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
+        RocksDB.loadLibrary();
+        var minorNodesPath = output.resolve("minorNodes");
+        TransformerNodes.processNodes(pbf, blobTypes, output, parallel, numFiles, minorNodesPath, countryJoiner, changesetDb);
+
+        var minorWaysPath = output.resolve("minorWays");
+        try (var minorNodes = MinorNodeStorage.inRocksMap(minorNodesPath)) {
+            TransformerWays.processWays(pbf, blobTypes, output, parallel, numFiles, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
+        }
+
 
         try (var ch = FileChannel.open(pbfPath, READ);
              var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
              var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, output.resolve("minorWays").toString())) {
 
-            process(ch, NODE, blobTypes.get(NODE), 10_000, (osh, writers) -> processNodes(osh, writers, countryJoiner, changesetDb, minorNodesDb));
-            process(ch, WAY, blobTypes.get(WAY), 10_000, (osh, writers) -> processWays(osh, writers, countryJoiner, changesetDb, minorNodesDb, minorWaysDb));
+            readerScheduler =
+                    Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
+
+//            process(ch, NODE, blobTypes.get(NODE), 10_000, (osh, writers) -> processNodes(osh, writers, countryJoiner, changesetDb, minorNodesDb));
+//            process(ch, WAY, blobTypes.get(WAY), 10_000, (osh, writers) -> processWays(osh, writers, countryJoiner, changesetDb, minorNodesDb, minorWaysDb));
             process(ch, RELATION, blobTypes.get(RELATION), 1, (osh, writers) -> processRelations(osh, writers, countryJoiner, changesetDb, keyFilter, minorNodesDb, minorWaysDb));
         }
 
