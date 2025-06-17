@@ -4,12 +4,12 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import me.tongfei.progressbar.ProgressBarBuilder;
+import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
 import org.heigit.ohsome.contributions.contrib.*;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorNodeStorage;
 import org.heigit.ohsome.contributions.minor.MinorWay;
-import org.heigit.ohsome.contributions.minor.MinorWayStorage;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.transformer.TransformerNodes;
@@ -23,6 +23,7 @@ import org.heigit.ohsome.osm.pbf.Blob;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.rocksdb.RocksDB;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
@@ -39,14 +40,12 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
-import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
-import static org.heigit.ohsome.contributions.transformer.TransformerRelations.processRelations;
-import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.osm.OSMType.*;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blobBuffer;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blockBuffer;
@@ -117,10 +116,10 @@ public class Contributions2Parquet2 implements Callable<Integer> {
 
         Files.createDirectories(output);
 
+
         RocksDB.loadLibrary();
         var minorNodesPath = output.resolve("minorNodes");
         TransformerNodes.processNodes(pbf, blobTypes, output, parallel, numFiles, minorNodesPath, countryJoiner, changesetDb);
-
         var minorWaysPath = output.resolve("minorWays");
         try (var minorNodes = MinorNodeStorage.inRocksMap(minorNodesPath)) {
             TransformerWays.processWays(pbf, blobTypes, output, parallel, numFiles, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
@@ -137,7 +136,9 @@ public class Contributions2Parquet2 implements Callable<Integer> {
 
 //            process(ch, NODE, blobTypes.get(NODE), 10_000, (osh, writers) -> processNodes(osh, writers, countryJoiner, changesetDb, minorNodesDb));
 //            process(ch, WAY, blobTypes.get(WAY), 10_000, (osh, writers) -> processWays(osh, writers, countryJoiner, changesetDb, minorNodesDb, minorWaysDb));
-            process(ch, RELATION, blobTypes.get(RELATION), 1, (osh, writers) -> processRelations(osh, writers, countryJoiner, changesetDb, keyFilter, minorNodesDb, minorWaysDb));
+            process(ch, RELATION, blobTypes.get(RELATION), 1,
+                    (osh, writers) -> processRelations(osh, writers, countryJoiner, changesetDb, keyFilter, minorNodesDb, minorWaysDb),
+                    Contributions2Parquet2::relationParquetConfig);
         }
 
         System.out.println("done " + totalTime);
@@ -148,12 +149,16 @@ public class Contributions2Parquet2 implements Callable<Integer> {
         long apply(List<List<List<OSMEntity>>> batch, BlockingQueue<Writer> writers) throws Exception;
     }
 
+    private static void relationParquetConfig(AvroUtil.AvroBuilder<Contrib> config) {
+            config.withMinRowCountForPageSizeCheck(1)
+                  .withMaxRowCountForPageSizeCheck(2);
+    }
 
-    private long process(FileChannel ch, OSMType type, List<BlobHeader> blobHeaders, int batchSize, ProcessFunction process) {
+
+    private long process(FileChannel ch, OSMType type, List<BlobHeader> blobHeaders, int batchSize, ProcessFunction process, Consumer<AvroUtil.AvroBuilder<Contrib>> additionalConfig) {
         var writers = new ArrayBlockingQueue<Writer>(numFiles);
         for (var i = 0; i < numFiles; i++) {
-            writers.add(new Writer(i, type, output, config -> {
-            }));
+            writers.add(new Writer(i, type, output, additionalConfig));
         }
 
         long count;
