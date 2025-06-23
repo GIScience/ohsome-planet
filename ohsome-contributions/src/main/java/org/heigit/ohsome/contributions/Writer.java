@@ -46,13 +46,20 @@ class Writer implements AutoCloseable {
 
     public void log(String message) {
         if (logWriter == null) {
-            try {
-                logWriter = new PrintWriter(Files.newBufferedWriter(logPath()));
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            logWriter = openLogWriter();
+
         }
         logWriter.println(message);
+    }
+
+    private PrintWriter openLogWriter() {
+        var path = logPath();
+        try {
+            Files.createDirectories(path.getParent());
+            return new PrintWriter(Files.newBufferedWriter(path));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private ParquetWriter<Contrib> openWriter(String status) {
