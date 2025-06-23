@@ -8,12 +8,12 @@ import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.util.io.Output;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -30,6 +30,7 @@ class Writer implements AutoCloseable {
     final Output output = new Output(4 << 10);
     final ByteBuffer keyBuffer = ByteBuffer.allocateDirect(Long.BYTES).order(ByteOrder.BIG_ENDIAN);
     ByteBuffer valBuffer = ByteBuffer.allocateDirect(4 << 10);
+    private PrintWriter logWriter;
 
     Writer(int writerId, OSMType type, Path outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
         this.writerId = writerId;
@@ -41,6 +42,17 @@ class Writer implements AutoCloseable {
     public void write(Contrib contrib) throws IOException {
         var status = "latest".contentEquals(contrib.getStatus()) ? "latest" : "history";
         writers.computeIfAbsent(status, this::openWriter).write(contrib);
+    }
+
+    public void log(String message) {
+        if (logWriter == null) {
+            try {
+                logWriter = new PrintWriter(Files.newBufferedWriter(logPath()));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        logWriter.println(message);
     }
 
     private ParquetWriter<Contrib> openWriter(String status) {
@@ -58,6 +70,11 @@ class Writer implements AutoCloseable {
                 .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
     }
 
+    private Path logPath() {
+        return outputDir.resolve("log")
+                .resolve("writer-%s-%d.log".formatted(type, writerId));
+    }
+
     private Path finalPath(String status) {
         return outputDir.resolve("contributions")
                 .resolve(status)
@@ -66,7 +83,6 @@ class Writer implements AutoCloseable {
 
     @Override
     public void close() {
-        var suppressed = new ArrayList<IOException>();
         writers.forEach((key, writer) -> {
             try {
                 writer.close();
@@ -75,9 +91,12 @@ class Writer implements AutoCloseable {
                 Files.createDirectories(finalPath.toAbsolutePath().getParent());
                 Files.move(path, finalPath);
             } catch (IOException e) {
-                suppressed.add(e);
             }
         });
+        if (logWriter != null) {
+            logWriter.close();
+        }
+
         /*
         if (!suppressed.isEmpty()) {
             var exceptions = new IOException("error closing parquet writers!");

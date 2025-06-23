@@ -150,8 +150,8 @@ public class Contributions2Parquet2 implements Callable<Integer> {
     }
 
     private static void relationParquetConfig(AvroUtil.AvroBuilder<Contrib> config) {
-            config.withMinRowCountForPageSizeCheck(1)
-                  .withMaxRowCountForPageSizeCheck(2);
+        config.withMinRowCountForPageSizeCheck(1)
+                .withMaxRowCountForPageSizeCheck(2);
     }
 
 
@@ -310,7 +310,7 @@ public class Contributions2Parquet2 implements Callable<Integer> {
 
     private static long processRelations(List<List<List<OSMEntity>>> batch, BlockingQueue<Writer> writers, SpatialJoiner spatialJoiner, Changesets changesetDb, Map<String, Predicate<String>> keyFilter, RocksDB minorNodesDb, RocksDB minorWaysDb) throws Exception {
         var writer = Optional.ofNullable(writers.poll()).orElseThrow();
-        var counter = 0L;
+        var versions = 0L;
 
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
@@ -318,17 +318,23 @@ public class Contributions2Parquet2 implements Callable<Integer> {
                 WAY, Sets.<Long>newHashSetWithExpectedSize(64_000));
 
         var changesetIds = new HashSet<Long>();
+        var osh = new ArrayList<OSMRelation>();
+        for (var entities : batch) {
+            osh.clear();
+            entities.forEach(list -> list.forEach(osm -> osh.add((OSMRelation) osm)));
 
-        batch.stream()
-                .<List<OSMEntity>>mapMulti(Iterable::forEach)
-                .<OSMEntity>mapMulti(Iterable::forEach)
-                .map(OSMRelation.class::cast)
-                .forEach(osm -> {
-                    osm.members().stream()
-                            .filter(member -> member.type() != RELATION)
-                            .forEach(member -> minorMemberIds.get(member.type()).add(member.id()));
-                    changesetIds.add(osm.changeset());
-                });
+            if (hasNoTags(osh) || filter(osh, keyFilter)) {
+                continue;
+            }
+
+            osh.forEach(osm -> {
+                osm.members().stream()
+                        .filter(member -> member.type() != RELATION)
+                        .forEach(member -> minorMemberIds.get(member.type()).add(member.id()));
+                changesetIds.add(osm.changeset());
+            });
+
+        }
 
         var minorWays = RocksMap.get(minorWaysDb, minorMemberIds.get(WAY), MinorWay::deserialize);
         minorWays.values().stream()
@@ -346,7 +352,6 @@ public class Contributions2Parquet2 implements Callable<Integer> {
 
         var changesets = fetchChangesets(changesetIds, changesetDb);
 
-        var osh = new ArrayList<OSMRelation>();
         for (var entities : batch) {
             osh.clear();
             entities.forEach(list -> list.forEach(osm -> osh.add((OSMRelation) osm)));
@@ -355,16 +360,20 @@ public class Contributions2Parquet2 implements Callable<Integer> {
                 continue;
             }
 
+            var time = System.nanoTime();
+            var id = osh.getFirst().id();
             var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
             var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
             while (converter.hasNext()) {
                 var contrib = converter.next();
                 writer.write(contrib);
-                counter++;
+                versions++;
             }
+            writer.log("%d,%d,%d".formatted(id, versions, System.nanoTime() - time));
         }
+
         writers.add(writer);
-        return counter;
+        return versions;
     }
 
     protected static Map<Long, ContribChangeset> fetchChangesets(Set<Long> ids, Changesets changesetDb) throws Exception {
