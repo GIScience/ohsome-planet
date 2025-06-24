@@ -41,7 +41,7 @@ pipeline {
             }
         }
 
-        stage('Build and Deploy Image') {
+        stage('Build and Deploy Snapshot Image') {
             when {
                 expression {
                     return env.BRANCH_NAME ==~ SNAPSHOT_BRANCH_REGEX && VERSION ==~ /.*-SNAPSHOT$/
@@ -62,7 +62,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Release') {
+        stage('Build and Deploy Release Image') {
             when {
                 expression {
                     return VERSION ==~ RELEASE_REGEX && env.TAG_NAME ==~ RELEASE_REGEX
