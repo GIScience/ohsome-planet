@@ -128,4 +128,8 @@ class Writer implements AutoCloseable {
         output.reset();
         return output;
     }
+
+    public int getId() {
+        return writerId;
+    }
 }
