@@ -1,5 +1,10 @@
 # ohsome-planet
 
+[![Build Status](https://jenkins.heigit.org/buildStatus/icon?job=ohsome-planet/main)](https://jenkins.heigit.org/job/ohsome-planet/job/main/)
+[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=org.heigit.ohsome:ohsome-planet&metric=alert_status)](https://sonarcloud.io/dashboard?id=org.heigit.ohsome:ohsome-planet)
+[![LICENSE](https://img.shields.io/github/license/GIScience/ohsome-planet)](LICENSE)
+[![status: active](https://github.com/GIScience/badges/raw/master/status/active.svg)](https://github.com/GIScience/badges#active)
+
 The ohsome-planet tool transforms OSM (history) PBF files into GeoParquet format.
 It creates the actual OSM elements geometries for nodes, ways and relations.
 The tool can join information from OSM changesets such as hashtags, OSM editor or usernames.

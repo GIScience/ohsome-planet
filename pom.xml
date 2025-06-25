@@ -2,7 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.heigit.ohsome</groupId>
+    <parent>
+        <groupId>org.heigit.ohsome</groupId>
+        <artifactId>ohsome-parent</artifactId>
+        <version>2.14.0</version>
+    </parent>
+
     <artifactId>ohsome-planet</artifactId>
     <version>1.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -17,6 +22,10 @@
         <java.version>21</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
+        <sonar.projectKey>${project.groupId}:ohsome-planet</sonar.projectKey>
+        <sonar.projectName>ohsome-planet</sonar.projectName>
     </properties>
 
     <modules>
