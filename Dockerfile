@@ -13,14 +13,38 @@ COPY osm-xml/pom.xml osm-xml/pom.xml
 
 RUN ./mvnw dependency:go-offline
 
-COPY . .
+COPY ohsome-contributions/src ohsome-contributions/src
+COPY ohsome-parquet/src ohsome-parquet/src
+COPY ohsome-planet-cli/src ohsome-planet-cli/src
+COPY osm-changesets/src osm-changesets/src
+COPY osm-geometry/src osm-geometry/src
+COPY osm-pbf/src osm-pbf/src
+COPY osm-types/src osm-types/src
+COPY osm-xml/src osm-xml/src
 
 RUN ./mvnw package -DskipTests
 
 
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-alpine AS jre-builder
 
+RUN $JAVA_HOME/bin/jlink \
+    --add-modules java.base \
+    --add-modules java.logging \
+    --add-modules java.management \
+    --add-modules java.xml \
+    --add-modules jdk.unsupported \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=2 \
+    --output /javaruntime
+
+FROM alpine:3
 RUN --mount=type=cache,target=/etc/apk/cache apk add --update-cache libstdc++
+
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+COPY --from=jre-builder /javaruntime $JAVA_HOME
 
 COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet.jar /ohsome-planet.jar
 
