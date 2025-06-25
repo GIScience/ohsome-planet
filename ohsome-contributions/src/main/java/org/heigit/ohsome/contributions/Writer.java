@@ -56,7 +56,7 @@ class Writer implements AutoCloseable {
         var path = logPath();
         try {
             Files.createDirectories(path.getParent());
-            return new PrintWriter(Files.newBufferedWriter(path));
+            return new PrintWriter(Files.newOutputStream(path), true);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
