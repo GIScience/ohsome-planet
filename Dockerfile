@@ -18,20 +18,9 @@ COPY . .
 RUN ./mvnw package -DskipTests
 
 
-FROM eclipse-temurin:21-alpine AS jre-builder
+FROM eclipse-temurin:21-jre-alpine
 
-RUN $JAVA_HOME/bin/jlink \
-    --add-modules java.base \
-    --strip-debug \
-    --no-man-pages \
-    --no-header-files \
-    --compress=2 \
-    --output /javaruntime
-
-FROM alpine:3
-ENV JAVA_HOME=/opt/java/openjdk
-ENV PATH="${JAVA_HOME}/bin:${PATH}"
-COPY --from=jre-builder /javaruntime $JAVA_HOME
+RUN --mount=type=cache,target=/etc/apk/cache apk add --update-cache libstdc++
 
 COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet.jar /ohsome-planet.jar
 
