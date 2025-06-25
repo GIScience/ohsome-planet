@@ -22,7 +22,6 @@ cd ohsome-planet
 ```
 
 ## Run
-
 You can download the [full latest or history planet](https://planet.openstreetmap.org/pbf/full-history/) 
 or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
@@ -175,3 +174,4 @@ How to build OSM geometries (for multipolygons)?
 
 ## Further Notes
 * For relations that consist of more than 500 members we skip `MultiPolygon` geometry building and fall back to `GeometryCollection`. Check `MEMBERS_THRESHOLD` in `ohsome-contributions/src/main/java/org/heigit/ohsome/contributions/contrib/ContributionGeometry.java`.
+* For contributions with status `deleted` we use the geometry of the previous version. This allows you to spatially filter also for deleted elements, e.g. by bounding box. In the sense of OSM deleted elements do not have any geometry.
