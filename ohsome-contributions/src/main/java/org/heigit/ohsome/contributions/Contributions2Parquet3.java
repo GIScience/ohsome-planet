@@ -5,6 +5,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.atomic.AtomicBoolean;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
@@ -19,7 +20,6 @@ import org.heigit.ohsome.contributions.transformer.TransformerWays;
 import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
-import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.Blob;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
@@ -27,8 +27,6 @@ import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.rocksdb.RocksDB;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
 import picocli.CommandLine;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
@@ -40,10 +38,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysFalse;
@@ -54,7 +50,6 @@ import static org.heigit.ohsome.osm.pbf.OSMPbf.blobBuffer;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blockBuffer;
 import static org.heigit.ohsome.osm.pbf.ProtoZero.decodeMessage;
 import static reactor.core.publisher.Mono.fromCallable;
-import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 @CommandLine.Command(name = "contributions3", aliases = {"contribs3"},
@@ -162,6 +157,7 @@ public class Contributions2Parquet3 implements Callable<Integer> {
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress));
             var osh = new ArrayList<OSMEntity>();
+            var cancel = new AtomicBoolean(false);
             while (entities.hasNext()) {
                 osh.clear();
                 var id = entities.peek().id();
@@ -171,13 +167,19 @@ public class Contributions2Parquet3 implements Callable<Integer> {
                 if (entities.hasNext() && entities.peek().id() <= id) {
                     System.out.println("Ids not in order: " + id + " <= " + entities.peek().id());
                 }
+                if (cancel.get()) {
+                    System.out.println("canceled");
+                    break;
+                }
+
                 var copy = List.copyOf(osh);
                 var writer = writers.take();
                 contribWorkers.execute(() -> {
                     try {
                         processRelation(id, copy, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb);
                     } catch (Exception e) {
-                        throw new RuntimeException(e);
+                        cancel.set(true);
+                        e.printStackTrace();
                     } finally {
                         writers.offer(writer);
                     }
@@ -185,7 +187,7 @@ public class Contributions2Parquet3 implements Callable<Integer> {
             }
             for (var i = 0; i < numFiles; i++) {
                 var writer = writers.take();
-                writer.close();
+                writer.close(cancel.get());
             }
         }
 
@@ -240,7 +242,7 @@ public class Contributions2Parquet3 implements Callable<Integer> {
             writer.write(contrib);
             versions++;
         }
-//        writer.log("%d,%d,%d".formatted(id, versions, System.nanoTime() - time));
+        writer.log("%d,%d,%d".formatted(id, versions, System.nanoTime() - time));
     }
 
 

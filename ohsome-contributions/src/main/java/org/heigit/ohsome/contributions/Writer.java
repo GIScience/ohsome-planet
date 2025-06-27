@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions;
 
+import java.util.function.Function;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.transformer.Transformer;
@@ -88,29 +89,15 @@ class Writer implements AutoCloseable {
                 .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
     }
 
+    private Path canceledPath(String status) {
+        return outputDir.resolve("canceled")
+            .resolve(status)
+            .resolve("%s-%d-%s-contribs-canceled.parquet".formatted(type, writerId, status));
+    }
+
     @Override
     public void close() {
-        writers.forEach((key, writer) -> {
-            try {
-                writer.close();
-                var path = progressPath(key);
-                var finalPath = finalPath(key);
-                Files.createDirectories(finalPath.toAbsolutePath().getParent());
-                Files.move(path, finalPath);
-            } catch (IOException e) {
-            }
-        });
-        if (logWriter != null) {
-            logWriter.close();
-        }
-
-        /*
-        if (!suppressed.isEmpty()) {
-            var exceptions = new IOException("error closing parquet writers!");
-            suppressed.forEach(exceptions::addSuppressed);
-            throw new UncheckedIOException(exceptions);
-        }
-        */
+        close(this::finalPath);
     }
 
     public ByteBuffer keyBuffer(long id) {
@@ -131,5 +118,29 @@ class Writer implements AutoCloseable {
 
     public int getId() {
         return writerId;
+    }
+
+    public void close(boolean canceled) {
+        if (!canceled) {
+            close();
+        } else {
+            close(this::canceledPath);
+        }
+    }
+
+    private void close(Function<String, Path> pathFnt) {
+        writers.forEach((key, writer) -> {
+            try {
+                writer.close();
+                var path = progressPath(key);
+                var finalPath = pathFnt.apply(key);
+                Files.createDirectories(finalPath.toAbsolutePath().getParent());
+                Files.move(path, finalPath);
+            } catch (IOException e) {
+            }
+        });
+        if (logWriter != null) {
+            logWriter.close();
+        }
     }
 }
