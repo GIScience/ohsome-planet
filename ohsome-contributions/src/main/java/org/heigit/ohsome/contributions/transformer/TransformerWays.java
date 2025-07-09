@@ -29,14 +29,16 @@ import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
+import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
+import static org.heigit.ohsome.contributions.util.Utils.hasNoTags;
 import static org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
-    public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, int chunkFactor,
+    public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel,
                                    MinorNodeStorage minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerWays(pbf, out, parallel, chunkFactor, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb);
+        var transformer = new TransformerWays(pbf, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb);
         transformer.process(blobsByType);
         moveSstToRocksDb(rocksDbPath);
     }
@@ -46,8 +48,8 @@ public class TransformerWays extends Transformer {
     private final Path sstDirectory;
     private final LongPredicate writeMinor;
 
-    public TransformerWays(OSMPbf pbf, Path out, int parallel, int chunkFactor, MinorNodeStorage minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(WAY, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
+    public TransformerWays(OSMPbf pbf, Path out, int parallel, MinorNodeStorage minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
+        super(WAY, pbf, out, parallel, countryJoiner, changesetDb);
         this.minorNodesStorage = minorNodesStorage;
         this.sstDirectory = sstDirectory;
         this.writeMinor = writeMinor;
@@ -122,7 +124,7 @@ public class TransformerWays extends Transformer {
                 if (writeMinor.test(osh.getFirst().id())) {
                     sstWriter.writeMinorWay(osh);
                 }
-                if (!hasTags(osh)) {
+                if (hasNoTags(osh)) {
                     continue;
                 }
                 batch.add(osh);
@@ -135,7 +137,7 @@ public class TransformerWays extends Transformer {
                     .map(Contribution::changeset)
                     .collect(Collectors.toSet());
 
-            var changesets = fetchChangesets(changesetIds);
+            var changesets = fetchChangesets(changesetIds, changesetDb);
 
             for (var osh : batch) {
                 var contributions = new ContributionsWay(osh, minorNodes);

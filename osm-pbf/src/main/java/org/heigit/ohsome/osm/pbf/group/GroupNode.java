@@ -16,6 +16,10 @@ public class GroupNode extends GroupPrimitive<OSMNode> {
 
     @Override
     public boolean decode(Input input, int tag) {
+        if (tag == 8) {
+            id = input.readS64();
+            return true;
+        }
         if (!super.decode(input, tag)) {
             switch (tag) {
                 case 64 -> lat = block.parseLat(input.readS64());

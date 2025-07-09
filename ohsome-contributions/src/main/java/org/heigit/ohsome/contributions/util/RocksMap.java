@@ -42,7 +42,6 @@ public class RocksMap implements AutoCloseable {
     @Override
     public void close() {
         db.close();
-//        options.close();
     }
 
     public static  <T> Map<Long, T> get(RocksDB db, Set<Long> ids, BiFunction<Long, byte[], T> deserializer) {

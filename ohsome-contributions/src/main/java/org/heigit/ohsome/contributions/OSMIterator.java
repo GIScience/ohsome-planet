@@ -2,21 +2,21 @@ package org.heigit.ohsome.contributions;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import me.tongfei.progressbar.ProgressBar;
+import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.pbf.Block;
 
+import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 
-class OSMIterator implements Iterator<OSMEntity> {
+public class OSMIterator implements Iterator<OSMEntity> {
     private final Iterator<Block> blocks;
-    private final ProgressBar progress;
-    private PeekingIterator<OSMEntity> entities = Iterators.peekingIterator(List.<OSMEntity>of().iterator());
+    private final Progress progress;
+    private PeekingIterator<OSMEntity> entities = Iterators.peekingIterator(Collections.emptyIterator());
     private OSMEntity next;
 
-    OSMIterator(Iterator<Block> blocks, ProgressBar progress) {
+    public OSMIterator(Iterator<Block> blocks, Progress progress) {
         this.blocks = blocks;
         this.progress = progress;
     }

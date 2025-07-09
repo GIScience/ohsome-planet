@@ -27,20 +27,22 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
+import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
+import static org.heigit.ohsome.contributions.util.Utils.hasNoTags;
 import static org.heigit.ohsome.osm.OSMType.NODE;
 
 public class TransformerNodes extends Transformer {
     private final Path sstDirectory;
 
 
-    public TransformerNodes(OSMPbf pbf, Path out, int parallel, int chunkFactor, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(NODE, pbf, out, parallel, chunkFactor, countryJoiner, changesetDb);
+    public TransformerNodes(OSMPbf pbf, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb) {
+        super(NODE, pbf, out, parallel, countryJoiner, changesetDb);
         this.sstDirectory = sstDirectory;
     }
 
-    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, int chunkFactor, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
+    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerNodes(pbf, out, parallel, chunkFactor, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb);
+        var transformer = new TransformerNodes(pbf, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb);
         transformer.process(blobsByType);
         moveSstToRocksDb(rocksDbPath);
     }
@@ -113,7 +115,7 @@ public class TransformerNodes extends Transformer {
 
                 sstWriter.writeMinorNode(osh);
 
-                if (!hasTags(osh)) {
+                if (hasNoTags(osh)) {
                     continue;
                 }
 
@@ -126,7 +128,7 @@ public class TransformerNodes extends Transformer {
                     .map(Contribution::changeset)
                     .collect(Collectors.toSet());
 
-            var changesets = fetchChangesets(changesetIds);
+            var changesets = fetchChangesets(changesetIds, changesetDb);
 
             for (var osh : batch) {
                 var contributions = new ContributionsNode(osh);

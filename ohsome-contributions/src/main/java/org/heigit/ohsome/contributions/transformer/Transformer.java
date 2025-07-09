@@ -1,6 +1,5 @@
 package org.heigit.ohsome.contributions.transformer;
 
-import com.google.common.collect.Iterables;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.apache.avro.specific.SpecificData;
 import org.apache.parquet.avro.AvroWriteSupport;
@@ -8,11 +7,9 @@ import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.avro.ContribChangeset;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
-import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
@@ -30,13 +27,9 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
-import static com.google.common.base.Predicates.alwaysFalse;
-import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
 
 public abstract class Transformer {
@@ -45,16 +38,14 @@ public abstract class Transformer {
     protected final OSMPbf pbf;
     protected final Path outputDir;
     protected final int parallel;
-    protected final int chunkFactor;
     protected final SpatialJoiner countryJoiner;
     protected final Changesets changesetDb;
 
-    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, int chunkFactor, SpatialJoiner countryJoiner, Changesets changesetDb) {
+    protected Transformer(OSMType type, OSMPbf pbf, Path out, int parallel, SpatialJoiner countryJoiner, Changesets changesetDb) {
         this.osmType = type;
         this.pbf = pbf;
         this.outputDir = out;
         this.parallel = parallel;
-        this.chunkFactor = chunkFactor;
         this.countryJoiner = countryJoiner;
         this.changesetDb = changesetDb;
     }
@@ -83,7 +74,7 @@ public abstract class Transformer {
 
     protected void process(Map<OSMType, List<BlobHeader>> blobsByType) throws IOException {
         var blobs = blobsByType.get(osmType);
-        var chunks = blocksPerChunk(blobs, chunkFactor > 0 ? chunkFactor : parallel);
+        var chunks = blocksPerChunk(blobs, parallel);
         try (var progress = new ProgressBarBuilder()
                 .setTaskName("process %8s".formatted(osmType))
                 .setInitialMax(blobs.size())
@@ -149,29 +140,6 @@ public abstract class Transformer {
     }
 
     protected abstract void process(Processor processor, Progress progress) throws Exception;
-
-    protected Map<Long, ContribChangeset> fetchChangesets(Set<Long> ids) throws Exception {
-        var changesetBuilder = ContribChangeset.newBuilder();
-        var changesets = changesetDb.changesets(ids,(id, created, closed, tags, hashtags, editor, numChanges) ->
-                changesetBuilder
-                        .setId(id)
-                        .setCreatedAt(created)
-                        .setClosedAt(closed)
-                        .setTags(Map.copyOf(tags))
-                        .setHashtags(List.copyOf(hashtags))
-                        .setEditor(editor)
-                        .setNumChanges(numChanges)
-                        .build());
-        changesetBuilder
-                .setCreatedAt(Instant.ofEpochSecond(0))
-                .clearClosedAt().clearTags().clearHashtags().clearEditor().clearNumChanges();
-        ids.forEach(id -> changesets.computeIfAbsent(id, x -> changesetBuilder.setId(id).build()));
-        return changesets;
-    }
-
-    protected <T extends OSMEntity> boolean hasTags(List<T> osh) {
-        return Iterables.any(osh, osm -> !osm.tags().isEmpty());
-    }
 
     public static void moveSstToRocksDb(Path rocksDbPath) throws RocksDBException, IOException {
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(true);

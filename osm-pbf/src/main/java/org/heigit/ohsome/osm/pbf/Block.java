@@ -7,15 +7,12 @@ import org.heigit.ohsome.osm.pbf.ProtoZero.Message;
 import org.heigit.ohsome.osm.pbf.group.*;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static org.heigit.ohsome.osm.pbf.ProtoZero.messageFieldsIterator;
 
-public class Block implements Message, Iterable<OSMEntity> {
+public class Block implements Message {
 
     private final List<ByteBuffer> groups = new ArrayList<>();
     private final GroupNode groupNode;
@@ -55,11 +52,6 @@ public class Block implements Message, Iterable<OSMEntity> {
             parseStringTable(stringTable);
         }
         return strings;
-    }
-
-    @Override
-    public Iterator<OSMEntity> iterator() {
-        return new EntityIterator(this);
     }
 
     public Stream<OSMEntity> entities() {
@@ -130,46 +122,5 @@ public class Block implements Message, Iterable<OSMEntity> {
 
     public long parseTimestamp(long timestamp) {
         return timestamp * dateGranularity;
-    }
-
-    private static class EntityIterator implements Iterator<OSMEntity> {
-        private final Block block;
-        private final Iterator<ByteBuffer> groups;
-        private Iterator<Field> messageFields;
-        private Iterator<? extends OSMEntity> entities;
-        private OSMEntity next;
-
-        private EntityIterator(Block block) {
-            this.block = block;
-            this.groups = block.groups().iterator();
-        }
-
-        @Override
-        public boolean hasNext() {
-            return next != null || (next = computeNext()) != null;
-        }
-
-        @Override
-        public OSMEntity next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            var prev = next;
-            next = null;
-            return prev;
-        }
-
-        private OSMEntity computeNext() {
-            if (!entities.hasNext()) {
-                if (!messageFields.hasNext()) {
-                    if (!groups.hasNext()) {
-                        return null;
-                    }
-                    messageFields = messageFieldsIterator(groups.next());
-                }
-                entities = block.entities(messageFields.next()).iterator();
-            }
-            return entities.next();
-        }
     }
 }
