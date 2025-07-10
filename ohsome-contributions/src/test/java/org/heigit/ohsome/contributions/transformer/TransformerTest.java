@@ -11,8 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.*;
 
 class TransformerTest {
 
@@ -92,15 +91,19 @@ class TransformerTest {
         OSMEntity entity;
         assertTrue(entities.hasNext());
         entity = entities.next();
+        assertEquals(2, entity.id());
 
         assertTrue(entities.hasNext());
         entity = entities.next();
+        assertEquals(2, entity.id());
 
         assertTrue(entities.hasNext());
         entity = entities.next();
+        assertEquals(3, entity.id());
 
         assertTrue(entities.hasNext());
         entity = entities.next();
+        assertEquals(3, entity.id());
 
         assertFalse(entities.hasNext());
     }

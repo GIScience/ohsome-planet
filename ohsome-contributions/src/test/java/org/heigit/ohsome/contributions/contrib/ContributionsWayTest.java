@@ -1,7 +1,5 @@
-package org.heigit.ohsome.parquet.contrib;
+package org.heigit.ohsome.contributions.contrib;
 
-import org.heigit.ohsome.contributions.contrib.Contribution;
-import org.heigit.ohsome.contributions.contrib.ContributionsWay;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.junit.jupiter.api.Disabled;

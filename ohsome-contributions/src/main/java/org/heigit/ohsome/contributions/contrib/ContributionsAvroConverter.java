@@ -6,6 +6,7 @@ import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.AbstractIterator;
+import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
 
@@ -17,7 +18,6 @@ import java.util.function.Function;
 import static java.util.function.Predicate.not;
 import static org.heigit.ohsome.contributions.util.GeometryTools.areaOf;
 import static org.heigit.ohsome.contributions.util.GeometryTools.lengthOf;
-import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private static final Instant VALID_TO = Instant.parse("2222-01-01T00:00:00Z");
@@ -41,7 +41,6 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
     private int minorVersion;
     private int edits;
     private Geometry geometryBefore;
-    private List<Geometry> memberGeometries;
     private double areaBefore;
     private double lengthBefore;
 
@@ -109,18 +108,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
         final double area;
         final double length;
         if (geometry != null && !geometry.isEmpty()) {
-            var env = geometry.getEnvelopeInternal();
-            var centroid = geometry.getCentroid();
-            builder.setBboxBuilder(bboxBuilder
-                    .setXmin(env.getMinX())
-                    .setYmin(env.getMinY())
-                    .setXmax(env.getMaxX())
-                    .setYmax(env.getMaxY()));
-            builder.setCentroidBuilder(centroidBuilder
-                    .setX(centroid.getX())
-                    .setY(centroid.getY()));
-            var xz = XZ_CODE.getId(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY());
-            builder.setXzcodeBuilder(xzCodeBuilder.setLevel(xz.level()).setCode(xz.code()));
+            var env = setBBoxCentroidAndXZ(geometry);
             var geometryType = geometry.getGeometryType();
             builder.setGeometryType(geometry.getGeometryType());
             if (COLLECTION_TYPES.contains(geometryType)) {
@@ -139,16 +127,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
             builder.setXzcodeBuilder(xzCodeBuilder.setLevel(-1).setCode(0));
             var collection = ContributionGeometry.relGeometryCollection(contribution);
             if (!collection.isEmpty()) {
-                var env = collection.getEnvelopeInternal();
-                var centroid = collection.getCentroid();
-                builder.setBboxBuilder(bboxBuilder
-                        .setXmin(env.getMinX())
-                        .setYmin(env.getMinY())
-                        .setXmax(env.getMaxX())
-                        .setYmax(env.getMaxY()));
-                builder.setCentroidBuilder(centroidBuilder.setX(centroid.getX()).setY(centroid.getY()));
-                var xz = XZ_CODE.getId(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY());
-                builder.setXzcodeBuilder(xzCodeBuilder.setLevel(xz.level()).setCode(xz.code()));
+                setBBoxCentroidAndXZ(collection);
             }
 
             builder.clearGeometryType();
@@ -196,6 +175,22 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
         return Optional.of(builder.setBuildTime(System.nanoTime() - buildTime).build());
     }
 
+    private Envelope setBBoxCentroidAndXZ(Geometry geometry) {
+        var env = geometry.getEnvelopeInternal();
+        var centroid = geometry.getCentroid();
+        builder.setBboxBuilder(bboxBuilder
+                .setXmin(env.getMinX())
+                .setYmin(env.getMinY())
+                .setXmax(env.getMaxX())
+                .setYmax(env.getMaxY()));
+        builder.setCentroidBuilder(centroidBuilder
+                .setX(centroid.getX())
+                .setY(centroid.getY()));
+        var xz = XZ_CODE.getId(env.getMinX(), env.getMinY(), env.getMaxX(), env.getMaxY());
+        builder.setXzcodeBuilder(xzCodeBuilder.setLevel(xz.level()).setCode(xz.code()));
+        return env;
+    }
+
     private Member member(ContribMember contribMember) {
         memberBuilder.setId(contribMember.id())
                 .setType(contribMember.type().toString())
@@ -215,24 +210,6 @@ public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
 
     private Geometry geometry(Contribution contribution) {
         return contribution.data("geometry", ContributionGeometry::geometry);
-    }
-
-    private boolean noGeometryChange(Contribution contribution) {
-        if (!ContributionGeometry.relIsMultipolygon(contribution)) {
-            return false;
-        }
-
-        var memberGeometriesBefore = memberGeometries;
-        var newMemberGeometries = contribution.members().stream()
-                .filter(member -> member.type().equals(WAY))
-                .filter(member -> member.role().isBlank() || "outer".equals(member.role()) || "inner".equals(member.role()))
-                .map(ContribMember::contrib)
-                .filter(Objects::nonNull)
-                .map(member -> member.data("geometry", ContributionGeometry::geometry))
-                .filter(not(Geometry::isEmpty))
-                .toList();
-        memberGeometries = newMemberGeometries;
-        return newMemberGeometries.equals(memberGeometriesBefore);
     }
 
     private ByteBuffer wkb(Contribution contribution) {

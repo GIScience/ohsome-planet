@@ -1,8 +1,7 @@
-package org.heigit.ohsome.parquet.contrib;
+package org.heigit.ohsome.contributions.contrib;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.heigit.ohsome.contributions.contrib.ContributionGeometry;
 import org.junit.jupiter.api.Test;
 
 class ConributionGeometryTest {

@@ -56,9 +56,9 @@ import static org.heigit.ohsome.osm.pbf.ProtoZero.decodeMessage;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
-@CommandLine.Command(name = "contributions3", aliases = {"contribs3"},
+@CommandLine.Command(name = "contributions", aliases = {"contribs"},
         mixinStandardHelpOptions = true,
-        version = "ohsome-planet contribution 1.0.0", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
+        version = "ohsome-planet contribution 1.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
         description = "generates parquet files")
 public class Contributions2Parquet implements Callable<Integer> {
 
@@ -138,7 +138,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         processRelations(pbfPath, out, parallel, blobTypes, keyFilter, changesetDb);
 
-        System.out.println("done in" + total);
+        System.out.println("done in " + total);
         return 0;
     }
 

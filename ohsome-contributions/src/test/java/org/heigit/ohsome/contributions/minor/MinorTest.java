@@ -1,7 +1,5 @@
-package org.heigit.ohsome.parquet.minor;
+package org.heigit.ohsome.contributions.minor;
 
-import org.heigit.ohsome.contributions.minor.MinorNode;
-import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.util.io.Output;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
