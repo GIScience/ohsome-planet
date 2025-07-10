@@ -201,7 +201,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                         processRelation(copy, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
                     } catch (Exception e) {
                         cancel.set(true);
-                        e.printStackTrace();
+                        System.err.println(e.getMessage());
                     } finally {
                         try {
                             writers.put(writer);
