@@ -2,6 +2,7 @@ package org.heigit.ohsome.contributions;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
@@ -156,10 +157,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
 
-            var writers = new ArrayBlockingQueue<Writer>(numFiles);
-            for (var i = 0; i < numFiles; i++) {
-                writers.add(new Writer(i, RELATION, output, Contributions2Parquet::relationParquetConfig));
-            }
+            var writers = getWriters(output, numFiles);
 
             var blocks = Flux.fromIterable(blobTypes.get(RELATION))
                     // read blob from file
@@ -176,14 +174,10 @@ public class Contributions2Parquet implements Callable<Integer> {
                     .build());
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
-            var osh = new ArrayList<OSMEntity>();
+
             var cancel = new AtomicBoolean(false);
             while (entities.hasNext()) {
-                osh.clear();
-                var id = entities.peek().id();
-                while (entities.hasNext() && entities.peek().id() == id) {
-                    osh.add(entities.next());
-                }
+                var osh = getNextOSH(entities);
 
                 if(hasNoTags(osh) || filterOut(osh, keyFilter)){
                     continue;
@@ -194,11 +188,10 @@ public class Contributions2Parquet implements Callable<Integer> {
                     break;
                 }
 
-                var copy = List.copyOf(osh);
                 var writer = writers.take();
                 contribWorkers.execute(() -> {
                     try {
-                        processRelation(copy, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
+                        processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
                     } catch (Exception e) {
                         cancel.set(true);
                         System.err.println(e.getMessage());
@@ -206,7 +199,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                         try {
                             writers.put(writer);
                         } catch (InterruptedException e) {
-                            writer.close();
+                            throw new RuntimeException(e);
                         }
                     }
                 });
@@ -216,6 +209,23 @@ public class Contributions2Parquet implements Callable<Integer> {
                 writer.close(cancel.get());
             }
         }
+    }
+
+    private List<OSMEntity> getNextOSH(PeekingIterator<OSMEntity> entities) {
+        var osh = new ArrayList<OSMEntity>();
+        var id = entities.peek().id();
+        while (entities.hasNext() && entities.peek().id() == id) {
+            osh.add(entities.next());
+        }
+        return null;
+    }
+
+    private static ArrayBlockingQueue<Writer> getWriters(Path output, int numFiles) {
+        var writers = new ArrayBlockingQueue<Writer>(numFiles);
+        for (var i = 0; i < numFiles; i++) {
+            writers.add(new Writer(i, RELATION, output, Contributions2Parquet::relationParquetConfig));
+        }
+        return writers;
     }
 
     private static void relationParquetConfig(AvroUtil.AvroBuilder<Contrib> config) {
