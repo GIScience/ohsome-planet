@@ -26,6 +26,7 @@
         <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
         <sonar.projectKey>${project.groupId}:ohsome-planet</sonar.projectKey>
         <sonar.projectName>ohsome-planet</sonar.projectName>
+        <sonar.exclusions>**/avro/*.java</sonar.exclusions>
     </properties>
 
     <modules>
