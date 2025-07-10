@@ -7,12 +7,11 @@ import com.google.common.collect.Sets;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.contrib.*;
+import org.heigit.ohsome.contributions.contrib.Contributions;
+import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
+import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
@@ -35,6 +34,7 @@ import picocli.CommandLine.Option;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,6 +42,7 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -149,10 +150,10 @@ public class Contributions2Parquet implements Callable<Integer> {
              var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, output.resolve("minorWays").toString());
              var progress = new ProgressBarBuilder()
-                .setTaskName("process %8s".formatted(RELATION))
-                .setInitialMax(blobTypes.get(RELATION).size())
-                .setUnit(" blk", 1)
-                .build()) {
+                     .setTaskName("process %8s".formatted(RELATION))
+                     .setInitialMax(blobTypes.get(RELATION).size())
+                     .setUnit(" blk", 1)
+                     .build()) {
 
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
@@ -176,16 +177,11 @@ public class Contributions2Parquet implements Callable<Integer> {
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
             var cancel = new AtomicBoolean(false);
-            while (entities.hasNext()) {
+            while (entities.hasNext() && !cancel.get()) {
                 var osh = getNextOSH(entities);
 
-                if(hasNoTags(osh) || filterOut(osh, keyFilter)){
+                if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
                     continue;
-                }
-
-                if (cancel.get()) {
-                    System.err.println("canceled");
-                    break;
                 }
 
                 var writer = writers.take();
@@ -196,13 +192,13 @@ public class Contributions2Parquet implements Callable<Integer> {
                         cancel.set(true);
                         System.err.println(e.getMessage());
                     } finally {
-                        try {
-                            writers.put(writer);
-                        } catch (InterruptedException e) {
-                            throw new RuntimeException(e);
-                        }
+                        writers.add(writer);
                     }
                 });
+            }
+
+            if (cancel.get()) {
+                System.err.println("cancelled");
             }
             for (var i = 0; i < numFiles; i++) {
                 var writer = writers.take();
@@ -217,7 +213,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         while (entities.hasNext() && entities.peek().id() == id) {
             osh.add(entities.next());
         }
-        return null;
+        return osh;
     }
 
     private static ArrayBlockingQueue<Writer> getWriters(Path output, int numFiles) {
