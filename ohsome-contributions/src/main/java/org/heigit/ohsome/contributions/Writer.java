@@ -69,7 +69,7 @@ class Writer implements AutoCloseable {
             Files.createDirectories(path.getParent());
             return Transformer.openWriter(path, config);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -137,6 +137,7 @@ class Writer implements AutoCloseable {
                 Files.createDirectories(finalPath.toAbsolutePath().getParent());
                 Files.move(path, finalPath);
             } catch (IOException e) {
+                // ignore exception
             }
         });
         if (logWriter != null) {

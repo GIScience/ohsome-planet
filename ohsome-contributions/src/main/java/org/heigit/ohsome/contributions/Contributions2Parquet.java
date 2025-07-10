@@ -198,12 +198,16 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var writer = writers.take();
                 contribWorkers.execute(() -> {
                     try {
-                        processRelation(id, copy, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
+                        processRelation(copy, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
                     } catch (Exception e) {
                         cancel.set(true);
                         e.printStackTrace();
                     } finally {
-                        writers.offer(writer);
+                        try {
+                            writers.put(writer);
+                        } catch (InterruptedException e) {
+                            writer.close();
+                        }
                     }
                 });
             }
@@ -219,7 +223,8 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(long id, List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, boolean debug) throws Exception {
+    private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, boolean debug) throws Exception {
+        var id = entities.getFirst().id();
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,

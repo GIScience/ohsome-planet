@@ -43,10 +43,10 @@ public class OSMIterator implements Iterator<OSMEntity> {
             }
             entities = Iterators.peekingIterator(blocks.next().entities().iterator());
         }
-        var next = entities.next();
+        var n = entities.next();
         if (!entities.hasNext()) {
             progress.step();
         }
-        return next;
+        return n;
     }
 }
