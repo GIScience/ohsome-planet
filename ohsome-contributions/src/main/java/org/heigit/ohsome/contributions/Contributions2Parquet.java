@@ -176,8 +176,8 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
-            var cancel = new AtomicBoolean(false);
-            while (entities.hasNext() && !cancel.get()) {
+            var canceled = new AtomicBoolean(false);
+            while (entities.hasNext() && !canceled.get()) {
                 var osh = getNextOSH(entities);
 
                 if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
@@ -189,7 +189,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     try {
                         processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
                     } catch (Exception e) {
-                        cancel.set(true);
+                        canceled.set(true);
                         System.err.println(e.getMessage());
                     } finally {
                         writers.add(writer);
@@ -197,12 +197,12 @@ public class Contributions2Parquet implements Callable<Integer> {
                 });
             }
 
-            if (cancel.get()) {
+            if (canceled.get()) {
                 System.err.println("cancelled");
             }
             for (var i = 0; i < numFiles; i++) {
                 var writer = writers.take();
-                writer.close(cancel.get());
+                writer.close(canceled.get());
             }
         }
     }
