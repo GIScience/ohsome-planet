@@ -101,7 +101,7 @@ public class ChangesetXmlReader<T> implements Iterator<T> {
                 case SPACE, COMMENT, PROCESSING_INSTRUCTION, CDATA, CHARACTERS:
                     break; // skip
                 default:
-                    throw new XMLStreamException("Received event %d, instead of START_ELEMENT or END_ELEMENT or END_DOCUMENT.".formatted(event));
+                    throw new XMLStreamException("Received event %s, instead of START_ELEMENT or END_ELEMENT or END_DOCUMENT.".formatted(event));
             }
         }
     }

@@ -276,7 +276,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
 
         if (debug) {
-            writer.log("%d,%d,%d".formatted(id, versions, System.nanoTime() - time));
+            writer.log("%s,%s,%s".formatted(id, versions, System.nanoTime() - time));
         }
     }
 
