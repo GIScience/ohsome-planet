@@ -269,8 +269,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         var versions = 0;
         while (converter.hasNext()) {
             var contrib = converter.next();
-            writer.write(contrib);
-            versions++;
+            if (contrib.isPresent()) {
+                writer.write(contrib.get());
+                versions++;
+            }
         }
 
         if (debug) {

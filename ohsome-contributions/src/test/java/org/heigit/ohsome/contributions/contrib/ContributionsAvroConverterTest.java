@@ -26,11 +26,11 @@ class ContributionsAvroConverterTest {
 
         var converter = new ContributionsAvroConverter(contributions, cs -> changesetBuilder.setId(cs).build(), SpatialJoiner.noop());
         assertTrue(converter.hasNext());
-        var contrib = converter.next();
+        var contrib = converter.next().orElseThrow();
         assertEquals(1, contrib.getOsmVersion());
 
         assertTrue(converter.hasNext());
-        contrib = converter.next();
+        contrib = converter.next().orElseThrow();
         assertEquals(2, contrib.getOsmVersion());
 
         assertFalse(converter.hasNext());
@@ -53,7 +53,7 @@ class ContributionsAvroConverterTest {
 
         var converter = new ContributionsAvroConverter(contributions, cs -> changesetBuilder.setId(cs).build(), SpatialJoiner.noop());
         assertTrue(converter.hasNext());
-        var contrib = converter.next();
+        var contrib = converter.next().orElseThrow();
         assertEquals("CREATION", contrib.getContribType());
 
         assertFalse(converter.hasNext());

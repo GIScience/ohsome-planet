@@ -19,7 +19,7 @@ import static java.util.function.Predicate.not;
 import static org.heigit.ohsome.contributions.util.GeometryTools.areaOf;
 import static org.heigit.ohsome.contributions.util.GeometryTools.lengthOf;
 
-public class ContributionsAvroConverter extends AbstractIterator<Contrib> {
+public class ContributionsAvroConverter extends AbstractIterator<Optional<Contrib>> {
     private static final Instant VALID_TO = Instant.parse("2222-01-01T00:00:00Z");
     private static final Set<String> COLLECTION_TYPES = Set.of(Geometry.TYPENAME_GEOMETRYCOLLECTION);
     private static final XZCode XZ_CODE = new XZCode(16);

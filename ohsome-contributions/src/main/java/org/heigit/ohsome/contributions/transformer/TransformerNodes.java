@@ -136,7 +136,9 @@ public class TransformerNodes extends Transformer {
 
                 while (converter.hasNext()) {
                     var contrib = converter.next();
-                    writer.write(processor.id(), contrib);
+                    if(contrib.isPresent()) {
+                        writer.write(processor.id(), contrib.get());
+                    }
                 }
             }
         }
