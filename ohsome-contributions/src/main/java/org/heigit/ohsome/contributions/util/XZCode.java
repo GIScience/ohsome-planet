@@ -5,11 +5,9 @@ import java.util.Map;
 
 /**
  * based on the following paper:
- * Böhm, C., Klump, G., Kriegel, HP. (1999). XZ-Ordering: A Space-Filling Curve for Objects with Spatial Extension. In: Güting, R.H., Papadias, D., Lochovsky, F. (eds) Advances in Spatial Databases. SSD 1999. Lecture Notes in Computer Science, vol 1651. Springer, Berlin, Heidelberg. https://doi.org/10.1007/3-540-48482-5_7
- *
- * https://www.dbs.ifi.lmu.de/Publikationen/Boehm/Ordering_99.pdf
- *
- * https://github.com/locationtech/geowave/blob/master/core/index/src/main/java/org/locationtech/geowave/core/index/sfc/xz/XZOrderSFC.java
+ * Böhm, C., Klump, G., Kriegel, HP. (1999). XZ-Ordering: A Space-Filling Curve for Objects with Spatial Extension. In: Güting, R.H., Papadias, D., Lochovsky, F. (eds) Advances in Spatial Databases. SSD 1999. Lecture Notes in Computer Science, vol 1651. Springer, Berlin, Heidelberg. <a href="https://doi.org/10.1007/3-540-48482-5_7">...</a>
+ * <a href="https://www.dbs.ifi.lmu.de/Publikationen/Boehm/Ordering_99.pdf">...</a>
+ * <a href="https://github.com/locationtech/geowave/blob/master/core/index/src/main/java/org/locationtech/geowave/core/index/sfc/xz/XZOrderSFC.java">...</a>
  */
 public class XZCode {
     public record XZLevelCode(int level, long code) {}
@@ -24,7 +22,8 @@ public class XZCode {
         this.g = g;
         this.nElem = new long[g];
         for (var i=0; i < g; i++) {
-            nElem[i] = (((long) Math.pow(4, g - i)) - 1L) / 3L;
+            var gi = g - i;
+            nElem[i] = (((long) Math.pow(4, gi)) - 1L) / 3L;
         }
     }
 
