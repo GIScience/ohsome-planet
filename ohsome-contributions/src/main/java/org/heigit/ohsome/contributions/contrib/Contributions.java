@@ -17,25 +17,12 @@ public interface Contributions extends Iterator<Contribution> {
         return new EmptyContributions(osmId);
     }
 
-    static Function<List<OSMEntity.OSMNode>, Contributions> node() {
-        return ContributionsNode::new;
-    }
-
-    static Function<List<OSMEntity.OSMWay>, Contributions> way(Map<Long, List<OSMEntity.OSMNode>> nodes) {
-        return osh -> new ContributionsWay(osh, nodes);
-    }
-
-    static Function<List<OSMEntity.OSMRelation>, Contributions> relation(Map<Long, List<OSMEntity.OSMNode>> nodes, Map<Long, List<OSMEntity.OSMWay>> ways) {
-        return osh -> new ContributionsRelation(osh, memberOf(nodes, ways));
-    }
-
     static Function<OSMId, Contributions> memberOf(Map<Long, List<OSMEntity.OSMNode>> nodes, Map<Long, List<OSMEntity.OSMWay>> ways) {
         return osmId -> (switch (osmId.type()) {
-            case NODE -> ofNullable(nodes.get(osmId.id())).map(Contributions.node());
-            case WAY -> ofNullable(ways.get(osmId.id())).map(Contributions.way(nodes));
+            case NODE -> ofNullable(nodes.get(osmId.id())).map(id -> (Contributions) new ContributionsNode(id));
+            case WAY -> ofNullable(ways.get(osmId.id())).map(id -> (Contributions) new ContributionsWay(id, nodes));
             default -> Optional.<Contributions>empty();
         }).orElseGet(() -> Contributions.empty(osmId));
-
     }
 
     @Override
