@@ -73,7 +73,6 @@ public class RocksUtil {
         tableOptions.setBlockSize(16 * KB);
         tableOptions.setCacheIndexAndFilterBlocks(true);
         tableOptions.setBlockCache(blockCache);
-        // consider to set setPinL0FilterAndIndexBlocksInCache(true);
 
         // new format 4 options
         tableOptions.setFormatVersion(4);
