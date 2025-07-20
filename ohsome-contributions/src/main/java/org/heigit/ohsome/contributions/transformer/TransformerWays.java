@@ -3,11 +3,12 @@ package org.heigit.ohsome.contributions.transformer;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
-import org.heigit.ohsome.contributions.minor.MinorNodeStorage;
+import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.SstWriter;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
+import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
@@ -15,6 +16,7 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.rocksdb.EnvOptions;
+import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.SstFileWriter;
 
@@ -36,7 +38,7 @@ import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
     public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel,
-                                   MinorNodeStorage minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
+                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
         var transformer = new TransformerWays(pbf, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb);
         transformer.process(blobsByType);
@@ -44,11 +46,11 @@ public class TransformerWays extends Transformer {
     }
 
 
-    private final MinorNodeStorage minorNodesStorage;
+    private final RocksDB minorNodesStorage;
     private final Path sstDirectory;
     private final LongPredicate writeMinor;
 
-    public TransformerWays(OSMPbf pbf, Path out, int parallel, MinorNodeStorage minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
+    public TransformerWays(OSMPbf pbf, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
         super(WAY, pbf, out, parallel, countryJoiner, changesetDb);
         this.minorNodesStorage = minorNodesStorage;
         this.sstDirectory = sstDirectory;
@@ -158,7 +160,7 @@ public class TransformerWays extends Transformer {
                 .<OSMWay>mapMulti(Iterable::forEach)
                 .<Long>mapMulti((way, down) -> way.refs().forEach(down))
                 .collect(Collectors.toSet());
-        return minorNodesStorage.getNodes(refs);
+        return RocksMap.get(minorNodesStorage, refs, MinorNode::deserialize);
     }
 
 }

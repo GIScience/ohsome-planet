@@ -48,7 +48,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
-import static org.heigit.ohsome.contributions.minor.MinorNodeStorage.inRocksMap;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -135,7 +134,8 @@ public class Contributions2Parquet implements Callable<Integer> {
         var minorNodesPath = out.resolve("minorNodes");
         processNodes(pbf, blobTypes, out, parallel, minorNodesPath, countryJoiner, changesetDb);
         var minorWaysPath = out.resolve("minorWays");
-        try (var minorNodes = inRocksMap(minorNodesPath)) {
+        try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
+             var minorNodes = RocksDB.open(options, minorNodesPath.toString())) {
             processWays(pbf, blobTypes, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
         }
 
