@@ -191,7 +191,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         return env;
     }
 
-    private Member member(ContribMemberTemp contribMember) {
+    private Member member(Contribution.ContribMember contribMember) {
         memberBuilder.setId(contribMember.id())
                 .setType(contribMember.type().toString())
                 .setRole(contribMember.role());

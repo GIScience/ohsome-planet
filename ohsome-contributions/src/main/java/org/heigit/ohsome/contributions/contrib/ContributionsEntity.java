@@ -26,7 +26,7 @@ public class ContributionsEntity<T extends OSMEntity> extends Contributions {
 
   protected final Function<OSMId, Contributions> memberContributions;
 
-  protected List<ContribMemberTemp> members;
+  protected List<Contribution.ContribMember> members;
   private long changeset;
   private int userId;
   private String user;
@@ -79,16 +79,16 @@ public class ContributionsEntity<T extends OSMEntity> extends Contributions {
     }
   }
 
-  private List<ContribMemberTemp> initMembers() {
+  private List<Contribution.ContribMember> initMembers() {
     var majorMembers = major.members();
-    var members = new ArrayList<ContribMemberTemp>(majorMembers.size());
+    var members = new ArrayList<Contribution.ContribMember>(majorMembers.size());
 
     for (var m : majorMembers) {
       var member = active.computeIfAbsent(m.osmId(),this::getOshContributions);
       while (member.hasNext() && (!member.peek().timestamp().isAfter(timestamp) || member.peek().changeset() == changeset)) {
         member.next();
       }
-      members.add(new ContribMemberTemp(m.type(), m.id(), member.prev(), m.role()));
+      members.add(new Contribution.ContribMember(m.type(), m.id(), member.prev(), m.role()));
     }
 
     queue.addAll(active.values());
@@ -140,7 +140,7 @@ public class ContributionsEntity<T extends OSMEntity> extends Contributions {
             && changeset(memberContribution) == changeset) {
           memberContribution.next();
         }
-        members.add(new ContribMemberTemp(member.type(), member.id(), memberContribution.prev(), member.role()));
+        members.add(new Contribution.ContribMember(member.type(), member.id(), memberContribution.prev(), member.role()));
       }
     } else {
       // next major version
