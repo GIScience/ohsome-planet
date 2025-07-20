@@ -21,7 +21,7 @@ public interface MinorNodeStorage extends AutoCloseable {
             }
 
             @Override
-            public void close() throws Exception {
+            public void close() {
                 db.close();
             }
         };

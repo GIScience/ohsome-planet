@@ -3,6 +3,7 @@ package org.heigit.ohsome.osm.pbf.group;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.util.io.Input;
 
 import java.util.ArrayList;
@@ -26,13 +27,8 @@ public class GroupRelation extends GroupPrimitive<OSMRelation> {
     // delta encoded
     private long memId;
 
-    public void clear() {
-        super.clear();
-        memId = 0L;
-        roles.clear();
-        memIds.clear();
-        types.clear();
-        mems.clear();
+    public GroupRelation(Block block) {
+        super(block);
     }
 
     @Override

@@ -7,16 +7,12 @@ import org.heigit.ohsome.osm.pbf.ProtoZero;
 public abstract class Group<T extends OSMEntity> implements ProtoZero.Message, Iterable<T> {
     protected Block block;
 
-    public Group<T> start(Block block) {
+    protected Group(Block block) {
         this.block = block;
-        clear();
-        return this;
     }
 
     @Override
     public void finish() {
         this.block = null;
     }
-
-    public abstract void clear();
 }

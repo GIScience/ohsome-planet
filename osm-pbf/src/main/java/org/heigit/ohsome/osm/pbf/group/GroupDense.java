@@ -1,6 +1,7 @@
 package org.heigit.ohsome.osm.pbf.group;
 
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
+import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.osm.pbf.ProtoZero;
 
@@ -31,6 +32,11 @@ public class GroupDense extends Group<OSMNode> {
     private long changeset;
     private int userId;
     private int user;
+
+    public GroupDense(Block block) {
+        super(block);
+    }
+
 
     @Override
     public boolean decode(Input input, int tag) {
@@ -154,11 +160,6 @@ public class GroupDense extends Group<OSMNode> {
                 lons.get(idx),
                 lats.get(idx)
         );
-    }
-
-    @Override
-    public void clear() {
-
     }
 
     @Override

@@ -15,20 +15,12 @@ import static org.heigit.ohsome.osm.pbf.ProtoZero.messageFieldsIterator;
 public class Block implements Message {
 
     private final List<ByteBuffer> groups = new ArrayList<>();
-    private final GroupNode groupNode;
-    private final GroupWay groupWay;
-    private final GroupRelation groupRelation;
     private ByteBuffer stringTable;
     private List<String> strings;
     private long granularity = 100;
     private long dateGranularity = 1000;
     private long lonOffset = 0;
     private long latOffset = 0;
-    public Block() {
-        this.groupNode = new GroupNode();
-        this.groupWay = new GroupWay();
-        this.groupRelation = new GroupRelation();
-    }
 
     @Override
     public boolean decode(Input input, int tag) {
@@ -67,10 +59,10 @@ public class Block implements Message {
         }
 
         return switch (GroupType.of(tag)) {
-            case DENSE -> ProtoZero.decode(buffer, new GroupDense().start(this));
-            case NODE -> ProtoZero.decode(buffer, groupNode.start(this));
-            case WAY -> ProtoZero.decode(buffer, groupWay.start(this));
-            case RELATION -> ProtoZero.decode(buffer, groupRelation.start(this));
+            case DENSE -> ProtoZero.decode(buffer, new GroupDense(this));
+            case NODE -> ProtoZero.decode(buffer, new GroupNode(this));
+            case WAY -> ProtoZero.decode(buffer, new GroupWay(this));
+            case RELATION -> ProtoZero.decode(buffer, new GroupRelation(this));
             case CHANGESET -> throw new UnsupportedOperationException("Unsupported GroupType CHANGESET");
         };
     }

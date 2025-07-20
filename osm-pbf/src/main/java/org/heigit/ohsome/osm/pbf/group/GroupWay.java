@@ -1,6 +1,7 @@
 package org.heigit.ohsome.osm.pbf.group;
 
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
+import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.util.io.Input;
 
 import java.util.ArrayList;
@@ -18,14 +19,8 @@ public class GroupWay extends GroupPrimitive<OSMWay> {
     private long lat = 0;
     private long lon = 0;
 
-    public void clear() {
-        super.clear();
-        ref = 0;
-        refs.clear();
-        lat = 0;
-        lats.clear();
-        lon = 0;
-        lons.clear();
+    public GroupWay(Block block) {
+        super(block);
     }
 
     @Override

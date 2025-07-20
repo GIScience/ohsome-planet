@@ -1,6 +1,7 @@
 package org.heigit.ohsome.osm.pbf.group;
 
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.osm.pbf.ProtoZero;
 
@@ -23,19 +24,11 @@ public abstract class GroupPrimitive<T extends OSMEntity> extends Group<T> {
 
     protected Map<String, String> tags = Map.of();
 
-    public abstract T entity();
-
-    public void clear() {
-        id = 0;
-        version = 0;
-        timestamp = Instant.EPOCH;
-        changeset = 0;
-        userId = 0;
-        user = "";
-        visible = true;
-        keys.clear();
-        vals.clear();
+    protected GroupPrimitive(Block block) {
+        super(block);
     }
+
+    public abstract T entity();
 
     public Map<String, String> tags() {
         kvs.clear();
