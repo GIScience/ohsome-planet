@@ -7,7 +7,7 @@ import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import java.util.List;
 
 
-public class ContributionsNode extends Contributions {
+public class ContributionsNode extends AbstractContributions {
 
     private final PeekingIterator<OSMNode> majorVersions;
 

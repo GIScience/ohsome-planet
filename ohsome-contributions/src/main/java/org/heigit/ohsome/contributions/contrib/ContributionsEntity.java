@@ -13,7 +13,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Optional.ofNullable;
 
 
-public class ContributionsEntity<T extends OSMEntity> extends Contributions {
+public class ContributionsEntity<T extends OSMEntity> extends AbstractContributions {
 
   private final PeekingIterator<T> majorVersions;
   protected T major;
