@@ -101,7 +101,7 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
 
   private Contributions getContributions(OSMId osmId) {
     var contrib = memberContributions.apply(osmId);
-    return contrib != null ? contrib : Contributions.empty(osmId);
+    return contrib != null ? contrib : new EmptyContributions(osmId);
   }
 
   @Override

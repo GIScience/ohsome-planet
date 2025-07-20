@@ -17,7 +17,7 @@ public class ContributionsWay extends ContributionsEntity<OSMWay> {
     }
 
     public ContributionsWay(List<OSMWay> osh, Map<Long, List<OSMNode>> nodes) {
-        this(osh, osmId -> ofNullable(nodes.get(osmId.id())).map(id -> (Contributions) new ContributionsNode(id)).orElseGet(() -> Contributions.empty(osmId)));
+        this(osh, osmId -> ofNullable(nodes.get(osmId.id())).map(id -> (Contributions) new ContributionsNode(id)).orElseGet(() -> new EmptyContributions(osmId)));
     }
 
 }

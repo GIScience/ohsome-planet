@@ -13,16 +13,13 @@ import java.util.function.Function;
 import static java.util.Optional.ofNullable;
 
 public interface Contributions extends Iterator<Contribution> {
-    static Contributions empty(OSMId osmId) {
-        return new EmptyContributions(osmId);
-    }
 
     static Function<OSMId, Contributions> memberOf(Map<Long, List<OSMEntity.OSMNode>> nodes, Map<Long, List<OSMEntity.OSMWay>> ways) {
         return osmId -> (switch (osmId.type()) {
             case NODE -> ofNullable(nodes.get(osmId.id())).map(id -> (Contributions) new ContributionsNode(id));
             case WAY -> ofNullable(ways.get(osmId.id())).map(id -> (Contributions) new ContributionsWay(id, nodes));
             default -> Optional.<Contributions>empty();
-        }).orElseGet(() -> Contributions.empty(osmId));
+        }).orElseGet(() -> new EmptyContributions(osmId));
     }
 
     @Override
