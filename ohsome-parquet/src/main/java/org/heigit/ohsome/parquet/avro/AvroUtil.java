@@ -47,7 +47,7 @@ public class AvroUtil {
         return new LocalOutputFile(path);
     }
 
-    public static LocalInputFile inputFile(Path path) throws IOException {
+    public static LocalInputFile inputFile(Path path) {
         return new LocalInputFile(path);
     }
 

@@ -94,8 +94,8 @@ class GeometryBuilderTest {
       var mapping = new HashMap<OSMNode, Coordinate>();
       outerWays.forEach(way -> way.forEach(node -> mapping.computeIfAbsent(node, n -> new Coordinate(n.lon(), n.lat()))));
       innerWays.forEach(way -> way.forEach(node -> mapping.computeIfAbsent(node, n -> new Coordinate(n.lon(), n.lat()))));
-      var outer = outerWays.stream().map(way -> way.stream().map(node -> mapping.get(node)).toList()).toList();
-      var inner = innerWays.stream().map(way -> way.stream().map(node -> mapping.get(node)).toList()).toList();
+      var outer = outerWays.stream().map(way -> way.stream().map(mapping::get).toList()).toList();
+      var inner = innerWays.stream().map(way -> way.stream().map(mapping::get).toList()).toList();
 
       var json = new ObjectMapper().readTree(test);
       var area = json.findPath("areas");
@@ -119,7 +119,9 @@ class GeometryBuilderTest {
             return;
           }
         }
-      } catch (GeometryBuilderException ignored) { }
+      } catch (GeometryBuilderException ignored) {
+        // ignore this exception
+      }
 
       assertEquals(reference, result);
     }

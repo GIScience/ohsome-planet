@@ -61,7 +61,7 @@ public interface SpatialJoiner {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } catch (ParseException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(new IOException(e));
         }
     }
 

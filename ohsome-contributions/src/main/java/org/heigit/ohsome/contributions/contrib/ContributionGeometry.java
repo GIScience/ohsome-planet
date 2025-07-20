@@ -4,7 +4,6 @@ import com.google.common.base.Predicates;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.geometry.GeometryBuilder;
-import org.heigit.ohsome.osm.geometry.GeometryBuilderException;
 import org.locationtech.jts.geom.*;
 
 import java.io.BufferedReader;
@@ -102,9 +101,8 @@ public class ContributionGeometry {
             if (geometry.isValid()) {
                 return geometry;
             }
-        } catch (GeometryBuilderException ignored) {
-        } catch (Exception e) {
-//            System.err.println("Failed building multipolygon: " + e.getMessage());
+        } catch (Exception ignored) {
+            // fallback to empty geometry
         }
         return geometryFactory.createMultiPolygon();
     }

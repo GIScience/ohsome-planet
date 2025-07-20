@@ -66,7 +66,8 @@ public abstract class Transformer {
     }
 
     var chunks = new ArrayList<Chunk>();
-    for (var offset = 0; offset < size; ) {
+    var offset = 0;
+    while(offset < size) {
       var limit = offset + chunkLength + (rest-- > 0 ? 1 : 0);
       chunks.add(new Chunk(offset, Math.min(size, limit)));
       offset = limit;
@@ -97,7 +98,7 @@ public abstract class Transformer {
       var processor = Transformer.processor(id, ch, chunk, blobs, pbf);
       process(processor, progress);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new TransformerException("Error processing chunk " + id, e);
     }
   }
 

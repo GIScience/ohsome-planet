@@ -1,7 +1,5 @@
 package org.heigit.ohsome.osm.geometry.oshdb;
 
-import static org.heigit.ohsome.oshdb.osm.OSMCoordinates.toOSM;
-
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,7 +11,6 @@ import org.heigit.ohsome.oshdb.osm.OSMEntity;
 import org.heigit.ohsome.oshdb.osm.OSMMember;
 import org.heigit.ohsome.oshdb.osm.OSMNode;
 import org.heigit.ohsome.oshdb.osm.OSMRelation;
-import org.heigit.ohsome.oshdb.osm.OSMType;
 import org.heigit.ohsome.oshdb.util.geometry.OSHDBGeometryBuilderInternal;
 import org.heigit.ohsome.oshdb.util.taginterpreter.TagInterpreter;
 import org.locationtech.jts.geom.Coordinate;
@@ -22,6 +19,11 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Polygon;
 
 public class OSHDBGeometryBuilder {
+
+  private OSHDBGeometryBuilder() {
+    // utility class
+  }
+
   private static final GeometryFactory geometryFactory = new GeometryFactory();
   private static final OSHDBGeometryBuilderInternal builder = new OSHDBGeometryBuilderInternal(tagInterpreter(), geometryFactory);
 
@@ -57,70 +59,60 @@ public class OSHDBGeometryBuilder {
     return (int) Math.round(value * OSMCoordinates.GEOM_PRECISION_TO_LONG);
   }
 
-  private static class Node implements OSMNode{
-    private final OSMNode node;
+  private static class Node implements OSMNode {
+    private final OSMNode osm;
 
-    private Node(OSMNode node) {
-      this.node = node;
-    }
-
-    public OSMType getType() {
-      return node.getType();
+    private Node(OSMNode osm) {
+      this.osm = osm;
     }
 
     public boolean isVisible() {
-      return node.isVisible();
+      return osm.isVisible();
     }
 
     public double getLongitude() {
-      return node.getLon() / OSMCoordinates.GEOM_PRECISION_TO_LONG;
+      return osm.getLon() / OSMCoordinates.GEOM_PRECISION_TO_LONG;
     }
 
     public int getUserId() {
-      return node.getUserId();
+      return osm.getUserId();
     }
 
     public double getLatitude() {
-      return node.getLat() / OSMCoordinates.GEOM_PRECISION_TO_LONG;
+      return osm.getLat() / OSMCoordinates.GEOM_PRECISION_TO_LONG;
     }
 
     public long getChangesetId() {
-      return node.getChangesetId();
+      return osm.getChangesetId();
     }
 
     public int getVersion() {
-      return node.getVersion();
+      return osm.getVersion();
     }
 
     public int getLon() {
-      return node.getLon();
+      return osm.getLon();
     }
 
     public long getEpochSecond() {
-      return node.getEpochSecond();
+      return osm.getEpochSecond();
     }
 
     public int getLat() {
-      return node.getLat();
+      return osm.getLat();
     }
 
     public long getId() {
-      return node.getId();
+      return osm.getId();
     }
 
     public boolean isBefore(OSHDBTemporal other) {
-      return node.isBefore(other);
+      return osm.isBefore(other);
     }
 
     public OSHDBTags getTags() {
-      return node.getTags();
+      return osm.getTags();
     }
-
-    public boolean isAfter(OSHDBTemporal other) {
-      return node.isAfter(other);
-    }
-
-
 
   }
 

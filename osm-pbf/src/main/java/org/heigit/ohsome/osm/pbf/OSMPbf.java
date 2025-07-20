@@ -37,7 +37,7 @@ public class OSMPbf {
     }
 
     public static ByteBuffer blobHeaderBuffer(FileChannel ch, ByteBuffer buffer) throws IOException {
-        if (ch.read(buffer.clear().limit(4)) != 4){
+        if (ch.read(buffer.clear().limit(4)) != 4) {
             throw new IOException("Invalid OSMPbf header");
         }
         var headerSize = buffer.flip().getInt();
@@ -52,6 +52,7 @@ public class OSMPbf {
     public static ByteBuffer blobBuffer(FileChannel ch, BlobHeader blobHeader) throws IOException {
         return blobBuffer(ch, blobHeader, null);
     }
+
     public static ByteBuffer blobBuffer(FileChannel ch, BlobHeader blobHeader, ByteBuffer buffer) throws IOException {
         if (buffer == null || buffer.capacity() < blobHeader.dataSize()) {
             buffer = ByteBuffer.allocateDirect(blobHeader.dataSize());
@@ -106,28 +107,32 @@ public class OSMPbf {
     public Stream<BlobHeader> blobs() {
         try {
             var ch = FileChannel.open(path, StandardOpenOption.READ);
-            try {
-                var length = ch.size();
-                var blobPosSpliterator = new BlobPosSpliterator(ch, length);
-                return StreamSupport
-                        .stream(blobPosSpliterator, false)
-                        .filter(blobHeader -> blobHeader.type() == BlobType.DATA)
-                        .onClose(() -> closeQuietly(ch));
-            } catch (Error | RuntimeException | IOException e) {
-                try {
-                    ch.close();
-                } catch (IOException ex) {
-                    try {
-                        e.addSuppressed(ex);
-                    } catch (Throwable ignore) {
-                    }
-                }
-                throw e;
-            }
+            return getBlobHeaderStream(ch);
         } catch (IOException e) {
             throw new UncheckedIOException(e.getMessage(), e);
         }
+    }
 
+    private static Stream<BlobHeader> getBlobHeaderStream(FileChannel ch) throws IOException {
+        try {
+            var length = ch.size();
+            var blobPosSpliterator = new BlobPosSpliterator(ch, length);
+            return StreamSupport
+                    .stream(blobPosSpliterator, false)
+                    .filter(blobHeader -> blobHeader.type() == BlobType.DATA)
+                    .onClose(() -> closeQuietly(ch));
+        } catch (RuntimeException | IOException e) {
+            closeChannel(ch, e);
+            throw e;
+        }
+    }
+
+    private static void closeChannel(FileChannel ch, Exception e) {
+        try {
+            ch.close();
+        } catch (IOException ex) {
+            e.addSuppressed(ex);
+        }
     }
 
     public Map<OSMType, List<BlobHeader>> blobsByType(List<BlobHeader> blobs) throws IOException {
@@ -156,7 +161,7 @@ public class OSMPbf {
     private static ToIntFunction<BlobHeader> findStartOfType(FileChannel ch, OSMType type) {
         return blob -> {
             try {
-                var block =  BlockReader.readBlock(ch, blob);
+                var block = BlockReader.readBlock(ch, blob);
                 var types = block.groupTypes();
                 if (types.size() > 1) {
                     throw new IOException("Expecting only one type per block! but got " + types);

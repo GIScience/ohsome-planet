@@ -46,7 +46,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    ids.add((id += input.readS64()));
+                    id += input.readS64();
+                    ids.add(id);
                 }
             }
             case 42 -> ProtoZero.decode(input.readBuffer(), this::parseInfo);
@@ -55,7 +56,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    lats.add(block.parseLat(lat += input.readS64()));
+                    lat += input.readS64();
+                    lats.add(block.parseLat(lat));
                 }
             }
             case 72 -> lons.add(block.parseLon(input.readS64()));
@@ -63,7 +65,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    lons.add(block.parseLon(lon += input.readS64()));
+                    lon += input.readS64();
+                    lons.add(block.parseLon(lon));
                 }
             }
             case 80 -> throw new UnsupportedOperationException("primitiveGroup dense single keyvalue");
@@ -106,7 +109,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    timestamps.add(block.parseTimestamp(timestamp += input.readS64()));
+                    timestamp += input.readS64();
+                    timestamps.add(block.parseTimestamp(timestamp));
                 }
             }
             case 24 -> changesets.add(input.readS64());
@@ -114,7 +118,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    changesets.add((changeset += input.readS64()));
+                    changeset += input.readS64();
+                    changesets.add((changeset));
                 }
             }
             case 32 -> userIds.add(input.readS32());
@@ -122,7 +127,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    userIds.add((userId += input.readS32()));
+                    userId += input.readS32();
+                    userIds.add((userId));
                 }
             }
             case 40 -> users.add(block.string(input.readS32()));
@@ -130,7 +136,8 @@ public class GroupDense extends Group<OSMNode> {
                 var len = input.readU32();
                 var limit = input.pos() + len;
                 while (input.pos() < limit) {
-                    users.add(block.string((user += input.readS32())));
+                    user += input.readS32();
+                    users.add(block.string((user)));
                 }
             }
             case 48 -> visibilities.add(input.readBool());

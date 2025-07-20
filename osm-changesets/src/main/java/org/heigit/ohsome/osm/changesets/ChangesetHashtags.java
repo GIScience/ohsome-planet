@@ -11,6 +11,11 @@ import java.util.stream.Stream;
 import static java.util.regex.Pattern.compile;
 
 public class ChangesetHashtags {
+
+    private ChangesetHashtags() {
+        // utility class
+    }
+
     public static final Pattern HASHTAG_PATTERN = compile("#[^\\u2000-\\u206F\\u2E00-\\u2E7F\\v\\h\\\\'!\"#$%()*,./:;<=>?@\\[\\]^`{|}~]+");
 
     public static List<String> hashTags(Map<String, String> tags) {

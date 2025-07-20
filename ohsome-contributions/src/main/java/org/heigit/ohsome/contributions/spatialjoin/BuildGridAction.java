@@ -82,7 +82,6 @@ class BuildGridAction extends RecursiveAction {
         }
 
         if (level >= maxLevel) {
-//            progress.step();
             return;
         }
 

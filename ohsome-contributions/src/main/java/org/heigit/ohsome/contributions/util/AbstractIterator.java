@@ -8,7 +8,7 @@ public abstract class AbstractIterator<T> implements Iterator<T> {
   private T next;
   private Exception exception = null;
 
-  public AbstractIterator() {
+  protected AbstractIterator() {
     this.next = null;
   }
 

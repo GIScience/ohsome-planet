@@ -18,7 +18,7 @@ public class PBZ2Reader implements Iterator<byte[]> {
     private final byte[] array = buffer.array();
     private final byte[] data = new byte[256 << 10];
 
-    private int count = 0;
+    private int count;
     private int limit;
     private int pos;
     private int bzi;
@@ -68,8 +68,15 @@ public class PBZ2Reader implements Iterator<byte[]> {
             var offset = pos;
             while (bzi < bzHeader.length && pos < limit) {
                 var b = array[pos++];
-                bzi = b == bzHeader[bzi] ? bzi + 1 :
-                        b == bzHeader[0] ? 1 : 0;
+                if (b == bzHeader[bzi]) {
+                    bzi++;
+                } else if (b == bzHeader[0]) {
+                    bzi = 1;
+                } else {
+                    bzi = 0;
+                }
+//                bzi = b == bzHeader[bzi] ? bzi + 1 :
+//                        b == bzHeader[0] ? 1 : 0;
             }
             var len = pos - offset;
             //TODO ensure capacity
@@ -95,8 +102,8 @@ public class PBZ2Reader implements Iterator<byte[]> {
             if (!hasNext()) {
                 sink.complete();
             }
-            var data = next();
-            sink.next(data);
+            var n = next();
+            sink.next(n);
         } catch (Exception e) {
             sink.error(e);
         }

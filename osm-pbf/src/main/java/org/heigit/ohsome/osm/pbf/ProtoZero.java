@@ -141,7 +141,10 @@ public class ProtoZero {
 
         @Override
         public void forEachRemaining(Consumer<? super Field> action) {
-            do { } while (tryAdvance(action));
+            Field field;
+            while ( (field= computeNext()) != null) {
+                action.accept(field);
+            }
         }
 
         @Override

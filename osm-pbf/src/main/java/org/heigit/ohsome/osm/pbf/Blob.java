@@ -2,6 +2,8 @@ package org.heigit.ohsome.osm.pbf;
 
 import org.heigit.ohsome.util.io.Input;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -63,7 +65,7 @@ public class Blob implements ProtoZero.Message {
             inflater.end();
             return buffer.flip();
         } catch (DataFormatException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(new IOException(e));
         }
     }
 

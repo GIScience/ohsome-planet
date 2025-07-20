@@ -4,13 +4,17 @@ import org.locationtech.jts.geom.*;
 
 public class GeometryTools {
 
-    private static final double earthRadiusMean = 6371000.0; //meters
-    private static final double earthRadiusEquator = 6378137.0; //meters
-    private static final double earthInverseFlattening = 298.257223563;
-    private static final double f_ = 1.0 - 1.0 / earthInverseFlattening;
+    private GeometryTools() {
+        // utility class
+    }
+
+    private static final double EARTH_RADIUS_MEAN = 6371000.0; //meters
+    private static final double EARTH_RADIUS_EQUATOR = 6378137.0; //meters
+    private static final double EARTH_INVERSE_FLATTENING = 298.257223563;
+    private static final double F_ = 1.0 - 1.0 / EARTH_INVERSE_FLATTENING;
     // this partially accounts for the non-spherical shape of the earth
     // see https://gis.stackexchange.com/a/63047/41632
-    private static final double sphereFact = Math.pow(f_, 1.5);
+    private static final double sphereFact = Math.pow(F_, 1.5);
 
     /**
      * Calculate the approximate length of an arbitrary geometry.
@@ -50,7 +54,7 @@ public class GeometryTools {
                 prevLon = thisLon;
                 prevLat = thisLat;
             }
-            dist *= earthRadiusMean;
+            dist *= EARTH_RADIUS_MEAN;
         }
         return dist;
     }
@@ -85,7 +89,6 @@ public class GeometryTools {
         return switch (geom) {
             case Polygon polygon -> areaOf(polygon);
             case MultiPolygon multiPolygon -> areaOf(multiPolygon);
-//            case GeometryCollection geometryCollection -> areaOf(geometryCollection);
             default -> 0.0;
         };
     }
@@ -109,7 +112,7 @@ public class GeometryTools {
      * Robert. G. Chamberlain and William H. Duquette, "Some Algorithms for
      * Polygons on a Sphere", JPL Publication 07-03, Jet Propulsion
      * Laboratory, Pasadena, CA, June 2007
-     * https://trs.jpl.nasa.gov/handle/2014/40409
+     * <a href="https://trs.jpl.nasa.gov/handle/2014/40409">...</a>
      * </p>
      *
      * <p>
@@ -174,7 +177,7 @@ public class GeometryTools {
      * </p>
      *
      * <p>
-     * Initially ported to Java from https://github.com/mapbox/geojson-area/.
+     * Initially ported to Java from <a href="https://github.com/mapbox/geojson-area/">...</a>.
      * Later adjusted to partially account for the spheroidal shape of the earth (WGS84 coordinates).
      * </p>
      *
@@ -222,12 +225,12 @@ public class GeometryTools {
                 Coordinate p3 = coords[upperIndex];
                 // wgs84 latitudes are not the same as spherical latitudes.
                 // this converts the latitude from a wgs84 coordinate into its corresponding spherical value
-                double x = f_ * Math.tan(Math.toRadians(p2.y));
+                double x = F_ * Math.tan(Math.toRadians(p2.y));
                 double sinLat = x / Math.sqrt(x * x + 1.0);
                 area += (Math.toRadians(p3.x - p1.x)) * sinLat;
             }
             double midLat = (ring.getEnvelopeInternal().getMaxY() + ring.getEnvelopeInternal().getMinY()) / 2;
-            area *= 0.5 * earthRadiusEquator * earthRadiusEquator * (1 - 1 / earthInverseFlattening * Math.pow(Math.cos(Math.toRadians(midLat)), 2));
+            area *= 0.5 * EARTH_RADIUS_EQUATOR * EARTH_RADIUS_EQUATOR * (1 - 1 / EARTH_INVERSE_FLATTENING * Math.pow(Math.cos(Math.toRadians(midLat)), 2));
         }
 
         return area;

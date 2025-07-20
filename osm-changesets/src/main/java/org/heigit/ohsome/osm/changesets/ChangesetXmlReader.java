@@ -40,9 +40,9 @@ public class ChangesetXmlReader<T> implements Iterator<T> {
         assertLocalName("changeset");
 
         var id = -1L;
-        var created = (Instant) null;
-        var closed = (Instant) null;
-        var user = (String) null;
+        Instant created = null;
+        Instant closed = null;
+        String user = null;
         var userId = -1;
         var minLon = Double.NaN;
         var minLat = Double.NaN;
@@ -66,7 +66,9 @@ public class ChangesetXmlReader<T> implements Iterator<T> {
                 case "min_lat" -> minLat = Double.parseDouble(attrValue);
                 case "max_lon" -> maxLon = Double.parseDouble(attrValue);
                 case "max_lat" -> maxLat = Double.parseDouble(attrValue);
-                case "open" -> {}
+                case "open" -> {
+                    // ignore the open flag
+                }
                 default -> throw new XMLParseException("unknown attribute: " + attrName);
             }
         }
