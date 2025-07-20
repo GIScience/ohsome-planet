@@ -111,7 +111,7 @@ public class ContributionGeometry {
 
     public static Geometry relGeometryCollection(Contribution contribution) {
         var geometries = contribution.members().stream()
-                .map(ContribMember::contrib)
+                .map(ContribMemberTemp::contrib)
                 .filter(Objects::nonNull)
                 .map(member -> member.data("geometry", ContributionGeometry::geometry))
                 .filter(Predicate.not(Geometry::isEmpty))
@@ -138,7 +138,7 @@ public class ContributionGeometry {
 
     public static Geometry wayGeometry(Contribution contribution) {
         var coordinates = contribution.members().stream()
-                .map(ContribMember::contrib)
+                .map(ContribMemberTemp::contrib)
                 .filter(Objects::nonNull)
                 .map(Contribution::entity)
                 .filter(OSMEntity::visible)

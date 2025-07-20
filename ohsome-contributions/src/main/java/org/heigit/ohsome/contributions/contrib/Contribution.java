@@ -12,8 +12,8 @@ import static java.util.Collections.emptyList;
 import static org.heigit.ohsome.osm.OSMEntity.*;
 
 public record Contribution(Instant timestamp, long changeset, int userId, String user, OSMEntity entity,
-                                              List<ContribMember> members, Map<String, Object> data) {
-    public Contribution(Instant timestamp, long changeset, int userId, String user, OSMEntity entity, List<ContribMember> members) {
+                           List<ContribMemberTemp> members, Map<String, Object> data) {
+    public Contribution(Instant timestamp, long changeset, int userId, String user, OSMEntity entity, List<ContribMemberTemp> members) {
         this(timestamp, changeset, userId, user, entity, members, new ConcurrentHashMap<>());
     }
 
