@@ -11,10 +11,10 @@ public class GeometryTools {
     private static final double EARTH_RADIUS_MEAN = 6371000.0; //meters
     private static final double EARTH_RADIUS_EQUATOR = 6378137.0; //meters
     private static final double EARTH_INVERSE_FLATTENING = 298.257223563;
-    private static final double F_ = 1.0 - 1.0 / EARTH_INVERSE_FLATTENING;
+    private static final double F_UNDERSCORE = 1.0 - 1.0 / EARTH_INVERSE_FLATTENING;
     // this partially accounts for the non-spherical shape of the earth
     // see https://gis.stackexchange.com/a/63047/41632
-    private static final double sphereFact = Math.pow(F_, 1.5);
+    private static final double SPHERE_FACT = Math.pow(F_UNDERSCORE, 1.5);
 
     /**
      * Calculate the approximate length of an arbitrary geometry.
@@ -43,10 +43,10 @@ public class GeometryTools {
         double dist = 0.0;
         if (coords.length > 1) {
             double prevLon = Math.toRadians(coords[0].x);
-            double prevLat = Math.atan(sphereFact * Math.tan(Math.toRadians(coords[0].y)));
+            double prevLat = Math.atan(SPHERE_FACT * Math.tan(Math.toRadians(coords[0].y)));
             for (int i = 1; i < coords.length; i++) {
                 double thisLon = Math.toRadians(coords[i].x);
-                double thisLat = Math.atan(sphereFact * Math.tan(Math.toRadians(coords[i].y)));
+                double thisLat = Math.atan(SPHERE_FACT * Math.tan(Math.toRadians(coords[i].y)));
                 double deltaLon = thisLon - prevLon;
                 double deltaLat = thisLat - prevLat;
                 deltaLon *= Math.cos((thisLat + prevLat) / 2);
@@ -225,7 +225,7 @@ public class GeometryTools {
                 Coordinate p3 = coords[upperIndex];
                 // wgs84 latitudes are not the same as spherical latitudes.
                 // this converts the latitude from a wgs84 coordinate into its corresponding spherical value
-                double x = F_ * Math.tan(Math.toRadians(p2.y));
+                double x = F_UNDERSCORE * Math.tan(Math.toRadians(p2.y));
                 double sinLat = x / Math.sqrt(x * x + 1.0);
                 area += (Math.toRadians(p3.x - p1.x)) * sinLat;
             }

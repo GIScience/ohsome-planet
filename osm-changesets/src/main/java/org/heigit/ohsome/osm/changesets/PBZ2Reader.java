@@ -75,8 +75,6 @@ public class PBZ2Reader implements Iterator<byte[]> {
                 } else {
                     bzi = 0;
                 }
-//                bzi = b == bzHeader[bzi] ? bzi + 1 :
-//                        b == bzHeader[0] ? 1 : 0;
             }
             var len = pos - offset;
             //TODO ensure capacity
