@@ -15,15 +15,15 @@ import java.util.concurrent.RecursiveAction;
 class BuildGridAction extends RecursiveAction {
     private static final GeometryFactory geometryFactory = new GeometryFactory();
 
-    private final ProgressBar progress;
-    private final HPRtree featureIndex;
-    private List<SpatialJoinFeature> intersecting;
-    private final List<SpatialJoinFeature> covering;
-    private final GridIndex grid;
-    private final Map<List<SpatialJoinFeature>, Integer> features;
-    private final int level;
-    private final int maxLevel;
-    private final Envelope env;
+    private final transient ProgressBar progress;
+    private final transient HPRtree featureIndex;
+    private transient List<SpatialJoinFeature> intersecting;
+    private final transient List<SpatialJoinFeature> covering;
+    private final transient GridIndex grid;
+    private final transient Map<List<SpatialJoinFeature>, Integer> features;
+    private final transient int level;
+    private final transient int maxLevel;
+    private final transient Envelope env;
 
     public BuildGridAction(ProgressBar progress, HPRtree featureIndex, GridIndex grid, Map<List<SpatialJoinFeature>, Integer> features) {
         this(progress, featureIndex, null ,null, grid, features, 0, 14, new Envelope(-180.0, 180.0, -90.0, 90.0));

@@ -1,17 +1,38 @@
 package org.heigit.ohsome.contributions.spatialjoin;
 
+import me.tongfei.progressbar.ProgressBar;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.prep.PreparedGeometryFactory;
 import org.locationtech.jts.index.hprtree.HPRtree;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Iterables.any;
+import static org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner.readCSV;
 
 public class SpatialGridJoiner implements SpatialJoiner {
+
+  public static SpatialJoiner fromCSVGrid(Path path) {
+    var prepare = new PreparedGeometryFactory();
+    var featureIndex = new HPRtree();
+    var features = new ArrayList<SpatialJoinFeature>();
+
+    readCSV(path, (id, geom) -> features.add(new SpatialJoinFeature(id, prepare.create(geom))));
+    features.forEach(feature -> featureIndex.insert(feature.geometry().getGeometry().getEnvelopeInternal(), feature));
+
+    var grid = new GridIndex();
+    var gridFeatures = new HashMap<List<SpatialJoinFeature>, Integer>();
+    try (var progress = new ProgressBar("building spatial joining grid", -1)) {
+      var buildGrid = new BuildGridAction(progress, featureIndex, grid, gridFeatures );
+      buildGrid.fork().join();
+    }
+    grid.build();
+    var list = gridFeatures.entrySet().stream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).toList();
+    return new SpatialGridJoiner(list, featureIndex, grid);
+  }
 
   private final List<List<SpatialJoinFeature>> features;
   private final HPRtree featureIndex;

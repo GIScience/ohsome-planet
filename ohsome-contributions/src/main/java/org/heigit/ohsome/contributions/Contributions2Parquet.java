@@ -15,6 +15,7 @@ import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
+import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.contributions.util.Utils;
@@ -123,7 +124,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
 
         countryJoiner = Optional.ofNullable(countryFilePath)
-                .map(SpatialJoiner::fromCSVGrid)
+                .map(SpatialGridJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
         var changesetDb = Changesets.open(changesetDbUrl, parallel);

@@ -81,18 +81,18 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
 
   private List<Contribution.ContribMember> initMembers() {
     var majorMembers = major.members();
-    var members = new ArrayList<Contribution.ContribMember>(majorMembers.size());
+    var mems = new ArrayList<Contribution.ContribMember>(majorMembers.size());
 
     for (var m : majorMembers) {
       var member = active.computeIfAbsent(m.osmId(),this::getOshContributions);
       while (member.hasNext() && (!member.peek().timestamp().isAfter(timestamp) || member.peek().changeset() == changeset)) {
         member.next();
       }
-      members.add(new Contribution.ContribMember(m.type(), m.id(), member.prev(), m.role()));
+      mems.add(new Contribution.ContribMember(m.type(), m.id(), member.prev(), m.role()));
     }
 
     queue.addAll(active.values());
-    return members;
+    return mems;
   }
 
   private Contributions getOshContributions(OSMId osmId) {

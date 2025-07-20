@@ -14,6 +14,10 @@ import static org.rocksdb.util.SizeUnit.MB;
 
 public class RocksUtil {
 
+    private RocksUtil() {
+        // utility class
+    }
+
     public static Options defaultOptions() {
         return defaultOptions((Cache)null);
     }
@@ -69,7 +73,7 @@ public class RocksUtil {
         tableOptions.setBlockSize(16 * KB);
         tableOptions.setCacheIndexAndFilterBlocks(true);
         tableOptions.setBlockCache(blockCache);
-        //    tableOptions.setPinL0FilterAndIndexBlocksInCache(true);
+        // consider to set setPinL0FilterAndIndexBlocksInCache(true);
 
         // new format 4 options
         tableOptions.setFormatVersion(4);
