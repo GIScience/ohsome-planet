@@ -2,24 +2,16 @@ package org.heigit.ohsome.contributions;
 
 import com.google.common.collect.Streams;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.concurrent.Callable;
 
-@Command(name = "fileinfo",
-        description = "print header for osm pbf file")
-public class FileInfo implements Callable<Integer> {
-    @Option(names = {"--pbf"}, required = true)
-    private Path path;
+public class FileInfo {
 
-    @Override
-    public Integer call() throws Exception {
-        var pbf = OSMPbf.open(path);
-        printInfo(pbf);
-        return 0;
+
+    public static void printInfo(Path path) throws IOException {
+            printInfo(OSMPbf.open(path));
     }
 
     public static void printInfo(OSMPbf pbf) {
