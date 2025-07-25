@@ -3,9 +3,13 @@ package org.heigit.ohsome.planet;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.contributions.FileInfo;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
+import static org.heigit.ohsome.contributions.FileInfo.printInfo;
 import static picocli.CommandLine.Command;
 
 @Command(name = "ohsome-planet",
@@ -13,8 +17,7 @@ import static picocli.CommandLine.Command;
         version = "ohsome-planet 1.0.0",
         description = "Transform OSM (history) PBF files into GeoParquet. Enrich with OSM changeset metadata and country information.%n",
         subcommands = {
-            FileInfo.class,
-            Contributions2Parquet.class
+                Contributions2Parquet.class
         })
 public class OhsomePlanet implements Callable<Integer> {
 
@@ -22,6 +25,13 @@ public class OhsomePlanet implements Callable<Integer> {
     public Integer call() {
         CommandLine.usage(this, System.out);
         return 0;
+    }
+
+    @Command(name = "fileinfo",
+            description = "print header for osm pbf file")
+    public int fileInfo(@Option(names = {"--pbf"}, required = true) Path path) throws IOException {
+        printInfo(path);
+        return CommandLine.ExitCode.OK;
     }
 
     public static void main(String[] args) {
