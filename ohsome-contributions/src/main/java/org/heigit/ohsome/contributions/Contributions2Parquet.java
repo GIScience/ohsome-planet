@@ -48,6 +48,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
+import static org.heigit.ohsome.contributions.FileInfo.printInfo;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -94,7 +95,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
         if (debug) {
-            FileInfo.printInfo(pbf);
+            printInfo(pbf);
         }
 
         if (Files.exists(out)) {
@@ -142,7 +143,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         processRelations(pbfPath, out, parallel, blobTypes, keyFilter, changesetDb);
 
         System.out.println("done in " + total);
-        return 0;
+        return CommandLine.ExitCode.OK;
     }
 
     private void processRelations(Path pbfPath, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
@@ -288,11 +289,4 @@ public class Contributions2Parquet implements Callable<Integer> {
                            " | Relations: " + blobTypes.get(OSMType.RELATION).size()
         );
     }
-
-    public static void main(String[] args) {
-        var main = new Contributions2Parquet();
-        var exit = new CommandLine(main).execute(args);
-        System.exit(exit);
-    }
-
 }
