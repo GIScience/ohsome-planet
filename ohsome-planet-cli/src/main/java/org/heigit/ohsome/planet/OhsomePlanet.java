@@ -1,7 +1,7 @@
 package org.heigit.ohsome.planet;
 
 import org.heigit.ohsome.contributions.Contributions2Parquet;
-import org.heigit.ohsome.contributions.FileInfo;
+import org.heigit.ohsome.planet.cmd.Replication;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -17,7 +17,8 @@ import static picocli.CommandLine.Command;
         version = "ohsome-planet 1.0.0",
         description = "Transform OSM (history) PBF files into GeoParquet. Enrich with OSM changeset metadata and country information.%n",
         subcommands = {
-                Contributions2Parquet.class
+                Contributions2Parquet.class,
+                Replication.class
         })
 public class OhsomePlanet implements Callable<Integer> {
 
