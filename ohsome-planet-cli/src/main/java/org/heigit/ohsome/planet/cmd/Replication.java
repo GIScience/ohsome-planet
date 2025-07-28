@@ -18,12 +18,12 @@ public class Replication implements Callable<Integer> {
         return CommandLine.ExitCode.OK;
     }
 
-    @Command
+    @Command(description = "initial database for updates")
     public int init(
-            @Option(names = {"--pbf"}, required = true, description = "path to osm/osh pbf file")
-            Path pbf,
-            @Option(names = {"-d"}, required = true, description = "directory")
-            Path database) {
+            @Option(names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/") Path changesetsPath,
+            @Option(names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD") String changesetDbUrl,
+            @Option(names = {"--pbf"}, required = true, description = "path to osm/osh pbf file") Path pbf,
+            @Option(names = {"-d"}, required = true, description = "directory") Path database) {
 
         return CommandLine.ExitCode.OK;
     }
