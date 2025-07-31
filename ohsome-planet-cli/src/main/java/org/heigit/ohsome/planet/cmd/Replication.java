@@ -11,6 +11,9 @@ import java.util.concurrent.Callable;
         mixinStandardHelpOptions = true,
         description = "")
 public class Replication implements Callable<Integer> {
+    public enum ReplicationInterval {
+        hour, minute, day
+    }
 
     @Override
     public Integer call() {
@@ -20,10 +23,15 @@ public class Replication implements Callable<Integer> {
 
     @Command(description = "initial database for updates")
     public int init(
-            @Option(names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/") Path changesetsPath,
-            @Option(names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD") String changesetDbUrl,
-            @Option(names = {"--pbf"}, required = true, description = "path to osm/osh pbf file") Path pbf,
-            @Option(names = {"-d"}, required = true, description = "directory") Path database) {
+            @Option(paramLabel = "path_to_changeset.xml",names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/")
+            Path changesetsPath,
+            @Option(paramLabel = "conn_url",names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+            String changesetDbUrl,
+            @Option(paramLabel = "path_to_pbf",names = {"--pbf"}, required = true, description = "path to osm/osh pbf file")
+            Path pbf,
+            @Option(paramLabel = "path_to_dir", names = {"--dir"}, required = true, description = "Output directory for key-value latest contribution store")
+            Path directory
+    ) {
 
         return CommandLine.ExitCode.OK;
     }
@@ -34,14 +42,15 @@ public class Replication implements Callable<Integer> {
             Path countryFilePath,
             @Option(names = {"--changeset-db"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
             String changesetDbUrl,
-            @Option(names = {"--interval"}, description = "")
-            String interval,
+            @Option(names = {"--interval"}, description = "Replication file interval. Valid values: ${COMPLETION-CANDIDATES}, default: ${DEFAULT-VALUE}", defaultValue = "minute")
+            ReplicationInterval interval,
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
             int parallel,
-            @Option(names = {"-d"}, required = true, description = "directory")
-            Path database,
+            @Option(paramLabel = "path_to_dir", names = {"--directory"}, required = true, description = "Output directory for key-value latest contribution store")
+            Path directory,
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
-            Path out) {
+            Path out
+    ) {
 
         System.out.println("out = " + out);
         return CommandLine.ExitCode.OK;

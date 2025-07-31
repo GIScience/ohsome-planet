@@ -32,6 +32,7 @@
         <module>ohsome-planet-cli</module>
         <module>ohsome-parquet</module>
         <module>ohsome-contributions</module>
+        <module>ohsome-replication</module>
         <module>osm-geometry</module>
         <module>osm-pbf</module>
         <module>osm-types</module>
