@@ -1,12 +1,17 @@
 package org.heigit.ohsome.replication.state;
 
-import java.time.Instant;
+import org.heigit.ohsome.contributions.util.OscParser;
+import org.heigit.ohsome.osm.OSMEntity;
 
-public class ContributionStateManager extends AbstractStateManager {
+import java.io.InputStream;
+import java.time.Instant;
+import java.util.Iterator;
+
+public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     public static final String CONTRIBUTION_ENDPOINT = "https://planet.osm.org/replication/";
 
     public ContributionStateManager(String interval) {
-        super(CONTRIBUTION_ENDPOINT + interval + "/", "state.txt", "sequenceNumber", "timestamp");
+        super(CONTRIBUTION_ENDPOINT + interval + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz");
     }
 
     @Override
@@ -18,5 +23,16 @@ public class ContributionStateManager extends AbstractStateManager {
     protected ReplicationState getLocalState() {
         // todo: call to rockDb
         return null;
+    }
+
+    @Override
+    protected Iterator<OSMEntity> getParser(InputStream input) {
+        try {
+            return new OscParser(
+                    input
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

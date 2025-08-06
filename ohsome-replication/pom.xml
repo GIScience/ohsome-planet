@@ -19,6 +19,18 @@
             <artifactId>picocli</artifactId>
             <version>4.7.6</version>
         </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>osm-changesets</artifactId>
+            <version>1.1.1-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-contributions</artifactId>
+            <version>1.1.1-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
     
 </project>
