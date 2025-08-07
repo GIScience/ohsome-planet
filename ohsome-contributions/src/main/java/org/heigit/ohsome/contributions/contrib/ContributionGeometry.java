@@ -146,8 +146,12 @@ public class ContributionGeometry {
                 .toArray(Coordinate[]::new);
 
         if (isArea(contribution) && isValidLineRing(coordinates)) {
-            return geometryFactory.createPolygon(coordinates);
+            var geom = geometryFactory.createPolygon(coordinates);
+            if (geom.isValid()) {
+                return geom;
+            }
         }
+
         if (isValidLineString(coordinates)) {
             return geometryFactory.createLineString(coordinates);
         }
