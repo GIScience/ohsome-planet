@@ -41,7 +41,6 @@ public class SstWriter implements AutoCloseable {
     public void writeMinorNode(List<OSMNode> osh) throws RocksDBException, IOException {
         var id = osh.getFirst().id();
         var minorNodeBuilder = MinorNode.newBuilder();
-        minorNodeBuilder.setId(id);
         write(id, osh, minorNodeBuilder);
     }
 
