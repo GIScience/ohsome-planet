@@ -65,8 +65,11 @@ public class MinorNode {
                 visible = node.visible();
             }
         }
-
         public void serialize(Output output) {
+            serialize(output, versions);
+        }
+
+        public static void serialize(Output output, List<OSMNode> versions) {
             var size = versions.size();
             var cs = 0L;
             var ts = 0L;
