@@ -24,20 +24,17 @@ public class MinorNode {
     public static List<OSMNode> deserialize(long id, byte[] bytes) {
         var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
         var size = input.readU32();
-        var cs = input.readS64();
-        var ts = input.readS64();
-        var userId = input.readU32();
-        var userName = input.readUTF8();
-        var lon = input.readS64();
-        var lat = input.readS64();
+        var cs = 0L;
+        var ts = 0L;
+        var lon = 0L;
+        var lat = 0L;
         var osh = new ArrayList<OSMNode>(size);
         var visible = true;
-        osh.add(new OSMNode(id, 0, Instant.ofEpochSecond(ts), cs, userId, userName, true, emptyMap(), lon / 1_0000000.0, lat / 1_0000000.0));
-        for (var i = 1; i < size; i++) {
+        for (var i = 0; i < size; i++) {
             cs += input.readS64();
             ts += input.readS64();
-            userId = input.readU32();
-            userName = input.readUTF8();
+            var userId = input.readU32();
+            var userName = input.readUTF8();
             var deltaLon = input.readS64();
             var deltaLat = input.readS64();
             lon += deltaLon;
@@ -71,6 +68,9 @@ public class MinorNode {
 
         public static void serialize(Output output, List<OSMNode> versions) {
             var size = versions.size();
+            if (size == 0) {
+                return;
+            }
             var cs = 0L;
             var ts = 0L;
             var lon = 0L;
