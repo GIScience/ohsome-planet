@@ -51,6 +51,9 @@ public class SstWriter implements AutoCloseable {
 
         output.reset();
         builder.serialize(output);
+        if (output.length == 0) {
+            return;
+        }
         keyBuffer.clear().putLong(id).flip();
         if (output.length > valBuffer.capacity()) {
             valBuffer = ByteBuffer.allocateDirect(output.length);
