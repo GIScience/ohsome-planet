@@ -79,7 +79,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         var status = "latest";
         if (!entity.visible()) {
             status = "deleted";
-        } else if (contributions.hasNext()) {
+        } else if (contributionNext.isPresent()) {
             status = "history";
         }
 
