@@ -20,9 +20,14 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     }
 
     @Override
-    protected ReplicationState getLocalState() {
-        // todo: call to rockDb
+    public ReplicationState getLocalState() {
+        // todo: call to rocksDB
         return null;
+    }
+
+    @Override
+    protected void updateLocalState(ReplicationState state) {
+        // todo: call to rocksDB
     }
 
     @Override

@@ -35,9 +35,11 @@ public abstract class AbstractStateManager<T> {
 
     abstract protected ReplicationState getLocalState();
 
+    abstract protected void updateLocalState(ReplicationState state);
+
     abstract protected Iterator<T> getParser(InputStream input);
 
-    private static InputStream getFileStream(URL url) throws IOException {
+    protected InputStream getFileStream(URL url) throws IOException {
         var connection = url.openConnection();
         connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes
         connection.setConnectTimeout(10 * 60 * 1000); // timeout 10 minutes
@@ -65,21 +67,21 @@ public abstract class AbstractStateManager<T> {
     }
 
     public List<T> fetchReplicationBatch(String replicationPath) {
-        return parse(getReplicationFile(replicationPath));
-    }
-
-    protected List<T> parse(InputStream input) {
-        try (var gzipStream = new GZIPInputStream(input)) {
-            var xmlReader = getParser(gzipStream);
-            var elements = new ArrayList<T>();
-            while (xmlReader.hasNext()) {
-                elements.add(xmlReader.next());
-            }
-            return elements;
-
+        try (var gzipStream = new GZIPInputStream(getReplicationFile(replicationPath))) {
+            return parse(gzipStream);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+
+    protected List<T> parse(InputStream input) {
+        var xmlReader = getParser(input);
+        var elements = new ArrayList<T>();
+        while (xmlReader.hasNext()) {
+            elements.add(xmlReader.next());
+        }
+        return elements;
     }
 
 }
