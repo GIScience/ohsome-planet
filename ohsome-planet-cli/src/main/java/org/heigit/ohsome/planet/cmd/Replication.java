@@ -1,5 +1,6 @@
 package org.heigit.ohsome.planet.cmd;
 
+import org.heigit.ohsome.replication.ReplicationManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -51,8 +52,7 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out
     ) {
-
         System.out.println("out = " + out);
-        return CommandLine.ExitCode.OK;
+        return new ReplicationManager().updateWrapper(interval.toString());
     }
 }
