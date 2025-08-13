@@ -29,12 +29,11 @@ public class Replication implements Callable<Integer> {
             @Option(paramLabel = "conn_url",names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
             String changesetDbUrl,
             @Option(paramLabel = "path_to_pbf",names = {"--pbf"}, required = true, description = "path to osm/osh pbf file")
-            Path pbf,
+            Path pbfPath,
             @Option(paramLabel = "path_to_dir", names = {"--dir"}, required = true, description = "Output directory for key-value latest contribution store")
             Path directory
     ) {
-
-        return CommandLine.ExitCode.OK;
+        return new ReplicationManager().init(changesetsPath, changesetDbUrl, pbfPath, directory);
     }
 
     @Command
@@ -52,7 +51,6 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out
     ) {
-        System.out.println("out = " + out);
-        return new ReplicationManager().updateWrapper(interval.toString());
+        return new ReplicationManager().update(interval.toString());
     }
 }

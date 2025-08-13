@@ -9,6 +9,6 @@ public class ReplicationTest {
     @Test
     public void testReplication() {
         var replication = new ReplicationManager();
-        replication.updateWrapper("minute");
+        replication.update("minute");
     }
 }

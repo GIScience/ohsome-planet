@@ -1,5 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
@@ -17,7 +19,7 @@ public class ReplicationState {
         this.timestamp = parser.apply(props.getProperty(timestampKey));
     }
 
-    public ReplicationState(Instant timestamp, Integer sequenceNumber){
+    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") Integer sequenceNumber){
         this.timestamp = timestamp;
         this.sequenceNumber = sequenceNumber;
     }
