@@ -3,18 +3,24 @@ package org.heigit.ohsome.replication;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 
 public class ReplicationManager {
 
-    public Integer initialize() {
-        System.out.println("Not implemented");
+    public int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
+        System.setProperty("DB_URL", changesetDbUrl);
+        var changesetManager = new ChangesetStateManager();
+        changesetManager.initDbWithXML(changesetsPath);
+        // todo: translate latest timestamp to corresponding changeset replication id?
+
         return 0;
     }
 
-    public Integer updateWrapper(String interval) {
+
+    public Integer update(String interval) {
         var lock = new ReentrantLock();
         lock.lock();
 
@@ -27,15 +33,15 @@ public class ReplicationManager {
 
         try {
             var contributionManager = new ContributionStateManager(interval);
-            var changesetState = new ChangesetStateManager();
+            var changesetManager = new ChangesetStateManager();
 
             while (!shutdownInitiated.get()) {
-                var localChangesetState = changesetState.getLocalState();
-                var remoteChangesetState = changesetState.getRemoteState();
+                var localChangesetState = changesetManager.getLocalState();
+                var remoteChangesetState = changesetManager.getRemoteState();
 
                 if (!localChangesetState.equals(remoteChangesetState)) {
-                    changesetState.updateToRemoteState();
-                    var nowClosedChangesets = changesetState.updateUnclosedChangesets();
+                    changesetManager.updateToRemoteState();
+                    var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
                     if (!nowClosedChangesets.isEmpty()) {
                         // todo: contributionManager.releaseUnjoinedContributions(nowClosedChangesets);
                     }
@@ -51,4 +57,5 @@ public class ReplicationManager {
         }
         return 0;
     }
+
 }

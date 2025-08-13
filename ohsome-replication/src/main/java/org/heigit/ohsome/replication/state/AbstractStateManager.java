@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 import static java.net.URI.create;
@@ -82,6 +83,24 @@ public abstract class AbstractStateManager<T> {
             elements.add(xmlReader.next());
         }
         return elements;
+    }
+
+    protected void parseAndProcessBatch(InputStream input, Consumer<List<T>> processor, Integer batchSize) {
+        var xmlReader = getParser(input);
+        var elements = new ArrayList<T>();
+        var i = 0;
+        while (xmlReader.hasNext()) {
+            elements.add(xmlReader.next());
+            ++i;
+            if (i == batchSize) {
+                processor.accept(elements);
+                elements.clear();
+                i = 0;
+            }
+        }
+        if (!elements.isEmpty()) {
+            processor.accept(elements);
+        }
     }
 
 }

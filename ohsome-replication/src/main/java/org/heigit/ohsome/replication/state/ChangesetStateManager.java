@@ -4,12 +4,16 @@ package org.heigit.ohsome.replication.state;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.parser.ChangesetParser;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
+import java.util.zip.GZIPInputStream;
 
 import static java.net.URI.create;
 import static java.time.Instant.EPOCH;
@@ -75,6 +79,14 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
         try {
             return getFileStream(create(url).toURL());
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void initDbWithXML(Path changesetsPath) {
+        try (var input = new GZIPInputStream(Files.newInputStream(changesetsPath))) {
+            parseAndProcessBatch(input, changesetDB::upsertChangesets, 500);
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
