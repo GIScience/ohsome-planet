@@ -1,5 +1,8 @@
 package org.heigit.ohsome.replication;
 
+import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.databases.KeyValueDB;
+import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 
@@ -11,8 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ReplicationManager {
 
     public int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
-        System.setProperty("DB_URL", changesetDbUrl);
-        var changesetManager = new ChangesetStateManager();
+        var changesetManager = new ChangesetStateManager(changesetDbUrl);
         changesetManager.initDbWithXML(changesetsPath);
         // todo: translate latest timestamp to corresponding changeset replication id?
 
@@ -20,7 +22,7 @@ public class ReplicationManager {
     }
 
 
-    public Integer update(String interval) {
+    public Integer update(String interval, Path directory, String changesetDbUrl) {
         var lock = new ReentrantLock();
         lock.lock();
 
@@ -32,23 +34,28 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try {
-            var contributionManager = new ContributionStateManager(interval);
-            var changesetManager = new ChangesetStateManager();
+            var contributionManager = new ContributionStateManager(interval, directory);
+            var changesetManager = new ChangesetStateManager(changesetDbUrl);
+            var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), new KeyValueDB(directory));
 
             while (!shutdownInitiated.get()) {
-                var localChangesetState = changesetManager.getLocalState();
+                changesetManager.initializeLocalState();
+                // todo: some logic to wait for next timestamp in here?
                 var remoteChangesetState = changesetManager.getRemoteState();
 
-                if (!localChangesetState.equals(remoteChangesetState)) {
-                    changesetManager.updateToRemoteState();
-                    var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
-                    if (!nowClosedChangesets.isEmpty()) {
-                        // todo: contributionManager.releaseUnjoinedContributions(nowClosedChangesets);
+                if (!changesetManager.localState.equals(remoteChangesetState)) {
+                    while (!changesetManager.localState.equals(changesetManager.remoteState)) {
+                        var newClosedChangeset = changesetManager.updateTowardsRemoteState();
+                        contribProcessor.releaseContributions(newClosedChangeset);
                     }
+                    var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
+                    contribProcessor.releaseContributions(nowClosedChangesets);
                 }
-
-                var localContributionState = contributionManager.getLocalState();
+                contributionManager.initializeLocalState();
                 var remoteContributionState = contributionManager.getRemoteState();
+                while (!contributionManager.localState.equals(remoteContributionState)) {
+                    contributionManager.updateTowardsRemoteState(contribProcessor);
+                }
 
 
             }

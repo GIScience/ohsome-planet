@@ -38,7 +38,7 @@ public abstract class AbstractStateManager<T> {
 
     abstract protected Instant timestampParser(String timestamp);
 
-    abstract protected ReplicationState getLocalState();
+    abstract protected void initializeLocalState();
 
     abstract protected void updateLocalState(ReplicationState state);
 
@@ -63,9 +63,9 @@ public abstract class AbstractStateManager<T> {
         }
     }
 
-    public ReplicationState getRemoteReplication(Integer sequenceNumber){
+    public ReplicationState getRemoteReplication(Integer sequenceNumber) {
         try {
-            var input = getFileStream(create(this.TARGET_URL + ReplicationState.sequenceNumberAsPath(sequenceNumber)+".state.txt").toURL());
+            var input = getFileStream(create(this.TARGET_URL + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
             var props = new Properties();
             props.load(input);
             return new ReplicationState(props, SEQUENCE_KEY, TIMESTAMP_KEY, this::timestampParser);
@@ -102,24 +102,18 @@ public abstract class AbstractStateManager<T> {
 
     protected void parseAndProcessBatch(InputStream input, Consumer<List<T>> processor, Integer batchSize) {
         var xmlReader = getParser(input);
-        var elements = new ArrayList<T>();
-        var i = 0;
+        var elements = new ArrayList<T>(batchSize);
         while (xmlReader.hasNext()) {
-            elements.add(xmlReader.next());
-            ++i;
-            if (i == batchSize) {
-                processor.accept(elements);
-                elements.clear();
-                i = 0;
+            elements.clear();
+            for (var n = 0; n < batchSize && xmlReader.hasNext(); n++) {
+                elements.add(xmlReader.next());
             }
-        }
-        if (!elements.isEmpty()) {
             processor.accept(elements);
         }
     }
 
-    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant target_timestamp, ReplicationState remoteState){
-        while(remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES).compareTo(target_timestamp.truncatedTo(ChronoUnit.MINUTES)) != 0){
+    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant target_timestamp, ReplicationState remoteState) {
+        while (remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES).compareTo(target_timestamp.truncatedTo(ChronoUnit.MINUTES)) != 0) {
             System.out.println(remoteState);
             var minutes = Duration.between(target_timestamp, remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES)).toMinutes();
             remoteState = getRemoteReplication(remoteState.sequenceNumber - Math.toIntExact(minutes) + REPLICATION_OFFSET);
@@ -127,6 +121,4 @@ public abstract class AbstractStateManager<T> {
         System.out.println(remoteState);
         return remoteState;
     }
-
-
 }

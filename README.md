@@ -153,7 +153,7 @@ DESCRIBE FROM read_parquet('out-karlsruhe/*.parquet');
 ```
 
 ## Getting Started as Developer
-This is a list of resources that you might want to take a look at to get a better understanding of the core concepts used for this projects. 
+This is a list of resources that you might want to take a look at to get a better understanding of the core concepts used for this project. 
 In general, you should gain some understanding of the raw OSM (history) data format and know how to build geometries from nodes, ways and relations.
 Furthermore, knowledge about (Geo)Parquet files is useful as well.
 
