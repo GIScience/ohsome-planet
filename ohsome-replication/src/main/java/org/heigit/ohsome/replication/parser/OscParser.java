@@ -1,4 +1,4 @@
-package org.heigit.ohsome.contributions.util;
+package org.heigit.ohsome.replication.parser;
 
 
 import org.heigit.ohsome.oshdb.osm.OSMCoordinates;
