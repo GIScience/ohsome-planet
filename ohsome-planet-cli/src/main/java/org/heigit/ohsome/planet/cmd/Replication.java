@@ -51,6 +51,6 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out
     ) {
-        return new ReplicationManager().update(interval.toString());
+        return new ReplicationManager().update(interval.toString(), directory, changesetDbUrl);
     }
 }

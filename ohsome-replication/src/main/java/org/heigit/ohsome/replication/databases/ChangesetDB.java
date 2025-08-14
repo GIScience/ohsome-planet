@@ -2,7 +2,9 @@ package org.heigit.ohsome.replication.databases;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.heigit.ohsome.osm.changesets.ChangesetDb;
 import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
+import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.parser.ChangesetParser;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.postgresql.util.HStoreConverter;
@@ -11,17 +13,22 @@ import org.postgresql.util.PGobject;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class ChangesetDB {
     protected static HikariDataSource dataSource;
     private static final HikariConfig config = new HikariConfig();
 
+    public <T> Map<Long, T> changesets(Set<Long> ids, Changesets.Factory<T> factory) throws Exception {
+        return getterDb.changesets(ids, factory);
+    }
+
+    private final ChangesetDb getterDb;
+
     public ChangesetDB(String connectionString) {
         config.setJdbcUrl(connectionString);
         dataSource = new HikariDataSource(config);
+        getterDb = new ChangesetDb(dataSource);
     }
 
     public ReplicationState getLocalState() {

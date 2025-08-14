@@ -8,6 +8,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -26,11 +27,14 @@ public class StateManagerTest {
             .withUsername("testuser")
             .withPassword("testpass");
 
+
+    private static String db_url;
+
     @BeforeAll
     public static void setUp() {
         postgresContainer.withInitScript("setupDB/setupChangesetDB.sql");
         postgresContainer.start();
-        System.setProperty("DB_URL", postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword());
+        db_url = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
     }
 
     @AfterAll
@@ -40,8 +44,8 @@ public class StateManagerTest {
 
     @Test
     public void testStateManagerGetRemoteReplicationState() {
-        var changesetStateManager = new ChangesetStateManager();
-        var contributionStateManager = new ContributionStateManager("minute");
+        var changesetStateManager = new ChangesetStateManager(db_url);
+        var contributionStateManager = new ContributionStateManager("minute", Path.of(""));
 
         var changesetState = changesetStateManager.getRemoteState();
         System.out.println("changesetState = " + changesetState);
@@ -51,8 +55,8 @@ public class StateManagerTest {
 
     @Test
     public void testStateManagerGetRemoteReplicationData() {
-        var changesetStateManager = new ChangesetStateManager();
-        var contributionStateManager = new ContributionStateManager("minute");
+        var changesetStateManager = new ChangesetStateManager(db_url);
+        var contributionStateManager = new ContributionStateManager("minute", Path.of(""));
 
         var changesetReplicationFile = changesetStateManager.getReplicationFile("000/021/212");
         System.out.println("changesetReplicationFile = " + changesetReplicationFile);
@@ -62,33 +66,32 @@ public class StateManagerTest {
 
     @Test
     public void testGetLocalState() {
-        var changesetStateManager = new ChangesetStateManager();
-        var localstate = changesetStateManager.getLocalState();
-        assertEquals(10020, localstate.sequenceNumber);
+        var changesetStateManager = new ChangesetStateManager(db_url);
+        changesetStateManager.initializeLocalState();
+        assertEquals(10020, changesetStateManager.localState.sequenceNumber);
     }
 
     @Test
     public void testUpdateLocalState() {
-        var changesetStateManager = new ChangesetStateManager();
-        var localstateBefore = changesetStateManager.getLocalState();
-
+        var changesetStateManager = new ChangesetStateManager(db_url);
+        changesetStateManager.initializeLocalState();
+        var localstateBefore = changesetStateManager.localState;
         changesetStateManager.updateLocalState(new ReplicationState(Instant.now(), 1431412));
-        var localstateAfter = changesetStateManager.getLocalState();
 
-        assertNotEquals(localstateBefore.timestamp, localstateAfter.timestamp);
-        assertEquals(1431412, localstateAfter.sequenceNumber);
+        assertNotEquals(localstateBefore.timestamp, changesetStateManager.localState.timestamp);
+        assertEquals(1431412, changesetStateManager.localState.sequenceNumber);
     }
 
 
     @Test
     public void testFetchReplicationBatch() {
-        var changesetStateManager = new ChangesetStateManager();
+        var changesetStateManager = new ChangesetStateManager(db_url);
         var batch = changesetStateManager.fetchReplicationBatch("006/021/212");
         for (var batchElement : batch) {
             System.out.println(batchElement);
         }
 
-        var contributionStateManager = new ContributionStateManager("minute");
+        var contributionStateManager = new ContributionStateManager("minute", Path.of(""));
         var contributionBatch = contributionStateManager.fetchReplicationBatch("000/021/212");
         for (var batchElement : contributionBatch) {
             System.out.println(batchElement);
@@ -98,16 +101,16 @@ public class StateManagerTest {
 
     @Test
     public void testUpdateToRemoteState() {
-        var changesetStateManager = new ChangesetStateManager();
+        var changesetStateManager = new ChangesetStateManager(db_url);
         var remoteState = changesetStateManager.getRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.sequenceNumber - 5));
 
-        changesetStateManager.updateToRemoteState();
+        changesetStateManager.updateTowardsRemoteState();
     }
 
     @Test
     public void testUpdatedUnclosedChangesets() {
-        var changesetStateManager = new ChangesetStateManager();
+        var changesetStateManager = new ChangesetStateManager(db_url);
         var now_closed = changesetStateManager.updateUnclosedChangesets();
         for (var batchElement : now_closed) {
             System.out.println(batchElement);
@@ -119,7 +122,7 @@ public class StateManagerTest {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
         var instant = OffsetDateTime.parse("2025-08-14 11:51:33.163329000 +00:00", formatter).toInstant();
 
-        var changesetManager = new ChangesetStateManager();
+        var changesetManager = new ChangesetStateManager(db_url);
 
         var replication = new ReplicationState(instant, 6642804);
         var oldReplication = changesetManager.oldSequenceNumberFromDifferenceToOldTimestamp(

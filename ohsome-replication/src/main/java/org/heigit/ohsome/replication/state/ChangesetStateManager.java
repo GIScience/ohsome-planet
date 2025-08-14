@@ -16,15 +16,15 @@ import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import static java.net.URI.create;
-import static java.time.Instant.EPOCH;
 import static org.heigit.ohsome.replication.parser.ChangesetParser.Changeset;
 
 public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     private static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
-    ChangesetDB changesetDB = new ChangesetDB(System.getProperty("DB_URL"));
+    ChangesetDB changesetDB;
 
-    public ChangesetStateManager() {
+    public ChangesetStateManager(String dbUrl) {
         super(CHANGESET_ENDPOINT, "state.yaml", "sequence", "last_run", ".osm.gz", 1);
+        changesetDB = new ChangesetDB(dbUrl);
     }
 
     @Override
@@ -34,9 +34,8 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     }
 
     @Override
-    public ReplicationState getLocalState() {
+    public void initializeLocalState() {
         localState = changesetDB.getLocalState();
-        return localState;
     }
 
     @Override
@@ -56,14 +55,15 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
         }
     }
 
-    public void updateToRemoteState() {
-        for (int i = 0; i < remoteState.sequenceNumber - localState.sequenceNumber; i++) {
-            var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(localState.sequenceNumber + 1 + i));
-            changesetDB.upsertChangesets(changesets);
-            changesetDB.updateState(new ReplicationState(EPOCH, localState.sequenceNumber + i));
-            System.out.println("Upserted changesets: " + changesets.size());
-        }
-        changesetDB.updateState(remoteState);
+    public List<Changeset> updateTowardsRemoteState() {
+        var nextReplication = localState.sequenceNumber + 1;
+        var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextReplication));
+        changesetDB.upsertChangesets(changesets);
+        System.out.println("Upserted changesets: " + changesets.size());
+
+        changesetDB.updateState(getRemoteReplication(nextReplication));
+
+        return changesets.stream().filter((changeset) -> !changeset.open).toList();
     }
 
     public List<Changeset> updateUnclosedChangesets() {
