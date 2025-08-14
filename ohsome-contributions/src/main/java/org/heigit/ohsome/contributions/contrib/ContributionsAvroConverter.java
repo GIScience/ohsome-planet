@@ -1,11 +1,11 @@
 package org.heigit.ohsome.contributions.contrib;
 
 import org.heigit.ohsome.contributions.avro.*;
+import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.util.AbstractIterator;
 import org.heigit.ohsome.contributions.util.XZCode;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
-import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
-import org.heigit.ohsome.contributions.util.AbstractIterator;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.WKBWriter;
@@ -137,7 +137,9 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
             builder.clearGeometry();
             area = 0.0;
             length = 0.0;
-            status = "invalid";
+            if (!"deleted".equals(status)) {
+                status = "invalid";
+            }
         }
 
         builder.setArea(area);

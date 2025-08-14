@@ -37,6 +37,21 @@ class ContributionsAvroConverterTest {
     }
 
     @Test
+    void nodeInvalidThenDeleted() {
+        var contributions = new ContributionsNode(List.of(
+          new OSMEntity.OSMNode(1, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), 360.0, 0.0),
+          new OSMEntity.OSMNode(1, 2, ofEpochSecond(2), 2, 1, "", false, emptyMap(), 360.0, 0.0)
+        ));
+        var converter = new ContributionsAvroConverter(contributions, cs -> changesetBuilder.setId(cs).build(), SpatialJoiner.noop());
+        assertTrue(converter.hasNext());
+        var contrib = converter.next().orElseThrow();
+        assertEquals("invalid", contrib.getStatus());
+        assertTrue(converter.hasNext());
+        contrib = converter.next().orElseThrow();
+        assertEquals("deleted", contrib.getStatus());
+    }
+
+    @Test
     void way() {
         var members = Map.of(
                 1L, List.of(
