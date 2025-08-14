@@ -9,6 +9,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -110,5 +112,21 @@ public class StateManagerTest {
         for (var batchElement : now_closed) {
             System.out.println(batchElement);
         }
+    }
+
+    @Test
+    public void testGettingOldSequenceNumberFromOldTimestamp() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
+        var instant = OffsetDateTime.parse("2025-08-14 11:51:33.163329000 +00:00", formatter).toInstant();
+
+        var changesetManager = new ChangesetStateManager();
+
+        var replication = new ReplicationState(instant, 6642804);
+        var oldReplication = changesetManager.oldSequenceNumberFromDifferenceToOldTimestamp(
+                Instant.parse("2025-08-04T00:00:00Z"),
+                changesetManager.getRemoteState()
+        );
+        System.out.println("oldReplication = " + oldReplication);
+
     }
 }

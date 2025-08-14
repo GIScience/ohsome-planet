@@ -3,7 +3,9 @@ package org.heigit.ohsome.replication.state;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,17 +21,19 @@ public abstract class AbstractStateManager<T> {
     protected final String SEQUENCE_KEY;
     protected final String TIMESTAMP_KEY;
     protected final String REPLICATION_FILE_NAME;
+    protected final Integer REPLICATION_OFFSET;
 
     public ReplicationState localState;
     public ReplicationState remoteState;
 
 
-    AbstractStateManager(String targetURL, String topLevelFile, String sequenceKey, String timestampKey, String replicationFileName) {
+    AbstractStateManager(String targetURL, String topLevelFile, String sequenceKey, String timestampKey, String replicationFileName, Integer replicationOffset) {
         TARGET_URL = targetURL;
         TOP_LEVEL_FILE = topLevelFile;
         SEQUENCE_KEY = sequenceKey;
         TIMESTAMP_KEY = timestampKey;
         REPLICATION_FILE_NAME = replicationFileName;
+        REPLICATION_OFFSET = replicationOffset;
     }
 
     abstract protected Instant timestampParser(String timestamp);
@@ -54,6 +58,17 @@ public abstract class AbstractStateManager<T> {
             props.load(input);
             this.remoteState = new ReplicationState(props, SEQUENCE_KEY, TIMESTAMP_KEY, this::timestampParser);
             return this.remoteState;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public ReplicationState getRemoteReplication(Integer sequenceNumber){
+        try {
+            var input = getFileStream(create(this.TARGET_URL + ReplicationState.sequenceNumberAsPath(sequenceNumber)+".state.txt").toURL());
+            var props = new Properties();
+            props.load(input);
+            return new ReplicationState(props, SEQUENCE_KEY, TIMESTAMP_KEY, this::timestampParser);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -102,5 +117,16 @@ public abstract class AbstractStateManager<T> {
             processor.accept(elements);
         }
     }
+
+    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant target_timestamp, ReplicationState remoteState){
+        while(remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES).compareTo(target_timestamp.truncatedTo(ChronoUnit.MINUTES)) != 0){
+            System.out.println(remoteState);
+            var minutes = Duration.between(target_timestamp, remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES)).toMinutes();
+            remoteState = getRemoteReplication(remoteState.sequenceNumber - Math.toIntExact(minutes) + REPLICATION_OFFSET);
+        }
+        System.out.println(remoteState);
+        return remoteState;
+    }
+
 
 }

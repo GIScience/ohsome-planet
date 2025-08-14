@@ -1,6 +1,6 @@
 package org.heigit.ohsome.replication.state;
 
-import org.heigit.ohsome.contributions.util.OscParser;
+import org.heigit.ohsome.replication.parser.OscParser;
 import org.heigit.ohsome.osm.OSMEntity;
 
 import java.io.InputStream;
@@ -11,7 +11,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     public static final String CONTRIBUTION_ENDPOINT = "https://planet.osm.org/replication/";
 
     public ContributionStateManager(String interval) {
-        super(CONTRIBUTION_ENDPOINT + interval + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz");
+        super(CONTRIBUTION_ENDPOINT + interval + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz", 0);
     }
 
     @Override
