@@ -1,7 +1,7 @@
 package org.heigit.ohsome.replication.databases;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.heigit.ohsome.contributions.contrib.Contribution;
+import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -19,7 +19,7 @@ public class KeyValueDB implements AutoCloseable {
     final RocksDB STATE_DB;
     final RocksDB UNCLOSED_DB;
 
-    KeyValueDB(Path path) {
+    public KeyValueDB(Path path) {
         mapper.findAndRegisterModules();
         PATH = path;
         Path statePath = PATH.resolve("state");
@@ -54,25 +54,26 @@ public class KeyValueDB implements AutoCloseable {
     }
 
 
-    public void storeUnclosedContribution(Contribution contrib) {
+    public void storeUnclosedContribution(Contrib contrib) {
         try {
             UNCLOSED_DB.put(
-                    ("" + contrib.changeset() + contrib.entity().id()).getBytes(),
+                    // todo: use contrib id instead for second
+                    ("" + contrib.getChangeset().getId() + contrib.getOsmId()).getBytes(),
                     mapper.writeValueAsBytes(contrib));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public List<Contribution> getUnclosedContributionsForChangeset(Changeset changeset) {
-        List<Contribution> collector = new ArrayList<>();
+    public List<Contrib> getUnclosedContributionsForChangeset(Changeset changeset) {
+        var collector = new ArrayList<Contrib>();
         try (
                 var options = new ReadOptions().setPrefixSameAsStart(true);
                 var iter = UNCLOSED_DB.newIterator(options)
         ) {
             iter.seek(String.valueOf(changeset.id).getBytes());
             while (iter.isValid()) {
-                collector.add(mapper.readValue(iter.value(), Contribution.class));
+                collector.add(mapper.readValue(iter.value(), Contrib.class));
                 iter.next();
             }
         } catch (Exception e) {
@@ -82,7 +83,7 @@ public class KeyValueDB implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         STATE_DB.close();
         UNCLOSED_DB.close();
     }

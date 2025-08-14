@@ -1,17 +1,22 @@
 package org.heigit.ohsome.replication.state;
 
+import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.parser.OscParser;
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Iterator;
 
 public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     public static final String CONTRIBUTION_ENDPOINT = "https://planet.osm.org/replication/";
+    private final KeyValueDB keyValueDB;
 
-    public ContributionStateManager(String interval) {
+    public ContributionStateManager(String interval, Path directory) {
         super(CONTRIBUTION_ENDPOINT + interval + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz", 0);
+        keyValueDB = new KeyValueDB(directory);
     }
 
     @Override
@@ -20,14 +25,27 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     }
 
     @Override
-    public ReplicationState getLocalState() {
-        // todo: call to rocksDB
-        return null;
+    public void initializeLocalState() {
+        localState = keyValueDB.getLocalState();
+    }
+
+
+    public ReplicationState localState(){
+        return localState;
     }
 
     @Override
     protected void updateLocalState(ReplicationState state) {
-        // todo: call to rocksDB
+        keyValueDB.updateLocalState(state);
+        localState = state;
+    }
+
+    public void updateTowardsRemoteState(ContributionsProcessor processor) {
+        var nextSequenceNumber =  localState.sequenceNumber + 1;
+
+        var entities = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextSequenceNumber));
+        processor.update(entities, nextSequenceNumber);
+        updateLocalState(getRemoteReplication(nextSequenceNumber));
     }
 
     @Override
