@@ -24,7 +24,7 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     ChangesetDB changesetDB = new ChangesetDB(System.getProperty("DB_URL"));
 
     public ChangesetStateManager() {
-        super(CHANGESET_ENDPOINT, "state.yaml", "sequence", "last_run", ".osm.gz");
+        super(CHANGESET_ENDPOINT, "state.yaml", "sequence", "last_run", ".osm.gz", 1);
     }
 
     @Override

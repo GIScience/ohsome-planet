@@ -19,12 +19,12 @@ public class ReplicationState {
         this.timestamp = parser.apply(props.getProperty(timestampKey));
     }
 
-    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") Integer sequenceNumber){
+    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") Integer sequenceNumber) {
         this.timestamp = timestamp;
         this.sequenceNumber = sequenceNumber;
     }
 
-    public static String sequenceNumberAsPath(int sequenceNumber){
+    public static String sequenceNumberAsPath(int sequenceNumber) {
         DecimalFormatSymbols symbols = new DecimalFormatSymbols();
         symbols.setGroupingSeparator('/');
         DecimalFormat df = new DecimalFormat("000,000,000", symbols);
@@ -33,5 +33,10 @@ public class ReplicationState {
 
     public boolean equals(ReplicationState other) {
         return Objects.equals(sequenceNumber, other.sequenceNumber);
+    }
+
+    @Override
+    public String toString() {
+        return "{sequenceNumber: " + sequenceNumber + ", timestamp: " + timestamp.toString() + "}";
     }
 }
