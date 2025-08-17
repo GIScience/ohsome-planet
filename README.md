@@ -26,6 +26,12 @@ cd ohsome-planet
 ./mvnw clean package -DskipTests
 ```
 
+## Installation for Mac with Homebrew
+```sh
+brew install GIScience/tap/ohsome-planet --build-from-source
+ohsome-planet contributions --help
+```
+
 ## Run
 You can download the [full latest or history planet](https://planet.openstreetmap.org/pbf/full-history/) 
 or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
