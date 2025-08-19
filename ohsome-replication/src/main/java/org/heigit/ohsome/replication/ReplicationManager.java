@@ -5,6 +5,7 @@ import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
+import org.heigit.ohsome.replication.state.ReplicationState;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.nio.file.Path;
@@ -45,28 +46,17 @@ public class ReplicationManager {
 
             while (!shutdownInitiated.get()) {
                 var remoteChangesetState = changesetManager.getRemoteState();
+
                 if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)){
                     continue;
                 }
 
-                if (!changesetManager.localState.equals(remoteChangesetState)) {
-                    while (!changesetManager.localState.equals(changesetManager.remoteState)) {
-                        var newClosedChangeset = changesetManager.updateTowardsRemoteState();
-                        contribProcessor.releaseContributions(newClosedChangeset);
-                    }
-                    var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
-                    contribProcessor.releaseContributions(nowClosedChangesets);
-                }
-
+                fetchChangesets(changesetManager, contribProcessor);
 
                 var remoteContributionState = contributionManager.getRemoteState();
                 waiter.registerLastContributionState(remoteContributionState);
 
-                while (!contributionManager.localState.equals(remoteContributionState)) {
-                    contributionManager.updateTowardsRemoteState(contribProcessor);
-                }
-
-
+                fetchContributions(contributionManager, remoteContributionState, contribProcessor);
             }
         } finally {
             lock.unlock();
@@ -74,4 +64,18 @@ public class ReplicationManager {
         return 0;
     }
 
+    private static void fetchChangesets(ChangesetStateManager changesetManager, ContributionsProcessor contribProcessor) {
+        while (!changesetManager.localState.equals(changesetManager.remoteState)) {
+            var newClosedChangeset = changesetManager.updateTowardsRemoteState();
+            contribProcessor.releaseContributions(newClosedChangeset);
+        }
+        var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
+        contribProcessor.releaseContributions(nowClosedChangesets);
+    }
+
+    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) {
+        while (!contributionManager.localState.equals(remoteContributionState)) {
+            contributionManager.updateTowardsRemoteState(contribProcessor);
+        }
+    }
 }
