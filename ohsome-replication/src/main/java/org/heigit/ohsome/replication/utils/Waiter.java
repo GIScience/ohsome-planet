@@ -13,8 +13,13 @@ public class Waiter {
     private boolean alreadyWaited = false;
     private boolean firstTimeAfterSuccess = true;
 
+    public Waiter(ReplicationState localChangesetState, ReplicationState localContributionState) {
+        lastChangesetState = localChangesetState;
+        lastContributionState = localContributionState;
+    }
+
     public boolean optionallyWaitAndTryAgain(ReplicationState remoteChangesetState) {
-        if (lastChangesetState == null || !lastChangesetState.equals(remoteChangesetState)) {
+        if (!lastChangesetState.equals(remoteChangesetState)) {
             lastChangesetState = remoteChangesetState;
             reset();
             return false;
@@ -26,7 +31,7 @@ public class Waiter {
             return true;
         }
 
-        if (lastContributionState != null && lastContributionState.timestamp.plusSeconds(80).isAfter(now)) {
+        if (lastContributionState.timestamp.plusSeconds(80).isAfter(now)) {
             waitForReplicationFile(now, lastContributionState.timestamp);
             return true;
         }

@@ -39,10 +39,11 @@ public class ReplicationManager {
             var contributionManager = new ContributionStateManager(interval, directory);
             var changesetManager = new ChangesetStateManager(changesetDbUrl);
             var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), new KeyValueDB(directory));
-            var waiter = new Waiter();
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
+
+            var waiter = new Waiter(changesetManager.localState,  contributionManager.localState);
 
             while (!shutdownInitiated.get()) {
                 var remoteChangesetState = changesetManager.getRemoteState();
