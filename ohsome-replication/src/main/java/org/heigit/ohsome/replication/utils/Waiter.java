@@ -14,7 +14,7 @@ public class Waiter {
     boolean firstTimeAfterSuccess = true;
 
     public boolean optionallyWaitAndTryAgain(ReplicationState remoteChangesetState) {
-        if (!lastChangesetState.equals(remoteChangesetState)) {
+        if (lastChangesetState == null || !lastChangesetState.equals(remoteChangesetState)) {
             lastChangesetState = remoteChangesetState;
             return false;
         }
