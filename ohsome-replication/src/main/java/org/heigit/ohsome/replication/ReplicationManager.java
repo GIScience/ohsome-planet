@@ -15,7 +15,11 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class ReplicationManager {
 
-    public int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
+    private ReplicationManager() {
+        // utility class
+    }
+
+    public static int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
         var changesetManager = new ChangesetStateManager(changesetDbUrl);
         changesetManager.initDbWithXML(changesetsPath);
         // todo: translate latest timestamp to corresponding changeset replication id?
@@ -24,7 +28,7 @@ public class ReplicationManager {
     }
 
 
-    public Integer update(String interval, Path directory, String changesetDbUrl) {
+    public static Integer update(String interval, Path directory, String changesetDbUrl) {
         var lock = new ReentrantLock();
         lock.lock();
 
