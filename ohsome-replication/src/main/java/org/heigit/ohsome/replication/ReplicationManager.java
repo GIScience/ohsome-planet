@@ -5,6 +5,7 @@ import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
+import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,11 +38,16 @@ public class ReplicationManager {
             var contributionManager = new ContributionStateManager(interval, directory);
             var changesetManager = new ChangesetStateManager(changesetDbUrl);
             var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), new KeyValueDB(directory));
+            var waiter = new Waiter();
+
+            changesetManager.initializeLocalState();
+            contributionManager.initializeLocalState();
 
             while (!shutdownInitiated.get()) {
-                changesetManager.initializeLocalState();
-                // todo: some logic to wait for next timestamp in here?
                 var remoteChangesetState = changesetManager.getRemoteState();
+                if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)){
+                    continue;
+                }
 
                 if (!changesetManager.localState.equals(remoteChangesetState)) {
                     while (!changesetManager.localState.equals(changesetManager.remoteState)) {
@@ -51,8 +57,11 @@ public class ReplicationManager {
                     var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
                     contribProcessor.releaseContributions(nowClosedChangesets);
                 }
-                contributionManager.initializeLocalState();
+
+
                 var remoteContributionState = contributionManager.getRemoteState();
+                waiter.registerLastContributionState(remoteContributionState);
+
                 while (!contributionManager.localState.equals(remoteContributionState)) {
                     contributionManager.updateTowardsRemoteState(contribProcessor);
                 }
