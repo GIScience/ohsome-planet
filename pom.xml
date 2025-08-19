@@ -23,6 +23,8 @@
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <testcontainer.version>1.21.3</testcontainer.version>
+
         <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
         <sonar.projectKey>${project.groupId}:ohsome-planet</sonar.projectKey>
         <sonar.projectName>ohsome-planet</sonar.projectName>
@@ -75,6 +77,21 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
