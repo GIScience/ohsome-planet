@@ -33,7 +33,7 @@ public class Replication implements Callable<Integer> {
             @Option(paramLabel = "path_to_dir", names = {"--dir"}, required = true, description = "Output directory for key-value latest contribution store")
             Path directory
     ) {
-        return new ReplicationManager().init(changesetsPath, changesetDbUrl, pbfPath, directory);
+        return ReplicationManager.init(changesetsPath, changesetDbUrl, pbfPath, directory);
     }
 
     @Command
@@ -51,6 +51,6 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out
     ) {
-        return new ReplicationManager().update(interval.toString(), directory, changesetDbUrl);
+        return ReplicationManager.update(interval.toString(), directory, changesetDbUrl);
     }
 }
