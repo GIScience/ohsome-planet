@@ -58,7 +58,7 @@ public class Waiter {
         waitXSeconds(secondsToWait);
     }
 
-    private void waitXSeconds(long x) {
+    protected void waitXSeconds(long x) {
         try {
             TimeUnit.SECONDS.sleep(x);
         } catch (InterruptedException e) {
