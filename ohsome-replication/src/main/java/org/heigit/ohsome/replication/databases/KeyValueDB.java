@@ -14,22 +14,20 @@ import java.util.List;
 import static org.heigit.ohsome.replication.parser.ChangesetParser.Changeset;
 
 public class KeyValueDB implements AutoCloseable {
-    final Path PATH;
     ObjectMapper mapper = new ObjectMapper();
-    final RocksDB STATE_DB;
-    final RocksDB UNCLOSED_DB;
+    final RocksDB stateDb;
+    final RocksDB unclosedDb;
 
     public KeyValueDB(Path path) {
         mapper.findAndRegisterModules();
-        PATH = path;
-        Path statePath = PATH.resolve("state");
-        Path unclosedPath = PATH.resolve("unclosed");
+        Path statePath = path.resolve("state");
+        Path unclosedPath = path.resolve("unclosed");
         try {
-            Files.createDirectories(PATH);
+            Files.createDirectories(path);
             Files.createDirectories(statePath);
             Files.createDirectories(unclosedPath);
-            STATE_DB = RocksDB.open(statePath.toString());
-            UNCLOSED_DB = RocksDB.open(unclosedPath.toString());
+            stateDb = RocksDB.open(statePath.toString());
+            unclosedDb = RocksDB.open(unclosedPath.toString());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -38,7 +36,7 @@ public class KeyValueDB implements AutoCloseable {
     public ReplicationState getLocalState() {
         // todo: is this really our local state, or should that just be the last dumped parquet file?
         try {
-            return mapper.readValue(STATE_DB.get("state".getBytes()), ReplicationState.class);
+            return mapper.readValue(stateDb.get("state".getBytes()), ReplicationState.class);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -47,7 +45,7 @@ public class KeyValueDB implements AutoCloseable {
 
     public void updateLocalState(ReplicationState state) {
         try {
-            STATE_DB.put("state".getBytes(), mapper.writeValueAsBytes(state));
+            stateDb.put("state".getBytes(), mapper.writeValueAsBytes(state));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -56,7 +54,7 @@ public class KeyValueDB implements AutoCloseable {
 
     public void storeUnclosedContribution(Contrib contrib) {
         try {
-            UNCLOSED_DB.put(
+            unclosedDb.put(
                     // todo: use contrib id instead for second
                     ("" + contrib.getChangeset().getId() + contrib.getOsmId()).getBytes(),
                     mapper.writeValueAsBytes(contrib));
@@ -69,7 +67,7 @@ public class KeyValueDB implements AutoCloseable {
         var collector = new ArrayList<Contrib>();
         try (
                 var options = new ReadOptions().setPrefixSameAsStart(true);
-                var iter = UNCLOSED_DB.newIterator(options)
+                var iter = unclosedDb.newIterator(options)
         ) {
             iter.seek(String.valueOf(changeset.id).getBytes());
             while (iter.isValid()) {
@@ -84,7 +82,7 @@ public class KeyValueDB implements AutoCloseable {
 
     @Override
     public void close() {
-        STATE_DB.close();
-        UNCLOSED_DB.close();
+        stateDb.close();
+        unclosedDb.close();
     }
 }

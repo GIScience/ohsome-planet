@@ -29,11 +29,6 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
         localState = keyValueDB.getLocalState();
     }
 
-
-    public ReplicationState localState(){
-        return localState;
-    }
-
     @Override
     protected void updateLocalState(ReplicationState state) {
         keyValueDB.updateLocalState(state);
@@ -41,7 +36,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     }
 
     public void updateTowardsRemoteState(ContributionsProcessor processor) {
-        var nextSequenceNumber =  localState.sequenceNumber + 1;
+        var nextSequenceNumber =  localState.getSequenceNumber() + 1;
 
         var entities = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextSequenceNumber));
         processor.update(entities, nextSequenceNumber);

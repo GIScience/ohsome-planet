@@ -56,14 +56,13 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     }
 
     public List<Changeset> updateTowardsRemoteState() {
-        var nextReplication = localState.sequenceNumber + 1;
+        var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextReplication));
         changesetDB.upsertChangesets(changesets);
         System.out.println("Upserted changesets: " + changesets.size());
+        updateLocalState(getRemoteReplication(nextReplication));
 
-        changesetDB.updateState(getRemoteReplication(nextReplication));
-
-        return changesets.stream().filter((changeset) -> !changeset.open).toList();
+        return changesets.stream().filter(changeset -> !changeset.open).toList();
     }
 
     public List<Changeset> updateUnclosedChangesets() {

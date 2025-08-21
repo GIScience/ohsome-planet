@@ -5,13 +5,13 @@ import org.junit.jupiter.api.Test;
 import static java.time.Instant.now;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ReplicationStateTest {
+class ReplicationStateTest {
     @Test
-    public void testReplicationPathFormatting() {
+    void testReplicationPathFormatting() {
         var replicationState = new ReplicationState(now(), 5325622);
         var replicationState2 = new ReplicationState(now(), 1);
 
-        assertEquals("005/325/622", ReplicationState.sequenceNumberAsPath(replicationState.sequenceNumber));
-        assertEquals("000/000/001", ReplicationState.sequenceNumberAsPath(replicationState2.sequenceNumber));
+        assertEquals("005/325/622", ReplicationState.sequenceNumberAsPath(replicationState.getSequenceNumber()));
+        assertEquals("000/000/001", ReplicationState.sequenceNumberAsPath(replicationState2.getSequenceNumber()));
     }
 }

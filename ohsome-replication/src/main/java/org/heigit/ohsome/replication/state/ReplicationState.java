@@ -11,8 +11,8 @@ import java.util.function.Function;
 
 
 public class ReplicationState {
-    public Instant timestamp;
-    public Integer sequenceNumber;
+    private final Instant timestamp;
+    private final Integer sequenceNumber;
 
     ReplicationState(Properties props, String sequenceKey, String timestampKey, Function<String, Instant> parser) {
         this.sequenceNumber = Integer.parseInt(props.getProperty(sequenceKey));
@@ -31,12 +31,29 @@ public class ReplicationState {
         return df.format(sequenceNumber);
     }
 
-    public boolean equals(ReplicationState other) {
-        return Objects.equals(sequenceNumber, other.sequenceNumber);
-    }
+
 
     @Override
     public String toString() {
         return "{sequenceNumber: " + sequenceNumber + ", timestamp: " + timestamp.toString() + "}";
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == null || getClass() != other.getClass()) return false;
+        return Objects.equals(sequenceNumber, ((ReplicationState) other).sequenceNumber);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(sequenceNumber);
+    }
+
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+
+    public Integer getSequenceNumber() {
+        return sequenceNumber;
     }
 }
