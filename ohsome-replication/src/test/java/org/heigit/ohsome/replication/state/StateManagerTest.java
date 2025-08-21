@@ -28,6 +28,7 @@ class StateManagerTest {
 
 
     private static String dbUrl;
+    private static final String RESOURCE_PATH = "./src/test/resources";
 
     @BeforeAll
     static void setUp() {
@@ -44,7 +45,7 @@ class StateManagerTest {
     @Test
     void testStateManagerGetRemoteReplicationState() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
-        var contributionStateManager = new ContributionStateManager("minute", Path.of(""));
+        var contributionStateManager = new ContributionStateManager("minute", Path.of(RESOURCE_PATH));
 
         var changesetState = changesetStateManager.fetchRemoteState();
         System.out.println("changesetState = " + changesetState);
