@@ -6,10 +6,7 @@ import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
@@ -113,13 +110,36 @@ public abstract class AbstractStateManager<T> {
     }
 
     public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant targetTimestamp, ReplicationState remoteState) {
-        while (remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).compareTo(targetTimestamp.truncatedTo(ChronoUnit.MINUTES)) != 0) {
+        var replicationMap = new HashMap<Integer, ReplicationState>();
+        var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);
+
+        while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
             System.out.println(remoteState);
             var minutes = Duration.between(targetTimestamp, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
             remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
+
+            if (replicationMap.putIfAbsent(remoteState.getSequenceNumber(), remoteState) != null) {
+                return getRemoteStateInCaseOfLoop(targetTimestamp, replicationMap);
+            }
         }
         System.out.println(remoteState);
-        return remoteState;
+        return targetTimestamp.isAfter(remoteState.getTimestamp())
+                ? remoteState
+                : getRemoteReplication(remoteState.getSequenceNumber() - 1 - replicationOffset);
+    }
+
+    private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, HashMap<Integer, ReplicationState> replicationMap) {
+        var closestReplicationState = replicationMap.values().stream()
+                .filter(rs -> rs.getTimestamp().isBefore(targetTimestamp))
+                .max(Comparator.comparing(ReplicationState::getTimestamp))
+                .orElseThrow(); // can not happen since we cannot loop if we are never below timestamp
+
+        ReplicationState previous;
+        do {
+            previous = closestReplicationState;
+            closestReplicationState = getRemoteReplication(previous.getSequenceNumber() + 1 + replicationOffset);
+        } while (closestReplicationState.getTimestamp().isBefore(targetTimestamp));
+        return previous;
     }
 
     public ReplicationState getLocalState() {
