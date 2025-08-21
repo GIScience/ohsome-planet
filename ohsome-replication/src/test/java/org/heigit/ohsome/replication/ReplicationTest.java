@@ -8,9 +8,12 @@ import java.nio.file.Path;
  * Unit test for simple App.
  */
 class ReplicationTest {
+    private static final String RESOURCE_PATH = "./src/test/resources";
+
+
     @Test
     void testReplication() {
         // todo: org.rocksdb.RocksDBException: No locks available
-        //  ReplicationManager.update("minute", Path.of(""), System.getProperty("DB_URL"));
+        //  ReplicationManager.update("minute", Path.of(RESOURCE_PATH), System.getProperty("DB_URL"));
     }
 }

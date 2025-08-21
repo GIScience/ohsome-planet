@@ -9,9 +9,10 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class KeyValueDBTest {
+    private static final String RESOURCE_PATH = "./src/test/resources";
     @Test
     void testUpdateAndGetLocalState() {
-        try (var keyValueStore = new KeyValueDB(Path.of("./testDBData"))){
+        try (var keyValueStore = new KeyValueDB(Path.of(RESOURCE_PATH))){
             var replicationState = new ReplicationState(Instant.now(), 12312);
             keyValueStore.updateLocalState(replicationState);
 
