@@ -16,33 +16,33 @@ import java.util.zip.GZIPInputStream;
 import static java.net.URI.create;
 
 public abstract class AbstractStateManager<T> {
-    protected final String TARGET_URL;
-    protected final String TOP_LEVEL_FILE;
-    protected final String SEQUENCE_KEY;
-    protected final String TIMESTAMP_KEY;
-    protected final String REPLICATION_FILE_NAME;
-    protected final Integer REPLICATION_OFFSET;
+    protected final String targetUrl;
+    protected final String topLevelFile;
+    protected final String sequenceKey;
+    protected final String timestampKey;
+    protected final String replicationFileName;
+    protected final Integer replicationOffset;
 
-    public ReplicationState localState;
-    public ReplicationState remoteState;
+    protected ReplicationState localState;
+    protected ReplicationState remoteState;
 
 
     AbstractStateManager(String targetURL, String topLevelFile, String sequenceKey, String timestampKey, String replicationFileName, Integer replicationOffset) {
-        TARGET_URL = targetURL;
-        TOP_LEVEL_FILE = topLevelFile;
-        SEQUENCE_KEY = sequenceKey;
-        TIMESTAMP_KEY = timestampKey;
-        REPLICATION_FILE_NAME = replicationFileName;
-        REPLICATION_OFFSET = replicationOffset;
+        targetUrl = targetURL;
+        this.topLevelFile = topLevelFile;
+        this.sequenceKey = sequenceKey;
+        this.timestampKey = timestampKey;
+        this.replicationFileName = replicationFileName;
+        this.replicationOffset = replicationOffset;
     }
 
-    abstract protected Instant timestampParser(String timestamp);
+    protected abstract Instant timestampParser(String timestamp);
 
-    abstract protected void initializeLocalState();
+    protected abstract void initializeLocalState();
 
-    abstract protected void updateLocalState(ReplicationState state);
+    protected abstract void updateLocalState(ReplicationState state);
 
-    abstract protected Iterator<T> getParser(InputStream input);
+    protected abstract Iterator<T> getParser(InputStream input);
 
     protected InputStream getFileStream(URL url) throws IOException {
         var connection = url.openConnection();
@@ -51,12 +51,12 @@ public abstract class AbstractStateManager<T> {
         return connection.getInputStream();
     }
 
-    public ReplicationState getRemoteState() {
+    public ReplicationState fetchRemoteState() {
         try {
-            var input = getFileStream(create(this.TARGET_URL + TOP_LEVEL_FILE).toURL());
+            var input = getFileStream(create(this.targetUrl + topLevelFile).toURL());
             var props = new Properties();
             props.load(input);
-            this.remoteState = new ReplicationState(props, SEQUENCE_KEY, TIMESTAMP_KEY, this::timestampParser);
+            this.remoteState = new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
             return this.remoteState;
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -65,24 +65,24 @@ public abstract class AbstractStateManager<T> {
 
     public ReplicationState getRemoteReplication(Integer sequenceNumber) {
         try {
-            var input = getFileStream(create(this.TARGET_URL + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
+            var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
             var props = new Properties();
             props.load(input);
-            return new ReplicationState(props, SEQUENCE_KEY, TIMESTAMP_KEY, this::timestampParser);
+            return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public InputStream getReplicationFile(String replicationPath) {
+    protected InputStream getReplicationFile(String replicationPath) {
         try {
-            return getFileStream(create(this.TARGET_URL + replicationPath + this.REPLICATION_FILE_NAME).toURL());
+            return getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public List<T> fetchReplicationBatch(String replicationPath) {
+    protected List<T> fetchReplicationBatch(String replicationPath) {
         try (var gzipStream = new GZIPInputStream(getReplicationFile(replicationPath))) {
             return parse(gzipStream);
         } catch (Exception e) {
@@ -112,13 +112,17 @@ public abstract class AbstractStateManager<T> {
         }
     }
 
-    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant target_timestamp, ReplicationState remoteState) {
-        while (remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES).compareTo(target_timestamp.truncatedTo(ChronoUnit.MINUTES)) != 0) {
+    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant targetTimestamp, ReplicationState remoteState) {
+        while (remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).compareTo(targetTimestamp.truncatedTo(ChronoUnit.MINUTES)) != 0) {
             System.out.println(remoteState);
-            var minutes = Duration.between(target_timestamp, remoteState.timestamp.truncatedTo(ChronoUnit.MINUTES)).toMinutes();
-            remoteState = getRemoteReplication(remoteState.sequenceNumber - Math.toIntExact(minutes) + REPLICATION_OFFSET);
+            var minutes = Duration.between(targetTimestamp, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
+            remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
         }
         System.out.println(remoteState);
         return remoteState;
+    }
+
+    public ReplicationState getLocalState() {
+        return localState;
     }
 }

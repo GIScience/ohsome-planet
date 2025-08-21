@@ -26,13 +26,13 @@ public class Waiter {
         }
 
         var now = Instant.now();
-        if (remoteChangesetState.timestamp.plusSeconds(80).isAfter(now)) {
-            waitForReplicationFile(now, remoteChangesetState.timestamp);
+        if (remoteChangesetState.getTimestamp().plusSeconds(80).isAfter(now)) {
+            waitForReplicationFile(now, remoteChangesetState.getTimestamp());
             return true;
         }
 
-        if (lastContributionState.timestamp.plusSeconds(80).isAfter(now)) {
-            waitForReplicationFile(now, lastContributionState.timestamp);
+        if (lastContributionState.getTimestamp().plusSeconds(80).isAfter(now)) {
+            waitForReplicationFile(now, lastContributionState.getTimestamp());
             return true;
         }
 
@@ -47,7 +47,7 @@ public class Waiter {
         return true;
     }
 
-    private void reset(){
+    private void reset() {
         alreadyWaited = false;
         firstTimeAfterSuccess = true;
     }
@@ -61,8 +61,8 @@ public class Waiter {
     protected void waitXSeconds(long x) {
         try {
             TimeUnit.SECONDS.sleep(x);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (InterruptedException ignored) {
+            System.err.println("Waiter got interrupted");
         }
     }
 

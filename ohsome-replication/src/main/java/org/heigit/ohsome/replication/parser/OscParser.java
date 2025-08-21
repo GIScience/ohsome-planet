@@ -41,8 +41,6 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
     private final List<OSMMember> members = new ArrayList<>();
     private final Map<String, String> tags = new HashMap<>();
 
-    private final Map<Integer, OSMRole> cacheRoles = new HashMap<>();
-
     private Exception exception = null;
     private OSMEntity next = null;
     private double lon;
