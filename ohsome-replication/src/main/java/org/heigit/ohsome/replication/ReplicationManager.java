@@ -39,26 +39,26 @@ public class ReplicationManager {
         });
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        try {
+        try (var keyValueDB = new KeyValueDB(directory)) {
             var contributionManager = new ContributionStateManager(interval, directory);
             var changesetManager = new ChangesetStateManager(changesetDbUrl);
-            var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), new KeyValueDB(directory));
+            var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), keyValueDB);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
 
-            var waiter = new Waiter(changesetManager.localState,  contributionManager.localState);
+            var waiter = new Waiter(changesetManager.getLocalState(), contributionManager.getLocalState());
 
             while (!shutdownInitiated.get()) {
-                var remoteChangesetState = changesetManager.getRemoteState();
+                var remoteChangesetState = changesetManager.fetchRemoteState();
 
-                if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)){
+                if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)) {
                     continue;
                 }
 
                 fetchChangesets(changesetManager, contribProcessor);
 
-                var remoteContributionState = contributionManager.getRemoteState();
+                var remoteContributionState = contributionManager.fetchRemoteState();
                 waiter.registerLastContributionState(remoteContributionState);
 
                 fetchContributions(contributionManager, remoteContributionState, contribProcessor);
@@ -70,7 +70,7 @@ public class ReplicationManager {
     }
 
     private static void fetchChangesets(ChangesetStateManager changesetManager, ContributionsProcessor contribProcessor) {
-        while (!changesetManager.localState.equals(changesetManager.remoteState)) {
+        while (!changesetManager.getLocalState().equals(changesetManager.fetchRemoteState())) {
             var newClosedChangeset = changesetManager.updateTowardsRemoteState();
             contribProcessor.releaseContributions(newClosedChangeset);
         }
@@ -79,7 +79,7 @@ public class ReplicationManager {
     }
 
     private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) {
-        while (!contributionManager.localState.equals(remoteContributionState)) {
+        while (!contributionManager.getLocalState().equals(remoteContributionState)) {
             contributionManager.updateTowardsRemoteState(contribProcessor);
         }
     }

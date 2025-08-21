@@ -9,13 +9,10 @@
         <artifactId>ohsome-planet</artifactId>
         <version>1.1.1-SNAPSHOT</version>
     </parent>
-    <properties>
-        <mockito.version>5.19.0</mockito.version>
-    </properties>
-    <groupId>org.heigit.ohsome</groupId>
     <artifactId>ohsome-replication</artifactId>
     <version>1.1.1-SNAPSHOT</version>
     <properties>
+        <mockito.version>5.19.0</mockito.version>
         <prometheus.version>1.4.1</prometheus.version>
         <jackson.version>2.18.2</jackson.version>
     </properties>

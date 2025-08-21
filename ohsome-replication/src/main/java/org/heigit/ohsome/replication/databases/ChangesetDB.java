@@ -16,8 +16,8 @@ import java.sql.Timestamp;
 import java.util.*;
 
 public class ChangesetDB {
-    protected static HikariDataSource dataSource;
     private static final HikariConfig config = new HikariConfig();
+    private final HikariDataSource dataSource;
 
     public <T> Map<Long, T> changesets(Set<Long> ids, Changesets.Factory<T> factory) throws Exception {
         return getterDb.changesets(ids, factory);
@@ -32,8 +32,9 @@ public class ChangesetDB {
     }
 
     public ReplicationState getLocalState() {
-        try (var conn = dataSource.getConnection()) {
-            var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM osm_changeset_state");
+        try (var conn = dataSource.getConnection();
+             var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM osm_changeset_state")
+        ) {
             var results = pstmt.executeQuery();
             if (results.next()) {
                 return new ReplicationState(results.getTimestamp(2).toInstant(), results.getInt(1));
@@ -46,10 +47,12 @@ public class ChangesetDB {
     }
 
     public void updateState(ReplicationState state) {
-        try (var conn = dataSource.getConnection()) {
-            var pstmt = conn.prepareStatement("UPDATE osm_changeset_state SET last_sequence=?, last_timestamp=?");
-            pstmt.setInt(1, state.sequenceNumber);
-            pstmt.setTimestamp(2, Timestamp.from(state.timestamp));
+        try (
+                var conn = dataSource.getConnection();
+                var pstmt = conn.prepareStatement("UPDATE osm_changeset_state SET last_sequence=?, last_timestamp=?")
+        ) {
+            pstmt.setInt(1, state.getSequenceNumber());
+            pstmt.setTimestamp(2, Timestamp.from(state.getTimestamp()));
             pstmt.executeUpdate();
         } catch (SQLException ex) {
             throw new RuntimeException(ex);
@@ -57,46 +60,47 @@ public class ChangesetDB {
     }
 
     public void upsertChangesets(List<ChangesetParser.Changeset> changesets) {
-        try (var conn = dataSource.getConnection()) {
-            var pstmt = conn.prepareStatement("""
-                     MERGE INTO osm_changeset as cs
-                     USING (
-                        VALUES(
-                         ?,
-                         ?,
-                         ?::timestamp,
-                         ?,
-                         ?,
-                         ?,
-                         ?,
-                         ?::timestamp,
-                         ?,
-                         ?,
-                         ?,
-                         ?,
-                         ST_MakeEnvelope(?, ?, ?, ?),
-                         ?
-                        )
-                     ) upserts (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
-                     ON cs.id = upserts.id
-                     WHEN matched THEN
-                       UPDATE SET
-                           min_lat = upserts.min_lat,
-                           max_lat = upserts.max_lat,
-                           min_lon = upserts.min_lon,
-                           max_lon = upserts.max_lon,
-                           closed_at = upserts.closed_at,
-                           open = upserts.open,
-                           num_changes = upserts.num_changes,
-                           tags = upserts.tags,
-                           geom = upserts.geom,
-                           hashtags = upserts.hashtags
-                     WHEN NOT matched THEN
-                       INSERT (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
-                       VALUES (upserts.id, upserts.user_id, upserts.created_at, upserts.min_lat, upserts.max_lat, upserts.min_lon, upserts.max_lon, upserts.closed_at, upserts.open, upserts.num_changes, upserts.user_name, upserts.tags, upserts.geom, upserts.hashtags);
-                    """
-            );
-
+        try (
+                var conn = dataSource.getConnection();
+                var pstmt = conn.prepareStatement("""
+                         MERGE INTO osm_changeset as cs
+                         USING (
+                            VALUES(
+                             ?,
+                             ?,
+                             ?::timestamp,
+                             ?,
+                             ?,
+                             ?,
+                             ?,
+                             ?::timestamp,
+                             ?,
+                             ?,
+                             ?,
+                             ?,
+                             ST_MakeEnvelope(?, ?, ?, ?),
+                             ?
+                            )
+                         ) upserts (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
+                         ON cs.id = upserts.id
+                         WHEN matched THEN
+                           UPDATE SET
+                               min_lat = upserts.min_lat,
+                               max_lat = upserts.max_lat,
+                               min_lon = upserts.min_lon,
+                               max_lon = upserts.max_lon,
+                               closed_at = upserts.closed_at,
+                               open = upserts.open,
+                               num_changes = upserts.num_changes,
+                               tags = upserts.tags,
+                               geom = upserts.geom,
+                               hashtags = upserts.hashtags
+                         WHEN NOT matched THEN
+                           INSERT (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
+                           VALUES (upserts.id, upserts.user_id, upserts.created_at, upserts.min_lat, upserts.max_lat, upserts.min_lon, upserts.max_lon, upserts.closed_at, upserts.open, upserts.num_changes, upserts.user_name, upserts.tags, upserts.geom, upserts.hashtags);
+                        """
+                )
+        ) {
             for (var changeset : changesets) {
                 pstmt.setLong(1, changeset.id);
                 pstmt.setLong(2, changeset.uid);
@@ -139,8 +143,10 @@ public class ChangesetDB {
     }
 
     public List<Long> getOpenChangesetsOlderThanTwoHours() {
-        try (var conn = dataSource.getConnection()) {
-            var pstmt = conn.prepareStatement("SELECT id FROM osm_changeset where created_at < now() - interval '2 hours' and open");
+        try (
+                var conn = dataSource.getConnection();
+                var pstmt = conn.prepareStatement("SELECT id FROM osm_changeset where created_at < now() - interval '2 hours' and open")
+        ) {
             var results = pstmt.executeQuery();
             List<Long> ids = new ArrayList<>();
             while (results.next()) {
