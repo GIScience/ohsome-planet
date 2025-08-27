@@ -13,6 +13,7 @@ import org.postgresql.util.PGobject;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.*;
 
 public class ChangesetDB {
@@ -103,7 +104,11 @@ public class ChangesetDB {
         ) {
             for (var changeset : changesets) {
                 pstmt.setLong(1, changeset.id);
-                pstmt.setLong(2, changeset.uid);
+                if (Objects.isNull(changeset.uid)) {
+                    pstmt.setNull(2, Types.BIGINT);
+                } else {
+                    pstmt.setLong(2, changeset.uid);
+                }
                 pstmt.setTimestamp(3, Timestamp.from(changeset.getCreatedAt()));
 
                 pstmt.setBigDecimal(4, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.minLat, 0.)));
