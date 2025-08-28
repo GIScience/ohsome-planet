@@ -1,16 +1,51 @@
 package org.heigit.ohsome.osm.changesets;
 
 import com.google.common.primitives.Bytes;
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.SynchronousSink;
 
+import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+import static reactor.core.publisher.Mono.fromCallable;
+import static reactor.core.scheduler.Schedulers.parallel;
+
 public class PBZ2Reader implements Iterator<byte[]> {
+
+    public static Flux<byte[]> read(Path path) throws IOException {
+        return Flux.using(
+                () -> Files.newByteChannel(path),
+                PBZ2Reader::readFromStream,
+                PBZ2Reader::closeQuitely);
+    }
+
+    private static Flux<byte[]> readFromStream(SeekableByteChannel input) {
+        return Flux
+                .generate(() -> new PBZ2Reader(input), PBZ2Reader::readNext)
+                .flatMapSequential(block -> fromCallable(() -> decompress(block)).subscribeOn(parallel()));
+    }
+
+    private static void closeQuitely(Closeable closeable) {
+        try {
+            closeable.close();
+        } catch (IOException e) {
+//                throw new UncheckedIOException(e);
+        }
+    }
+
+        public static byte[] decompress(byte[] block) throws IOException {
+        return (new BZip2CompressorInputStream(new ByteArrayInputStream(block), true)).readAllBytes();
+    }
+
     private static final byte[] bzHeader = {'B', 'Z', 'h', '9', 0x31, 0x41, 0x59, 0x26, 0x53, 0x59};
 
     private final SeekableByteChannel channel;
