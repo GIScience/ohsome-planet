@@ -3,18 +3,19 @@ package org.heigit.ohsome.replication.databases;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.osm.changesets.ChangesetDb;
-import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
 import org.heigit.ohsome.osm.changesets.Changesets;
-import org.heigit.ohsome.replication.parser.ChangesetParser;
 import org.heigit.ohsome.replication.state.ReplicationState;
+import org.postgresql.PGConnection;
 import org.postgresql.util.HStoreConverter;
 import org.postgresql.util.PGobject;
+import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
+import java.io.*;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.*;
+
+import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
 public class ChangesetDB {
     private static final HikariConfig config = new HikariConfig();
@@ -60,7 +61,15 @@ public class ChangesetDB {
         }
     }
 
-    public void upsertChangesets(List<ChangesetParser.Changeset> changesets) {
+    public int getMaxConnections() {
+        try {
+            return dataSource.getConnection().getMetaData().getMaxConnections();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void upsertChangesets(List<OSMChangeset> changesets) {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
@@ -70,51 +79,30 @@ public class ChangesetDB {
                              ?,
                              ?,
                              ?::timestamp,
-                             ?,
-                             ?,
-                             ?,
-                             ?,
                              ?::timestamp,
                              ?,
                              ?,
                              ?,
-                             ?,
-                             ST_MakeEnvelope(?, ?, ?, ?),
                              ?
                             )
-                         ) upserts (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
+                         ) upserts (id, user_id, created_at, closed_at, open, num_changes, user_name, tags)
                          ON cs.id = upserts.id
                          WHEN matched THEN
                            UPDATE SET
-                               min_lat = upserts.min_lat,
-                               max_lat = upserts.max_lat,
-                               min_lon = upserts.min_lon,
-                               max_lon = upserts.max_lon,
                                closed_at = upserts.closed_at,
                                open = upserts.open,
                                num_changes = upserts.num_changes,
-                               tags = upserts.tags,
-                               geom = upserts.geom,
-                               hashtags = upserts.hashtags
+                               tags = upserts.tags
                          WHEN NOT matched THEN
-                           INSERT (id, user_id, created_at, min_lat, max_lat, min_lon, max_lon, closed_at, open, num_changes, user_name, tags, geom, hashtags)
-                           VALUES (upserts.id, upserts.user_id, upserts.created_at, upserts.min_lat, upserts.max_lat, upserts.min_lon, upserts.max_lon, upserts.closed_at, upserts.open, upserts.num_changes, upserts.user_name, upserts.tags, upserts.geom, upserts.hashtags);
+                           INSERT (id, user_id, created_at, closed_at, open, num_changes, user_name, tags)
+                           VALUES (upserts.id, upserts.user_id, upserts.created_at, upserts.closed_at, upserts.open, upserts.num_changes, upserts.user_name, upserts.tags);
                         """
                 )
         ) {
             for (var changeset : changesets) {
-                pstmt.setLong(1, changeset.id);
-                if (Objects.isNull(changeset.uid)) {
-                    pstmt.setNull(2, Types.BIGINT);
-                } else {
-                    pstmt.setLong(2, changeset.uid);
-                }
+                pstmt.setLong(1, changeset.id());
+                pstmt.setLong(2, changeset.userId());
                 pstmt.setTimestamp(3, Timestamp.from(changeset.getCreatedAt()));
-
-                pstmt.setBigDecimal(4, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.minLat, 0.)));
-                pstmt.setBigDecimal(5, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.maxLat, 0.)));
-                pstmt.setBigDecimal(6, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.minLon, 0.)));
-                pstmt.setBigDecimal(7, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.maxLon, 0.)));
 
                 if (Objects.isNull(changeset.getClosedAt())) {
                     pstmt.setTimestamp(8, null);
@@ -124,27 +112,65 @@ public class ChangesetDB {
                     pstmt.setBoolean(9, true);
                 }
 
-                pstmt.setInt(10, changeset.numChanges);
-                pstmt.setString(11, changeset.userName);
+                pstmt.setInt(10, changeset.numChanges());
+                pstmt.setString(11, changeset.user());
 
                 PGobject hstoreTags = new PGobject();
                 hstoreTags.setType("hstore");
-                hstoreTags.setValue(HStoreConverter.toString(changeset.tagsAsMap()));
+                hstoreTags.setValue(HStoreConverter.toString(changeset.tags()));
 
                 pstmt.setObject(12, hstoreTags);
-
-                pstmt.setBigDecimal(13, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.minLat, 0.)));
-                pstmt.setBigDecimal(14, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.minLon, 0.)));
-                pstmt.setBigDecimal(15, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.maxLat, 0.)));
-                pstmt.setBigDecimal(16, BigDecimal.valueOf(Objects.requireNonNullElse(changeset.maxLon, 0.)));
-
-                pstmt.setArray(17, conn.createArrayOf("VARCHAR", ChangesetHashtags.hashTags(changeset.tagsAsMap()).toArray()));
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
         } catch (SQLException ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    static final String NULL = "";
+    public Mono<Void> bulkInsertChangesets(List<OSMChangeset> changesets) {
+        return Mono.fromRunnable(() -> {
+            try (var conn = dataSource.getConnection()) {
+                var pgConn = conn.unwrap(PGConnection.class);
+                var copyManager = pgConn.getCopyAPI();
+
+                var stringWriter = new StringWriter();
+                try (var csvWriter = new PrintWriter(stringWriter)) {
+                    for (var changeset : changesets) {
+                        var line = String.format(
+                                "%d\t%s\t%s\t%s\t%b\t%d\t%s\t%s%n",
+                                changeset.id(),
+                                changeset.userId(),
+                                Timestamp.from(changeset.getCreatedAt()),
+                                changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
+                                changeset.getClosedAt() == null,
+                                changeset.numChanges(),
+                                escapeCsv(changeset.user()),
+                                escapeCsv(HStoreConverter.toString(changeset.tags()))
+                        );
+                        csvWriter.write(line);
+                    }
+                }
+
+                try (Reader reader = new StringReader(stringWriter.toString())) {
+                    copyManager.copyIn(
+                            "COPY osm_changeset (id, user_id, created_at, closed_at, open, num_changes, user_name, tags) " +
+                                    "FROM STDIN WITH CSV DELIMITER '\t'",
+                            reader
+                    );
+                }
+            } catch (SQLException | IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public static String escapeCsv(String value) {
+        if (value == null || value.isEmpty()) {
+            return NULL;
+        }
+        return "\"" + value.replace("\"", "\"\"").replace("\t", " ") + "\"";
     }
 
     public List<Long> getOpenChangesetsOlderThanTwoHours() {

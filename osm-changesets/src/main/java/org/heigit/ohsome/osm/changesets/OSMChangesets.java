@@ -11,6 +11,8 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ public class OSMChangesets {
     public static List<OSMChangeset> readChangesets(byte[] input) throws IOException {
         return readChangesets(new ByteArrayInputStream(input));
     }
+
     public static List<OSMChangeset> readChangesets(InputStream input) throws IOException {
         return xmlMapper.readValue(input, OSMChangesets.class).list();
     }
@@ -123,6 +126,22 @@ public class OSMChangesets {
             return map;
         }
 
+        public Instant getCreatedAt() {
+            return parseDate(createdAt);
+        }
+
+        public Instant getClosedAt() {
+            return parseDate(closedAt);
+        }
+
+        private static Instant parseDate(String s) {
+            if (s == null) {
+                return null;
+            }
+            return OffsetDateTime.parse(s).toInstant();
+        }
+
+
         public static class Tag {
 
             public static Tag of(String k, String v) {
@@ -147,4 +166,3 @@ public class OSMChangesets {
         }
     }
 }
-

@@ -42,7 +42,7 @@ public class PBZ2Reader implements Iterator<byte[]> {
         }
     }
 
-        public static byte[] decompress(byte[] block) throws IOException {
+    public static byte[] decompress(byte[] block) throws IOException {
         return (new BZip2CompressorInputStream(new ByteArrayInputStream(block), true)).readAllBytes();
     }
 

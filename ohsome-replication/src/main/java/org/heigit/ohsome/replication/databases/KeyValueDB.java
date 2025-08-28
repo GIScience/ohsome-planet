@@ -2,6 +2,7 @@ package org.heigit.ohsome.replication.databases;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.heigit.ohsome.contributions.avro.Contrib;
+import org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
@@ -11,7 +12,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.heigit.ohsome.replication.parser.ChangesetParser.Changeset;
 
 public class KeyValueDB implements AutoCloseable {
     ObjectMapper mapper = new ObjectMapper();
@@ -63,13 +63,13 @@ public class KeyValueDB implements AutoCloseable {
         }
     }
 
-    public List<Contrib> getUnclosedContributionsForChangeset(Changeset changeset) {
+    public List<Contrib> getUnclosedContributionsForChangeset(OSMChangeset changeset) {
         var collector = new ArrayList<Contrib>();
         try (
                 var options = new ReadOptions().setPrefixSameAsStart(true);
                 var iter = unclosedDb.newIterator(options)
         ) {
-            iter.seek(String.valueOf(changeset.id).getBytes());
+            iter.seek(String.valueOf(changeset.id()).getBytes());
             while (iter.isValid()) {
                 collector.add(mapper.readValue(iter.value(), Contrib.class));
                 iter.next();

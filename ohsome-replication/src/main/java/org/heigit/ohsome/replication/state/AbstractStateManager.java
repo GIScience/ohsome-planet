@@ -97,18 +97,6 @@ public abstract class AbstractStateManager<T> {
         return elements;
     }
 
-    protected void parseAndProcessBatch(InputStream input, Consumer<List<T>> processor, Integer batchSize) {
-        var xmlReader = getParser(input);
-        var elements = new ArrayList<T>(batchSize);
-        while (xmlReader.hasNext()) {
-            elements.clear();
-            for (var n = 0; n < batchSize && xmlReader.hasNext(); n++) {
-                elements.add(xmlReader.next());
-            }
-            processor.accept(elements);
-        }
-    }
-
     public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant targetTimestamp, ReplicationState remoteState) {
         var replicationMap = new HashMap<Integer, ReplicationState>();
         var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);

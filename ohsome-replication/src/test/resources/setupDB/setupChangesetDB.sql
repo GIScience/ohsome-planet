@@ -5,17 +5,11 @@ CREATE TABLE osm_changeset (
                                id bigint,
                                user_id bigint,
                                created_at timestamp without time zone,
-                               min_lat numeric(10,7),
-                               max_lat numeric(10,7),
-                               min_lon numeric(10,7),
-                               max_lon numeric(10,7),
                                closed_at timestamp without time zone,
                                open boolean,
                                num_changes integer,
                                user_name varchar(255),
-                               tags hstore,
-                               geom geometry(Polygon, 4326),
-                               hashtags text[]
+                               tags hstore
 );
 CREATE TABLE osm_changeset_comment (
                                        comment_changeset_id bigint not null,
@@ -33,6 +27,6 @@ CREATE TABLE osm_changeset_state (
 INSERT INTO osm_changeset_state VALUES (10020, '2021-12-12 09:10:15', 0);
 
 INSERT INTO osm_changeset VALUES
-                              (111, 1231, '2021-12-12 09:10:15', null, null, null, null, null, true, 12, 'bob', null, null, null),
-                              (1231, 1231, '2022-12-12 09:10:15', null, null, null, null, null, true, 12, 'bob', null, null, null),
-                              (34123412, 1231, '2022-12-12 09:10:15', null, null, null, null, null, true, 12, 'bob', null, null, null);
+                              (111, 1231, '2021-12-12 09:10:15', null, true, 12, 'bob', null),
+                              (1231, 1231, '2022-12-12 09:10:15', null, true, 12, 'bob', null),
+                              (34123412, 1231, '2022-12-12 09:10:15', null, true, 12, 'bob', null);
