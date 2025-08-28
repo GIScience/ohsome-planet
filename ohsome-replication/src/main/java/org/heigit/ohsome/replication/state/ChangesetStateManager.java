@@ -1,24 +1,27 @@
 package org.heigit.ohsome.replication.state;
 
 
+import com.google.common.base.Stopwatch;
+import org.heigit.ohsome.osm.changesets.OSMChangesets;
+import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
-import org.heigit.ohsome.replication.parser.ChangesetParser;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
-import java.util.zip.GZIPInputStream;
 
 import static java.net.URI.create;
-import static org.heigit.ohsome.replication.parser.ChangesetParser.Changeset;
+import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
+import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
 
-public class ChangesetStateManager extends AbstractStateManager<Changeset> {
+public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     private static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
     ChangesetDB changesetDB;
 
@@ -45,27 +48,27 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     }
 
     @Override
-    protected Iterator<Changeset> getParser(InputStream input) {
+    protected Iterator<OSMChangeset> getParser(InputStream input) {
         try {
-            return new ChangesetParser(
+            return OSMChangesets.readChangesets(
                     input
-            );
+            ).iterator();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public List<Changeset> updateTowardsRemoteState() {
+    public List<OSMChangeset> updateTowardsRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextReplication));
         changesetDB.upsertChangesets(changesets);
         System.out.println("Upserted changesets: " + changesets.size());
         updateLocalState(getRemoteReplication(nextReplication));
 
-        return changesets.stream().filter(changeset -> !changeset.open).toList();
+        return changesets.stream().filter(changeset -> !changeset.isOpen()).toList();
     }
 
-    public List<Changeset> updateUnclosedChangesets() {
+    public List<OSMChangeset> updateUnclosedChangesets() {
         var unclosedCsIDs = changesetDB.getOpenChangesetsOlderThanTwoHours();
         var nowClosedChangesets = parse(fetchFile(
                 "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
@@ -83,8 +86,19 @@ public class ChangesetStateManager extends AbstractStateManager<Changeset> {
     }
 
     public void initDbWithXML(Path changesetsPath) {
-        try (var input = new GZIPInputStream(Files.newInputStream(changesetsPath))) {
-            parseAndProcessBatch(input, changesetDB::upsertChangesets, 500);
+        try {
+            var timer = Stopwatch.createStarted();
+            PBZ2ChangesetReader.read(changesetsPath)
+                    .flatMap(bytes ->
+                                    Mono.fromCallable(() -> readChangesets(bytes))
+                                            .subscribeOn(Schedulers.parallel())
+                    )
+                    .flatMap(changesets ->
+                                    changesetDB.bulkInsertChangesets(changesets)
+                                            .subscribeOn(Schedulers.boundedElastic()),
+                            changesetDB.getMaxConnections()
+                    ).then().block();
+            System.out.println("Pushing changesets from Bz2 to DB took: " + timer.stop());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

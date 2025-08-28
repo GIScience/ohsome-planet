@@ -6,7 +6,7 @@ import org.heigit.ohsome.replication.databases.KeyValueDB;
 
 import java.util.List;
 
-import static org.heigit.ohsome.replication.parser.ChangesetParser.Changeset;
+import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
 public class ContributionsProcessor {
 
@@ -23,7 +23,7 @@ public class ContributionsProcessor {
 
     }
 
-    public void releaseContributions(List<Changeset> changesets) {
+    public void releaseContributions(List<OSMChangeset> changesets) {
 
     }
 }
