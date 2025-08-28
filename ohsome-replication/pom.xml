@@ -14,7 +14,7 @@
     <properties>
         <mockito.version>5.19.0</mockito.version>
         <prometheus.version>1.4.1</prometheus.version>
-        <jackson.version>2.18.2</jackson.version>
+
     </properties>
 
     <dependencies>
@@ -27,22 +27,6 @@
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>ohsome-contributions</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-xml</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
