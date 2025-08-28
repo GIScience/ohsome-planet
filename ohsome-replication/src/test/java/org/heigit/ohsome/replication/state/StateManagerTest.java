@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 
+import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.junit.jupiter.api.Assertions.*;
 
 
@@ -79,7 +80,7 @@ class StateManagerTest {
     void testUpdateToRemoteState() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
         var remoteState = changesetStateManager.fetchRemoteState();
-        changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() -1));
+        changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 1));
 
         changesetStateManager.updateTowardsRemoteState();
         assertEquals(changesetStateManager.getLocalState(), remoteState);
@@ -91,7 +92,7 @@ class StateManagerTest {
     void testUpdatedUnclosedChangesets() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
         var nowClosed = changesetStateManager.updateUnclosedChangesets();
-        assertArrayEquals(new long[]{34123412, 1231, 111}, nowClosed.stream().mapToLong(cs -> cs.id).toArray());
+        assertArrayEquals(new long[]{34123412, 1231, 111}, nowClosed.stream().mapToLong(OSMChangeset::id).toArray());
     }
 
     @Test
