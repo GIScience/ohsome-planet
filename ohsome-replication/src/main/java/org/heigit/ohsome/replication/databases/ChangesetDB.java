@@ -128,32 +128,46 @@ public class ChangesetDB {
         }
     }
 
+
     static final String NULL = "";
-    public Mono<Void> bulkInsertChangesets(List<OSMChangeset> changesets) {
+
+    public Mono<String> changesets2CSV(List<OSMChangeset> changesets) {
+        return Mono.fromCallable(()->{
+            var stringWriter = new StringWriter();
+            try (var csvWriter = new PrintWriter(stringWriter)) {
+                for (var changeset : changesets) {
+                    var line = String.format(
+                            "%d\t%s\t%s\t%s\t%b\t%d\t%s\t%s%n",
+                            changeset.id(),
+                            changeset.userId(),
+                            Timestamp.from(changeset.getCreatedAt()),
+                            changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
+                            changeset.getClosedAt() == null,
+                            changeset.numChanges(),
+                            escapeCsv(changeset.user()),
+                            escapeCsv(HStoreConverter.toString(changeset.tags()))
+                    );
+                    csvWriter.write(line);
+                }
+            }
+            return stringWriter.toString();
+        });
+    }
+
+    public static String escapeCsv(String value) {
+        if (value == null || value.isEmpty()) {
+            return NULL;
+        }
+        return "\"" + value.replace("\"", "\"\"").replace("\t", " ") + "\"";
+    }
+
+    public Mono<Void> bulkInsertChangesets(String changesetCSVString) {
         return Mono.fromRunnable(() -> {
             try (var conn = dataSource.getConnection()) {
                 var pgConn = conn.unwrap(PGConnection.class);
                 var copyManager = pgConn.getCopyAPI();
 
-                var stringWriter = new StringWriter();
-                try (var csvWriter = new PrintWriter(stringWriter)) {
-                    for (var changeset : changesets) {
-                        var line = String.format(
-                                "%d\t%s\t%s\t%s\t%b\t%d\t%s\t%s%n",
-                                changeset.id(),
-                                changeset.userId(),
-                                Timestamp.from(changeset.getCreatedAt()),
-                                changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
-                                changeset.getClosedAt() == null,
-                                changeset.numChanges(),
-                                escapeCsv(changeset.user()),
-                                escapeCsv(HStoreConverter.toString(changeset.tags()))
-                        );
-                        csvWriter.write(line);
-                    }
-                }
-
-                try (Reader reader = new StringReader(stringWriter.toString())) {
+                try (Reader reader = new StringReader(changesetCSVString)) {
                     copyManager.copyIn(
                             "COPY osm_changeset (id, user_id, created_at, closed_at, open, num_changes, user_name, tags) " +
                                     "FROM STDIN WITH CSV DELIMITER '\t'",
@@ -166,12 +180,6 @@ public class ChangesetDB {
         });
     }
 
-    public static String escapeCsv(String value) {
-        if (value == null || value.isEmpty()) {
-            return NULL;
-        }
-        return "\"" + value.replace("\"", "\"\"").replace("\t", " ") + "\"";
-    }
 
     public List<Long> getOpenChangesetsOlderThanTwoHours() {
         try (
