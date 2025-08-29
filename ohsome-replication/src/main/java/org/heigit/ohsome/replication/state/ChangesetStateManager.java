@@ -90,9 +90,12 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
             var timer = Stopwatch.createStarted();
             PBZ2ChangesetReader.read(changesetsPath)
                     .flatMap(bytes ->
-                                    Mono.fromCallable(() -> readChangesets(bytes))
-                                            .subscribeOn(Schedulers.parallel())
+                            Mono.fromCallable(() -> readChangesets(bytes))
+                                    .subscribeOn(Schedulers.parallel())
                     )
+                    .flatMap(changesets ->
+                            changesetDB.changesets2CSV(changesets)
+                                    .subscribeOn(Schedulers.parallel()))
                     .flatMap(changesets ->
                                     changesetDB.bulkInsertChangesets(changesets)
                                             .subscribeOn(Schedulers.boundedElastic()),
