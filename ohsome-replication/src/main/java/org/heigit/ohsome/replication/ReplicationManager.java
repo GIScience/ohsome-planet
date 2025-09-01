@@ -40,7 +40,7 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try (var keyValueDB = new KeyValueDB(directory)) {
-            var contributionManager = new ContributionStateManager(interval, directory);
+            var contributionManager = new ContributionStateManager(interval, keyValueDB);
             var changesetManager = new ChangesetStateManager(changesetDbUrl);
             var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), keyValueDB);
 
@@ -55,12 +55,10 @@ public class ReplicationManager {
                 if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)) {
                     continue;
                 }
-
-                fetchChangesets(changesetManager, contribProcessor);
-
                 var remoteContributionState = contributionManager.fetchRemoteState();
                 waiter.registerLastContributionState(remoteContributionState);
 
+                fetchChangesets(changesetManager, contribProcessor);
                 fetchContributions(contributionManager, remoteContributionState, contribProcessor);
             }
         } finally {
@@ -70,7 +68,7 @@ public class ReplicationManager {
     }
 
     private static void fetchChangesets(ChangesetStateManager changesetManager, ContributionsProcessor contribProcessor) {
-        while (!changesetManager.getLocalState().equals(changesetManager.fetchRemoteState())) {
+        while (!changesetManager.getLocalState().equals(changesetManager.getRemoteState())) {
             var newClosedChangeset = changesetManager.updateTowardsRemoteState();
             contribProcessor.releaseContributions(newClosedChangeset);
         }

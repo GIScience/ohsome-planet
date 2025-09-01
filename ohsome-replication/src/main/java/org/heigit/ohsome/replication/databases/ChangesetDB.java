@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import java.io.*;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
@@ -33,7 +34,7 @@ public class ChangesetDB {
         getterDb = new ChangesetDb(dataSource);
     }
 
-    public ReplicationState getLocalState() {
+    public ReplicationState getLocalState() throws NoSuchElementException {
         try (var conn = dataSource.getConnection();
              var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM osm_changeset_state")
         ) {
@@ -41,17 +42,47 @@ public class ChangesetDB {
             if (results.next()) {
                 return new ReplicationState(results.getTimestamp(2).toInstant(), results.getInt(1));
             } else {
-                throw new RuntimeException("No state in changesetDB");
+                throw new NoSuchElementException("No state in changesetDB");
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
+    public Instant getMaxLocalTimestamp() {
+        try (var conn = dataSource.getConnection();
+             var pstmt = conn.prepareStatement("SELECT max(created_at) FROM osm_changeset")
+        ) {
+            var results = pstmt.executeQuery();
+            if (results.next()) {
+                return results.getTimestamp(1).toInstant();
+            } else {
+
+                throw new RuntimeException("No data in changesetDB");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+
     public void updateState(ReplicationState state) {
         try (
                 var conn = dataSource.getConnection();
-                var pstmt = conn.prepareStatement("UPDATE osm_changeset_state SET last_sequence=?, last_timestamp=?")
+                var pstmt = conn.prepareStatement("""
+                        MERGE INTO osm_changeset_state as ocs
+                        USING (VALUES(0, ?, ?::timestamp)) upserts (id, last_sequence, last_timestamp)
+                        ON ocs.id = upserts.id
+                         WHEN matched THEN
+                           UPDATE SET
+                               last_sequence = upserts.last_sequence,
+                               last_timestamp = upserts.last_timestamp
+                         WHEN NOT matched THEN
+                           INSERT (id, last_sequence, last_timestamp)
+                           VALUES (upserts.id, upserts.last_sequence, upserts.last_timestamp);
+                        """
+                )
         ) {
             pstmt.setInt(1, state.getSequenceNumber());
             pstmt.setTimestamp(2, Timestamp.from(state.getTimestamp()));
@@ -105,21 +136,21 @@ public class ChangesetDB {
                 pstmt.setTimestamp(3, Timestamp.from(changeset.getCreatedAt()));
 
                 if (Objects.isNull(changeset.getClosedAt())) {
-                    pstmt.setTimestamp(8, null);
-                    pstmt.setBoolean(9, false);
+                    pstmt.setTimestamp(4, null);
+                    pstmt.setBoolean(5, false);
                 } else {
-                    pstmt.setTimestamp(8, Timestamp.from(changeset.getClosedAt()));
-                    pstmt.setBoolean(9, true);
+                    pstmt.setTimestamp(4, Timestamp.from(changeset.getClosedAt()));
+                    pstmt.setBoolean(5, true);
                 }
 
-                pstmt.setInt(10, changeset.numChanges());
-                pstmt.setString(11, changeset.user());
+                pstmt.setInt(6, changeset.numChanges());
+                pstmt.setString(7, changeset.user());
 
                 PGobject hstoreTags = new PGobject();
                 hstoreTags.setType("hstore");
                 hstoreTags.setValue(HStoreConverter.toString(changeset.tags()));
 
-                pstmt.setObject(12, hstoreTags);
+                pstmt.setObject(8, hstoreTags);
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
@@ -132,7 +163,7 @@ public class ChangesetDB {
     static final String NULL = "";
 
     public Mono<String> changesets2CSV(List<OSMChangeset> changesets) {
-        return Mono.fromCallable(()->{
+        return Mono.fromCallable(() -> {
             var stringWriter = new StringWriter();
             try (var csvWriter = new PrintWriter(stringWriter)) {
                 for (var changeset : changesets) {
