@@ -28,7 +28,7 @@ public class PBZ2ChangesetReader {
     private static byte[] completeBlocksForChangesets(List<byte[]> blocks) {
         var first = alignStartChangeset(blocks.getFirst());
         if (blocks.size() == 1) {
-            // last block in whole file, just needs a open osm tag!
+            // last block in whole file, just needs an osm open tag!
             return concat(OSM_OPEN, first);
         }
         return concat(OSM_OPEN, first, completeChangeset(blocks.getLast()), OSM_CLOSE);

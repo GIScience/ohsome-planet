@@ -7,7 +7,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.zip.GZIPInputStream;
 
 import static java.net.URI.create;
@@ -60,6 +59,10 @@ public abstract class AbstractStateManager<T> {
         }
     }
 
+    public ReplicationState getRemoteState() {
+        return this.remoteState;
+    }
+
     public ReplicationState getRemoteReplication(Integer sequenceNumber) {
         try {
             var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
@@ -97,12 +100,11 @@ public abstract class AbstractStateManager<T> {
         return elements;
     }
 
-    public ReplicationState oldSequenceNumberFromDifferenceToOldTimestamp(Instant targetTimestamp, ReplicationState remoteState) {
+    public ReplicationState estimateLocalReplicationState(Instant targetTimestamp, ReplicationState remoteState) {
         var replicationMap = new HashMap<Integer, ReplicationState>();
         var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);
 
         while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
-            System.out.println(remoteState);
             var minutes = Duration.between(targetTimestamp, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
             remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
 
@@ -110,7 +112,6 @@ public abstract class AbstractStateManager<T> {
                 return getRemoteStateInCaseOfLoop(targetTimestamp, replicationMap);
             }
         }
-        System.out.println(remoteState);
         return targetTimestamp.isAfter(remoteState.getTimestamp())
                 ? remoteState
                 : getRemoteReplication(remoteState.getSequenceNumber() - 1 - replicationOffset);

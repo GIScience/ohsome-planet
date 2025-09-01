@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
 
+import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ class StateManagerTest {
     @Test
     void testStateManagerGetRemoteReplicationState() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
-        var contributionStateManager = new ContributionStateManager("minute", Path.of(RESOURCE_PATH));
+        var contributionStateManager = new ContributionStateManager("minute", new KeyValueDB(Path.of(RESOURCE_PATH)));
 
         var changesetState = changesetStateManager.fetchRemoteState();
         System.out.println("changesetState = " + changesetState);
@@ -103,7 +104,7 @@ class StateManagerTest {
         var changesetManager = new ChangesetStateManager(dbUrl);
 
         var replication = new ReplicationState(instant, 6642804);
-        var oldReplication = changesetManager.oldSequenceNumberFromDifferenceToOldTimestamp(
+        var oldReplication = changesetManager.estimateLocalReplicationState(
                 Instant.parse("2025-08-04T00:00:00Z"),
                 replication
         );
