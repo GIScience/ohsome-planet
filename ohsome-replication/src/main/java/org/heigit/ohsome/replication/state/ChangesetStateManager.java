@@ -16,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static java.net.URI.create;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
@@ -38,7 +39,17 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
     @Override
     public void initializeLocalState() {
-        localState = changesetDB.getLocalState();
+        try {
+            localState = changesetDB.getLocalState();
+        } catch (NoSuchElementException e) {
+            System.out.println("No local state detected for changesets, trying to estimate starting replication state");
+            updateLocalState(
+                    estimateLocalReplicationState(
+                            changesetDB.getMaxLocalTimestamp(), fetchRemoteState()
+                    )
+            );
+            System.out.println("Estimated replication state:" + this.localState);
+        }
     }
 
     @Override
@@ -62,8 +73,8 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextReplication));
         changesetDB.upsertChangesets(changesets);
-        System.out.println("Upserted changesets: " + changesets.size());
         updateLocalState(getRemoteReplication(nextReplication));
+        System.out.println("Upserted changesets: " + changesets.size() + ". From Replication Set: " + this.localState);
 
         return changesets.stream().filter(changeset -> !changeset.isOpen()).toList();
     }

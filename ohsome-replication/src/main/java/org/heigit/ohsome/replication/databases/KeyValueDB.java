@@ -9,6 +9,7 @@ import org.rocksdb.RocksDB;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,9 +39,10 @@ public class KeyValueDB implements AutoCloseable {
         try {
             return mapper.readValue(stateDb.get("state".getBytes()), ReplicationState.class);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            // todo: fallback state?
+            return new ReplicationState(Instant.now(), 0);
+            //throw new RuntimeException(e);
         }
-
     }
 
     public void updateLocalState(ReplicationState state) {
