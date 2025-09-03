@@ -22,7 +22,6 @@ public class ReplicationManager {
     public static int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
         var changesetManager = new ChangesetStateManager(changesetDbUrl);
         changesetManager.initDbWithXML(changesetsPath);
-        // todo: translate latest timestamp to corresponding changeset replication id?
 
         return 0;
     }
@@ -59,7 +58,7 @@ public class ReplicationManager {
                 waiter.registerLastContributionState(remoteContributionState);
 
                 fetchChangesets(changesetManager, contribProcessor);
-                fetchContributions(contributionManager, remoteContributionState, contribProcessor);
+                // fetchContributions(contributionManager, remoteContributionState, contribProcessor);
             }
         } finally {
             lock.unlock();
@@ -68,7 +67,7 @@ public class ReplicationManager {
     }
 
     private static void fetchChangesets(ChangesetStateManager changesetManager, ContributionsProcessor contribProcessor) {
-        while (!changesetManager.getLocalState().equals(changesetManager.getRemoteState())) {
+        while (!changesetManager.getLocalState().equals(changesetManager.fetchRemoteState())) {
             var newClosedChangeset = changesetManager.updateTowardsRemoteState();
             contribProcessor.releaseContributions(newClosedChangeset);
         }
