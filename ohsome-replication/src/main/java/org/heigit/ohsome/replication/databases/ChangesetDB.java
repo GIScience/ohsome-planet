@@ -104,30 +104,25 @@ public class ChangesetDB {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
-                         MERGE INTO osm_changeset as cs
-                         USING (
-                            VALUES(
-                             ?,
-                             ?,
-                             ?::timestamp,
-                             ?::timestamp,
-                             ?,
-                             ?,
-                             ?,
-                             ?
-                            )
-                         ) upserts (id, user_id, created_at, closed_at, open, num_changes, user_name, tags)
-                         ON cs.id = upserts.id
-                         WHEN matched THEN
-                           UPDATE SET
-                               closed_at = upserts.closed_at,
-                               open = upserts.open,
-                               num_changes = upserts.num_changes,
-                               tags = upserts.tags
-                         WHEN NOT matched THEN
-                           INSERT (id, user_id, created_at, closed_at, open, num_changes, user_name, tags)
-                           VALUES (upserts.id, upserts.user_id, upserts.created_at, upserts.closed_at, upserts.open, upserts.num_changes, upserts.user_name, upserts.tags);
-                        """
+                                INSERT INTO osm_changeset (
+                                    id,
+                                    user_id,
+                                    created_at,
+                                    closed_at,
+                                    open,
+                                    num_changes,
+                                    user_name,
+                                    tags
+                                )
+                                VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?)
+                                ON CONFLICT (id) DO UPDATE
+                                SET
+                                    closed_at = EXCLUDED.closed_at,
+                                    open = EXCLUDED.open,
+                                    num_changes = EXCLUDED.num_changes,
+                                    tags = EXCLUDED.tags
+                                WHERE NOT EXCLUDED.open;
+                      """
                 )
         ) {
             for (var changeset : changesets) {
@@ -135,13 +130,12 @@ public class ChangesetDB {
                 pstmt.setLong(2, changeset.userId());
                 pstmt.setTimestamp(3, Timestamp.from(changeset.getCreatedAt()));
 
-                if (Objects.isNull(changeset.getClosedAt())) {
+                if (changeset.isOpen()) {
                     pstmt.setTimestamp(4, null);
-                    pstmt.setBoolean(5, false);
                 } else {
                     pstmt.setTimestamp(4, Timestamp.from(changeset.getClosedAt()));
-                    pstmt.setBoolean(5, true);
                 }
+                pstmt.setBoolean(5, changeset.isOpen());
 
                 pstmt.setInt(6, changeset.numChanges());
                 pstmt.setString(7, changeset.user());
@@ -222,6 +216,7 @@ public class ChangesetDB {
             while (results.next()) {
                 ids.add(results.getLong(1));
             }
+            System.out.println("Got " + ids.size() + " unclosed changesets older than 2 hours from database");
             return ids;
         } catch (SQLException e) {
             throw new RuntimeException(e);
