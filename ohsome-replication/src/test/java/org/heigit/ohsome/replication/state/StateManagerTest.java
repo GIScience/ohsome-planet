@@ -81,7 +81,7 @@ class StateManagerTest {
     void testUpdateToRemoteState() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
         var remoteState = changesetStateManager.fetchRemoteState();
-        changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 1));
+        changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
 
         changesetStateManager.updateTowardsRemoteState();
         assertEquals(changesetStateManager.getLocalState(), remoteState);

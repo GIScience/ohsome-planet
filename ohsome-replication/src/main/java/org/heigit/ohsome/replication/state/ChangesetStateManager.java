@@ -5,8 +5,11 @@ import com.google.common.base.Stopwatch;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 
 import static java.net.URI.create;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
@@ -71,22 +75,61 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
     public List<OSMChangeset> updateTowardsRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
-        var changesets = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextReplication));
-        changesetDB.upsertChangesets(changesets);
-        updateLocalState(getRemoteReplication(nextReplication));
-        System.out.println("Upserted changesets: " + changesets.size() + ". From Replication Set: " + this.localState);
+        var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
 
-        return changesets.stream().filter(changeset -> !changeset.isOpen()).toList();
+        return Flux.range(nextReplication, steps)
+                .buffer(500)
+                .concatMap(batch ->
+                        Flux.fromIterable(batch)
+                                .flatMap(number ->
+                                        Mono.fromCallable(() ->
+                                                        Tuples.of(number, fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(number)))
+                                                )
+                                                .subscribeOn(Schedulers.parallel())
+                                                .flatMap(tuple -> Mono.fromRunnable(() ->
+                                                                        changesetDB.upsertChangesets(tuple.getT2())
+                                                                )
+                                                                .subscribeOn(Schedulers.boundedElastic())
+                                                                .thenReturn(tuple)
+                                                )
+                                )
+                                .flatMapIterable(Tuple2::getT2)
+                                .filter(OSMChangeset::isClosed)
+                                .doOnComplete(() -> {
+                                    var lastReplication = getRemoteReplication(batch.getLast());
+                                    updateLocalState(lastReplication);
+                                    System.out.println("Updated state up to " + lastReplication);
+                                })
+                )
+                .toStream()
+                .toList();
+        // todo: if this fails we loose which contributions should be released - when do we catch that?
+        //  we could supply the releaser to do its work after each batch before we save the state right here maybe?
     }
+
 
     public List<OSMChangeset> updateUnclosedChangesets() {
-        var unclosedCsIDs = changesetDB.getOpenChangesetsOlderThanTwoHours();
-        var nowClosedChangesets = parse(fetchFile(
-                "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
-                        + String.join(",", unclosedCsIDs.stream().map(Object::toString).toList())));
-        changesetDB.upsertChangesets(nowClosedChangesets);
-        return nowClosedChangesets;
+        return Flux.fromIterable(changesetDB.getOpenChangesetsOlderThanTwoHours())
+                .buffer(100)
+                .flatMap(partition ->
+                        Mono.fromCallable(() -> {
+                                    var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
+                                            + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
+                                    return fetchFile(url);
+                                })
+                                .subscribeOn(Schedulers.parallel())
+                                .map(this::parse)
+                                .doOnNext(
+                                        changesetDB::upsertChangesets
+                                )
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .doOnNext(cs -> System.out.println(Instant.now() +"; Upserted previously unclosed changesets :" + cs.size()))
+                )
+                .flatMapIterable(list -> list)
+                .toStream().toList();
+        // todo: same issue as above here
     }
+
 
     private InputStream fetchFile(String url) {
         try {
