@@ -59,10 +59,11 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 @CommandLine.Command(name = "contributions", aliases = {"contribs"},
-        mixinStandardHelpOptions = true,
-        version = "ohsome-planet contribution 1.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
         description = "generates parquet files")
 public class Contributions2Parquet implements Callable<Integer> {
+
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
+    boolean usageHelpRequested;
 
     @Option(names = {"--pbf"}, required = true)
     private Path pbfPath;
@@ -92,6 +93,10 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        if (usageHelpRequested) {
+            CommandLine.usage(this, System.out);
+            return 0;
+        }
         var pbf = OSMPbf.open(pbfPath);
         if (debug) {
             FileInfo.printInfo(pbf);
@@ -287,12 +292,6 @@ public class Contributions2Parquet implements Callable<Integer> {
                            " | Ways: " + blobTypes.get(OSMType.WAY).size() +
                            " | Relations: " + blobTypes.get(OSMType.RELATION).size()
         );
-    }
-
-    public static void main(String[] args) {
-        var main = new Contributions2Parquet();
-        var exit = new CommandLine(main).execute(args);
-        System.exit(exit);
     }
 
 }
