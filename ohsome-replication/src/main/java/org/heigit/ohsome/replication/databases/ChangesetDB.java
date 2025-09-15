@@ -1,16 +1,20 @@
 package org.heigit.ohsome.replication.databases;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.osm.changesets.ChangesetDb;
+import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.postgresql.PGConnection;
-import org.postgresql.util.HStoreConverter;
 import org.postgresql.util.PGobject;
-import reactor.core.publisher.Mono;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -36,7 +40,7 @@ public class ChangesetDB {
 
     public ReplicationState getLocalState() throws NoSuchElementException {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM osm_changeset_state")
+             var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM changeset_state")
         ) {
             var results = pstmt.executeQuery();
             if (results.next()) {
@@ -51,7 +55,7 @@ public class ChangesetDB {
 
     public Instant getMaxLocalTimestamp() {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("SELECT max(created_at) FROM osm_changeset")
+             var pstmt = conn.prepareStatement("SELECT max(created_at) FROM changesets")
         ) {
             var results = pstmt.executeQuery();
             if (results.next()) {
@@ -71,16 +75,12 @@ public class ChangesetDB {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
-                        MERGE INTO osm_changeset_state as ocs
-                        USING (VALUES(0, ?, ?::timestamp)) upserts (id, last_sequence, last_timestamp)
-                        ON ocs.id = upserts.id
-                         WHEN matched THEN
-                           UPDATE SET
-                               last_sequence = upserts.last_sequence,
-                               last_timestamp = upserts.last_timestamp
-                         WHEN NOT matched THEN
-                           INSERT (id, last_sequence, last_timestamp)
-                           VALUES (upserts.id, upserts.last_sequence, upserts.last_timestamp);
+                        INSERT INTO changeset_state
+                        VALUES(0, ?, ?::timestamp)
+                        ON CONFLICT (id) DO UPDATE
+                        SET
+                            last_sequence = EXCLUDED.last_sequence,
+                            last_timestamp = EXCLUDED.last_timestamp
                         """
                 )
         ) {
@@ -91,7 +91,7 @@ public class ChangesetDB {
             throw new RuntimeException(ex);
         }
     }
-
+     // todo: currently unused
     public int getMaxConnections() {
         try {
             return dataSource.getConnection().getMetaData().getMaxConnections();
@@ -100,31 +100,34 @@ public class ChangesetDB {
         }
     }
 
-    public void upsertChangesets(List<OSMChangeset> changesets) {
+    public void upsertChangesets(List<OSMChangeset> changesets) throws JsonProcessingException, SQLException {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
-                                INSERT INTO osm_changeset (
-                                    id,
-                                    user_id,
-                                    created_at,
-                                    closed_at,
-                                    open,
-                                    num_changes,
-                                    user_name,
-                                    tags
-                                )
-                                VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?)
-                                ON CONFLICT (id) DO UPDATE
-                                SET
-                                    closed_at = EXCLUDED.closed_at,
-                                    open = EXCLUDED.open,
-                                    num_changes = EXCLUDED.num_changes,
-                                    tags = EXCLUDED.tags
-                                WHERE NOT EXCLUDED.open;
-                      """
+                                  INSERT INTO changesets (
+                                      changeset_id,
+                                      user_id,
+                                      created_at,
+                                      closed_at,
+                                      open,
+                                      user_name,
+                                      tags,
+                                      editor,
+                                      hashtags
+                                  )
+                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?)
+                                  ON CONFLICT (changeset_id) DO UPDATE
+                                  SET
+                                      closed_at = EXCLUDED.closed_at,
+                                      open = EXCLUDED.open,
+                                      tags = EXCLUDED.tags,
+                                      hashtags = EXCLUDED.hashtags,
+                                      editor = EXCLUDED.editor
+                                  WHERE NOT EXCLUDED.open;
+                        """
                 )
         ) {
+            ObjectMapper objectMapper = new ObjectMapper();
             for (var changeset : changesets) {
                 pstmt.setLong(1, changeset.id());
                 pstmt.setLong(2, changeset.userId());
@@ -137,47 +140,51 @@ public class ChangesetDB {
                 }
                 pstmt.setBoolean(5, changeset.isOpen());
 
-                pstmt.setInt(6, changeset.numChanges());
-                pstmt.setString(7, changeset.user());
 
-                PGobject hstoreTags = new PGobject();
-                hstoreTags.setType("hstore");
-                hstoreTags.setValue(HStoreConverter.toString(changeset.tags()));
+                pstmt.setString(6, changeset.user());
 
-                pstmt.setObject(8, hstoreTags);
+                var tags = changeset.tags();
+                PGobject jsonTags = new PGobject();
+                jsonTags.setType("jsonb");
+                jsonTags.setValue(objectMapper.writeValueAsString(tags));
+                pstmt.setObject(7, jsonTags);
+
+                pstmt.setString(8, tags.get("created_by"));
+                pstmt.setArray(9, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
                 pstmt.addBatch();
             }
             pstmt.executeBatch();
-        } catch (SQLException ex) {
-            throw new RuntimeException(ex);
         }
     }
 
 
     static final String NULL = "";
 
-    public Mono<String> changesets2CSV(List<OSMChangeset> changesets) {
-        return Mono.fromCallable(() -> {
-            var stringWriter = new StringWriter();
-            try (var csvWriter = new PrintWriter(stringWriter)) {
-                for (var changeset : changesets) {
-                    var line = String.format(
-                            "%d\t%s\t%s\t%s\t%b\t%d\t%s\t%s%n",
-                            changeset.id(),
-                            changeset.userId(),
-                            Timestamp.from(changeset.getCreatedAt()),
-                            changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
-                            changeset.getClosedAt() == null,
-                            changeset.numChanges(),
-                            escapeCsv(changeset.user()),
-                            escapeCsv(HStoreConverter.toString(changeset.tags()))
-                    );
-                    csvWriter.write(line);
-                }
+    public byte[] changesets2CSV(List<OSMChangeset> changesets) throws IOException {
+        try (var out = new ByteArrayOutputStream();
+             var writer = new PrintWriter(out)) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            for (var changeset : changesets) {
+                var tags = changeset.tags();
+                var line = String.format(
+                        "%d\t%s\t%s\t%s\t%b\t%s\t%s\t%s\t%s%n",
+                        changeset.id(),
+                        changeset.userId(),
+                        Timestamp.from(changeset.getCreatedAt()),
+                        changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
+                        changeset.getClosedAt() == null,
+                        changeset.user() == null ? "\"\"" : escapeCsv(changeset.user()),
+                        escapeCsv(objectMapper.writeValueAsString(tags)),
+                        escapeCsv("{" + String.join(",", ChangesetHashtags.hashTags(tags)) + "}"),
+                        escapeCsv(tags.get("created_by"))
+                );
+                writer.write(line);
             }
-            return stringWriter.toString();
-        });
+            writer.flush();
+            return out.toByteArray();
+        }
     }
+
 
     public static String escapeCsv(String value) {
         if (value == null || value.isEmpty()) {
@@ -186,30 +193,25 @@ public class ChangesetDB {
         return "\"" + value.replace("\"", "\"\"").replace("\t", " ") + "\"";
     }
 
-    public Mono<Void> bulkInsertChangesets(String changesetCSVString) {
-        return Mono.fromRunnable(() -> {
-            try (var conn = dataSource.getConnection()) {
-                var pgConn = conn.unwrap(PGConnection.class);
-                var copyManager = pgConn.getCopyAPI();
+    public void bulkInsertChangesets(byte[] changesetCSV) throws SQLException, IOException {
+        try (var conn = dataSource.getConnection()) {
+            var pgConn = conn.unwrap(PGConnection.class);
+            var copyManager = pgConn.getCopyAPI();
 
-                try (Reader reader = new StringReader(changesetCSVString)) {
-                    copyManager.copyIn(
-                            "COPY osm_changeset (id, user_id, created_at, closed_at, open, num_changes, user_name, tags) " +
-                                    "FROM STDIN WITH CSV DELIMITER '\t'",
-                            reader
-                    );
-                }
-            } catch (SQLException | IOException e) {
-                throw new RuntimeException(e);
+            try (var stream = new ByteArrayInputStream(changesetCSV)) {
+                copyManager.copyIn(
+                        "COPY changesets (changeset_id, user_id, created_at, closed_at, open, user_name, tags, hashtags, editor)" +
+                                "FROM STDIN WITH CSV DELIMITER '\t'",
+                        stream
+                );
             }
-        });
+        }
     }
-
 
     public List<Long> getOpenChangesetsOlderThanTwoHours() {
         try (
                 var conn = dataSource.getConnection();
-                var pstmt = conn.prepareStatement("SELECT id FROM osm_changeset where created_at < now() - interval '2 hours' and open")
+                var pstmt = conn.prepareStatement("SELECT changeset_id FROM changesets where created_at < now() - interval '2 hours' and open")
         ) {
             var results = pstmt.executeQuery();
             List<Long> ids = new ArrayList<>();

@@ -8,6 +8,7 @@ import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.heigit.ohsome.replication.utils.Waiter;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
@@ -19,7 +20,7 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) {
+    public static int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) throws IOException {
         var changesetManager = new ChangesetStateManager(changesetDbUrl);
         changesetManager.initDbWithXML(changesetsPath);
 
@@ -57,7 +58,8 @@ public class ReplicationManager {
                 var remoteContributionState = contributionManager.fetchRemoteState();
                 waiter.registerLastContributionState(remoteContributionState);
 
-                fetchChangesets(changesetManager, contribProcessor);
+                fetchChangesets(changesetManager);
+                // todo: if (justChangesets) {continue;}
                 // fetchContributions(contributionManager, remoteContributionState, contribProcessor);
             }
         } finally {
@@ -66,13 +68,9 @@ public class ReplicationManager {
         return 0;
     }
 
-    private static void fetchChangesets(ChangesetStateManager changesetManager, ContributionsProcessor contribProcessor) {
-        while (!changesetManager.getLocalState().equals(changesetManager.fetchRemoteState())) {
-            var newClosedChangeset = changesetManager.updateTowardsRemoteState();
-            contribProcessor.releaseContributions(newClosedChangeset);
-        }
-        var nowClosedChangesets = changesetManager.updateUnclosedChangesets();
-        contribProcessor.releaseContributions(nowClosedChangesets);
+    private static void fetchChangesets(ChangesetStateManager changesetManager) {
+        changesetManager.updateTowardsRemoteState();
+        changesetManager.updateUnclosedChangesets();
     }
 
     private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) {
