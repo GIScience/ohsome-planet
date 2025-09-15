@@ -13,7 +13,6 @@ class ReplicationTest {
 
     @Test
     void testReplication() {
-        // todo: org.rocksdb.RocksDBException: No locks available
-        //  ReplicationManager.update("minute", Path.of(RESOURCE_PATH), System.getProperty("DB_URL"));
+          ReplicationManager.update("minute", Path.of(RESOURCE_PATH), System.getProperty("DB_URL"));
     }
 }

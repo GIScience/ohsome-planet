@@ -1,39 +1,30 @@
-CREATE EXTENSION IF NOT EXISTS hstore;
 CREATE EXTENSION IF NOT EXISTS postgis;
 
-CREATE TABLE osm_changeset
+CREATE TABLE changesets
 (
-    id          bigint,
-    user_id     bigint,
-    created_at  timestamp without time zone,
-    closed_at   timestamp without time zone,
-    open        boolean,
-    num_changes integer,
-    user_name   varchar(255),
-    tags        hstore,
-    PRIMARY KEY (id)
+    changeset_id       int8 NOT NULL UNIQUE,
+    created_at         timestamptz NOT NULL,
+    closed_at          timestamptz NULL,
+    tags               jsonb NOT NULL default '{}',
+    hashtags           _varchar NULL,
+    editor             varchar NULL,
+    user_id            int8 NOT NULL,
+    user_name          varchar NOT NULL,
+    open               boolean NOT NULL
 );
 
-CREATE TABLE osm_changeset_comment
+
+CREATE TABLE changeset_state
 (
-    comment_changeset_id bigint                      not null,
-    comment_user_id      bigint                      not null,
-    comment_user_name    varchar(255)                not null,
-    comment_date         timestamp without time zone not null,
-    comment_text         text                        not null
+    id                 int NOT NULL UNIQUE,
+    last_sequence      bigint NOT NULL,
+    last_timestamp     timestamptz NOT NULL
 );
 
-CREATE TABLE osm_changeset_state
-(
-    id                 int,
-    last_sequence      bigint,
-    last_timestamp     timestamp without time zone
-);
-
-INSERT INTO osm_changeset_state
+INSERT INTO changeset_state
 VALUES (0, 10020, '2021-12-12 09:10:15');
 
-INSERT INTO osm_changeset
-VALUES (111, 1231, '2021-12-12 09:10:15', null, true, 12, 'bob', null),
-       (1231, 1231, '2022-12-12 09:10:15', null, true, 12, 'bob', null),
-       (34123412, 1231, '2022-12-12 09:10:15', null, true, 12, 'bob', null);
+INSERT INTO changesets (changeset_id, user_id, created_at, closed_at, open, user_name)
+VALUES (111, 1231, '2021-12-12 09:10:15', null, true, 'bob'),
+       (1231, 1231, '2022-12-12 09:10:15', null, true, 'bob'),
+       (34123412, 1231, '2022-12-12 09:10:15', null, true, 'bob');

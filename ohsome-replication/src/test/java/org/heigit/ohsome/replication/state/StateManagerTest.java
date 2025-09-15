@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
 
+import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,7 +15,6 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 
-import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.junit.jupiter.api.Assertions.*;
 
 
@@ -30,7 +30,7 @@ class StateManagerTest {
 
 
     private static String dbUrl;
-    private static final String RESOURCE_PATH = "./src/test/resources";
+    private static final Path RESOURCE_PATH = Path.of("./src/test/resources");
 
     @BeforeAll
     static void setUp() {
@@ -47,7 +47,7 @@ class StateManagerTest {
     @Test
     void testStateManagerGetRemoteReplicationState() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
-        var contributionStateManager = new ContributionStateManager("minute", new KeyValueDB(Path.of(RESOURCE_PATH)));
+        var contributionStateManager = new ContributionStateManager("minute", new KeyValueDB(RESOURCE_PATH));
 
         var changesetState = changesetStateManager.fetchRemoteState();
         System.out.println("changesetState = " + changesetState);
@@ -92,8 +92,13 @@ class StateManagerTest {
     @Test
     void testUpdatedUnclosedChangesets() {
         var changesetStateManager = new ChangesetStateManager(dbUrl);
-        var nowClosed = changesetStateManager.updateUnclosedChangesets();
-        assertArrayEquals(new long[]{34123412, 1231, 111}, nowClosed.stream().mapToLong(OSMChangeset::id).toArray());
+        var changesetDB = new ChangesetDB(dbUrl);
+        var changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();
+        assertFalse(changesets.isEmpty());
+
+        changesetStateManager.updateUnclosedChangesets();
+        changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();
+        assertTrue(changesets.isEmpty());
     }
 
     @Test
