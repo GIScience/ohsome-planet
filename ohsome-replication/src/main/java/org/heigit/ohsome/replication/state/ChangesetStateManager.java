@@ -1,15 +1,11 @@
 package org.heigit.ohsome.replication.state;
 
 
-import com.google.common.base.Stopwatch;
+import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,13 +14,16 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static java.net.URI.create;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
+import static org.heigit.ohsome.replication.state.ReplicationState.sequenceNumberAsPath;
+import static reactor.core.publisher.Mono.fromCallable;
+import static reactor.core.scheduler.Schedulers.boundedElastic;
+import static reactor.core.scheduler.Schedulers.parallel;
 
 public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     private static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
@@ -73,61 +72,57 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         }
     }
 
-    public List<OSMChangeset> updateTowardsRemoteState() {
+    public void updateTowardsRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
 
-        return Flux.range(nextReplication, steps)
+        Flux.range(nextReplication, steps)
                 .buffer(500)
                 .concatMap(batch ->
                         Flux.fromIterable(batch)
                                 .flatMap(number ->
-                                        Mono.fromCallable(() ->
-                                                        Tuples.of(number, fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(number)))
-                                                )
-                                                .subscribeOn(Schedulers.parallel())
-                                                .flatMap(tuple -> Mono.fromRunnable(() ->
-                                                                        changesetDB.upsertChangesets(tuple.getT2())
-                                                                )
-                                                                .subscribeOn(Schedulers.boundedElastic())
-                                                                .thenReturn(tuple)
-                                                )
+                                        fromCallable(() -> fetchReplicationBatch(sequenceNumberAsPath(number)))
+                                                .subscribeOn(parallel())
                                 )
-                                .flatMapIterable(Tuple2::getT2)
+                                .flatMap(cs -> fromCallable(() -> {
+                                            changesetDB.upsertChangesets(cs);
+                                            return cs;
+                                        })
+                                                .subscribeOn(boundedElastic()),
+                                        5
+                                )
+                                .flatMapIterable(list -> list)
                                 .filter(OSMChangeset::isClosed)
-                                .doOnComplete(() -> {
+                                .collectList()
+                                .doOnSuccess(ignore -> {
                                     var lastReplication = getRemoteReplication(batch.getLast());
                                     updateLocalState(lastReplication);
                                     System.out.println("Updated state up to " + lastReplication);
                                 })
-                )
-                .toStream()
-                .toList();
-        // todo: if this fails we loose which contributions should be released - when do we catch that?
-        //  we could supply the releaser to do its work after each batch before we save the state right here maybe?
+                ).blockLast();
     }
 
 
-    public List<OSMChangeset> updateUnclosedChangesets() {
-        return Flux.fromIterable(changesetDB.getOpenChangesetsOlderThanTwoHours())
+    public void updateUnclosedChangesets() {
+        Flux.fromIterable(changesetDB.getOpenChangesetsOlderThanTwoHours())
                 .buffer(100)
-                .flatMap(partition ->
-                        Mono.fromCallable(() -> {
-                                    var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
-                                            + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
-                                    return fetchFile(url);
-                                })
-                                .subscribeOn(Schedulers.parallel())
-                                .map(this::parse)
-                                .doOnNext(
-                                        changesetDB::upsertChangesets
-                                )
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .doOnNext(cs -> System.out.println(Instant.now() +"; Upserted previously unclosed changesets :" + cs.size()))
+                .flatMap(partition -> fromCallable(() -> {
+                            var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
+                                    + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
+                            return fetchFile(url);
+                        })
                 )
-                .flatMapIterable(list -> list)
-                .toStream().toList();
-        // todo: same issue as above here
+                .flatMap(stream -> fromCallable(() -> parse(stream)))
+                .subscribeOn(parallel())
+                .flatMap(
+                        cs -> fromCallable(() -> {
+                            changesetDB.upsertChangesets(cs);
+                            return cs;
+                        }).subscribeOn(boundedElastic()),
+                        5
+                )
+                .doOnNext(cs -> System.out.println(Instant.now() + "; Upserted previously unclosed changesets :" + cs.size()))
+                .blockLast();
     }
 
 
@@ -139,25 +134,23 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         }
     }
 
-    public void initDbWithXML(Path changesetsPath) {
-        try {
-            var timer = Stopwatch.createStarted();
+    public void initDbWithXML(Path changesetsPath) throws IOException {
+        try (var pb = new ProgressBarBuilder()
+                .setTaskName("Parsed Changesets:")
+                .build()) {
             PBZ2ChangesetReader.read(changesetsPath)
-                    .flatMap(bytes ->
-                            Mono.fromCallable(() -> readChangesets(bytes))
-                                    .subscribeOn(Schedulers.parallel())
+                    .flatMap(bytes -> fromCallable(() -> readChangesets(bytes)).subscribeOn(parallel()))
+                    .doOnNext(cs -> pb.stepBy(cs.size()))
+                    .flatMap(cs -> fromCallable(() -> changesetDB.changesets2CSV(cs)).subscribeOn(parallel()))
+                    .flatMap(
+                            changesets -> fromCallable(() -> {
+                                changesetDB.bulkInsertChangesets(changesets);
+                                return changesets;
+                            }).subscribeOn(boundedElastic()),
+                            5 // todo: changesetDB.getMaxConnections() for some reason does not work with citus
                     )
-                    .flatMap(changesets ->
-                            changesetDB.changesets2CSV(changesets)
-                                    .subscribeOn(Schedulers.parallel()))
-                    .flatMap(changesets ->
-                                    changesetDB.bulkInsertChangesets(changesets)
-                                            .subscribeOn(Schedulers.boundedElastic()),
-                            changesetDB.getMaxConnections()
-                    ).then().block();
-            System.out.println("Pushing changesets from Bz2 to DB took: " + timer.stop());
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+                    .doOnComplete(pb::close)
+                    .blockLast();
         }
     }
 }
