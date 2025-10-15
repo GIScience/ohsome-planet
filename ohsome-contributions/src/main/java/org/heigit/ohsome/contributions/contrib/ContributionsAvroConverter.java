@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 
-import static java.util.function.Predicate.not;
 import static org.heigit.ohsome.contributions.util.GeometryTools.areaOf;
 import static org.heigit.ohsome.contributions.util.GeometryTools.lengthOf;
 
@@ -154,7 +153,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         } else if (!entityBefore.map(OSMEntity::visible).orElse(false)) {
             contribTypes.add("CREATION");
         } else {
-            if (entityBefore.map(OSMEntity::tags).filter(not(entity.tags()::equals)).isEmpty()) {
+            if (!entity.tags().equals(entityBefore.get().tags())) {
                 contribTypes.add("TAG");
             }
             if (!Objects.equals(geometryBefore, geometry)) {
