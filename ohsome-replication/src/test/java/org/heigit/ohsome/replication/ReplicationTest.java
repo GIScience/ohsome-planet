@@ -2,6 +2,7 @@ package org.heigit.ohsome.replication;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Path;
 
 /**
@@ -12,7 +13,7 @@ class ReplicationTest {
 
 
     @Test
-    void testReplication() {
+    void testReplication() throws IOException {
           ReplicationManager.update("minute", Path.of(RESOURCE_PATH), System.getProperty("DB_URL"));
     }
 }

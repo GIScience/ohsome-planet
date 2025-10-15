@@ -20,7 +20,7 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int init(Path changesetsPath, String changesetDbUrl, Path pbfPath, Path directory) throws IOException {
+    public static int init(Path changesetsPath, String changesetDbUrl) throws IOException {
         var changesetManager = new ChangesetStateManager(changesetDbUrl);
         changesetManager.initDbWithXML(changesetsPath);
 
@@ -28,7 +28,7 @@ public class ReplicationManager {
     }
 
 
-    public static Integer update(String interval, Path directory, String changesetDbUrl) {
+    public static Integer update(String interval, Path directory, String changesetDbUrl) throws IOException {
         var lock = new ReentrantLock();
         lock.lock();
 
@@ -40,9 +40,9 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try (var keyValueDB = new KeyValueDB(directory)) {
-            var contributionManager = new ContributionStateManager(interval, keyValueDB);
+            var contributionManager = new ContributionStateManager(interval, directory, keyValueDB);
             var changesetManager = new ChangesetStateManager(changesetDbUrl);
-            var contribProcessor = new ContributionsProcessor(new ChangesetDB(changesetDbUrl), keyValueDB);
+            var contribProcessor = new ContributionsProcessor();
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
@@ -73,7 +73,7 @@ public class ReplicationManager {
         changesetManager.updateUnclosedChangesets();
     }
 
-    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) {
+    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) throws IOException {
         while (!contributionManager.getLocalState().equals(remoteContributionState)) {
             contributionManager.updateTowardsRemoteState(contribProcessor);
         }
