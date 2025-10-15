@@ -11,7 +11,11 @@ import java.util.concurrent.Callable;
 
 @Command(name = "replication",
         mixinStandardHelpOptions = true,
-        description = "")
+        description = "",
+        subcommands = {
+           ReplicationInit.class
+        }
+)
 public class Replication implements Callable<Integer> {
     public enum ReplicationInterval {
         hour, minute, day
@@ -21,20 +25,6 @@ public class Replication implements Callable<Integer> {
     public Integer call() {
         CommandLine.usage(this, System.out);
         return CommandLine.ExitCode.OK;
-    }
-
-    @Command(description = "initial database for updates")
-    public int init(
-            @Option(paramLabel = "path_to_changeset.xml",names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/")
-            Path changesetsPath,
-            @Option(paramLabel = "conn_url",names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
-            String changesetDbUrl,
-            @Option(paramLabel = "path_to_pbf",names = {"--pbf"}, required = true, description = "path to osm/osh pbf file")
-            Path pbfPath,
-            @Option(paramLabel = "path_to_dir", names = {"--dir"}, required = true, description = "Output directory for key-value latest contribution store")
-            Path directory
-    ) throws IOException {
-        return ReplicationManager.init(changesetsPath, changesetDbUrl, pbfPath, directory);
     }
 
     @Command
@@ -51,7 +41,7 @@ public class Replication implements Callable<Integer> {
             Path directory,
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out
-    ) {
+    ) throws IOException {
         return ReplicationManager.update(interval.toString(), directory, changesetDbUrl);
     }
 }

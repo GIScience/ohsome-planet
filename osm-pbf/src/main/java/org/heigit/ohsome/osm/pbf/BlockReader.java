@@ -4,12 +4,17 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.function.Function;
 
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blobBuffer;
 import static org.heigit.ohsome.osm.pbf.OSMPbf.blockBuffer;
 
 public class BlockReader {
     private BlockReader() {}
+
+    public static Function<BlobHeader, Block> readBlock(FileChannel ch) {
+        return blobHeader ->  readBlock(ch, blobHeader);
+    }
 
     public static Block readBlock(FileChannel ch, BlobHeader blobHeader) {
         var blockBuffer = readBlockBuffer(ch, blobHeader);

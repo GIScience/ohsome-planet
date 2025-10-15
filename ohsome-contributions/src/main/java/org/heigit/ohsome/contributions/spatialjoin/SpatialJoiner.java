@@ -26,6 +26,8 @@ public interface SpatialJoiner {
 
     Set<String> join(Geometry geometry);
 
+    SpatialJoiner NOOP = noop();
+
     static SpatialJoiner noop() {
         return geometry -> Set.of();
     }
