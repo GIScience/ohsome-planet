@@ -2,6 +2,10 @@ package org.heigit.ohsome.replication.state;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Instant;
@@ -11,15 +15,29 @@ import java.util.function.Function;
 
 
 public class ReplicationState {
-    private final Instant timestamp;
-    private final Integer sequenceNumber;
 
-    ReplicationState(Properties props, String sequenceKey, String timestampKey, Function<String, Instant> parser) {
+
+    public static ReplicationState read(Path file) throws IOException {
+        return read(Files.readAllBytes(file));
+    }
+
+    public static ReplicationState read(byte[] bytes) throws IOException {
+        var props = new Properties();
+        props.load(new ByteArrayInputStream(bytes));
+        return new ReplicationState(props, "sequenceNumber", "timestamp", Instant::parse);
+    }
+
+
+
+    private final Instant timestamp;
+    private final int sequenceNumber;
+
+    public ReplicationState(Properties props, String sequenceKey, String timestampKey, Function<String, Instant> parser) {
         this.sequenceNumber = Integer.parseInt(props.getProperty(sequenceKey));
         this.timestamp = parser.apply(props.getProperty(timestampKey));
     }
 
-    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") Integer sequenceNumber) {
+    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") int sequenceNumber) {
         this.timestamp = timestamp;
         this.sequenceNumber = sequenceNumber;
     }
