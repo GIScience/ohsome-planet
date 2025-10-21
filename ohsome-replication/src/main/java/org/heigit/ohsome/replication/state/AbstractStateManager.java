@@ -34,11 +34,11 @@ public abstract class AbstractStateManager<T> {
 
     protected abstract Instant timestampParser(String timestamp);
 
-    protected abstract void initializeLocalState();
+    protected abstract void initializeLocalState() throws IOException;
 
-    protected abstract void updateLocalState(ReplicationState state);
+    protected abstract void updateLocalState(ReplicationState state) throws IOException;
 
-    protected abstract Iterator<T> getParser(InputStream input);
+    protected abstract Iterator<T> getParser(InputStream input) throws Exception;
 
     protected InputStream getFileStream(URL url) throws IOException {
         var connection = url.openConnection();
@@ -82,16 +82,14 @@ public abstract class AbstractStateManager<T> {
         }
     }
 
-    protected List<T> fetchReplicationBatch(String replicationPath) {
+    protected List<T> fetchReplicationBatch(String replicationPath) throws Exception {
         try (var gzipStream = new GZIPInputStream(getReplicationFile(replicationPath))) {
             return parse(gzipStream);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
 
-    protected List<T> parse(InputStream input) {
+    protected List<T> parse(InputStream input) throws Exception {
         var xmlReader = getParser(input);
         var elements = new ArrayList<T>();
         while (xmlReader.hasNext()) {
@@ -105,16 +103,16 @@ public abstract class AbstractStateManager<T> {
         var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);
 
         while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
-            var minutes = Duration.between(targetTimestamp, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
+            var minutes = Duration.between(targetMinute, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
             remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
 
             if (replicationMap.putIfAbsent(remoteState.getSequenceNumber(), remoteState) != null) {
                 return getRemoteStateInCaseOfLoop(targetTimestamp, replicationMap);
             }
         }
-        return targetTimestamp.isAfter(remoteState.getTimestamp())
+        return targetTimestamp.isBefore(remoteState.getTimestamp())
                 ? remoteState
-                : getRemoteReplication(remoteState.getSequenceNumber() - 1 - replicationOffset);
+                : getRemoteReplication(remoteState.getSequenceNumber() + 1 + replicationOffset);
     }
 
     private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, HashMap<Integer, ReplicationState> replicationMap) {

@@ -27,8 +27,11 @@ public class ReplicationManager {
         return 0;
     }
 
+    public static int update(Path directory, String changesetDbUrl) throws Exception {
+        return update(directory, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT);
+    }
 
-    public static Integer update(String interval, Path directory, String changesetDbUrl) throws IOException {
+    public static int update(Path directory, String changesetDbUrl, String replicationChangesetUrl) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
 
@@ -40,9 +43,10 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try (var keyValueDB = new KeyValueDB(directory)) {
-            var contributionManager = new ContributionStateManager(interval, directory, keyValueDB);
-            var changesetManager = new ChangesetStateManager(changesetDbUrl);
+            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDbUrl);
+
             var contribProcessor = new ContributionsProcessor();
+            var contributionManager = ContributionStateManager.openManager(directory);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
@@ -60,7 +64,7 @@ public class ReplicationManager {
 
                 fetchChangesets(changesetManager);
                 // todo: if (justChangesets) {continue;}
-                // fetchContributions(contributionManager, remoteContributionState, contribProcessor);
+                fetchContributions(contributionManager, remoteContributionState, contribProcessor);
             }
         } finally {
             lock.unlock();
@@ -73,7 +77,7 @@ public class ReplicationManager {
         changesetManager.updateUnclosedChangesets();
     }
 
-    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) throws IOException {
+    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) throws Exception {
         while (!contributionManager.getLocalState().equals(remoteContributionState)) {
             contributionManager.updateTowardsRemoteState(contribProcessor);
         }
