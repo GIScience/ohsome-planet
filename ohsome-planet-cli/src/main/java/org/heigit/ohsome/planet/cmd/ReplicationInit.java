@@ -11,7 +11,11 @@ import java.util.concurrent.Callable;
 
 @Command(name = "init",
         mixinStandardHelpOptions = true,
-        description = "")
+        description = "",
+        subcommands = {
+                ReplicationInitElements.class
+        }
+)
 public class ReplicationInit implements Callable<Integer> {
 
     @Override
@@ -22,20 +26,11 @@ public class ReplicationInit implements Callable<Integer> {
 
     @Command(description = "initial database for updates")
     public int changesets(
-            @Option(paramLabel = "path_to_changeset.xml",names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2")
+            @Option(paramLabel = "path_to_changeset.xml", names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2")
             Path changesetsPath,
-            @Option(paramLabel = "conn_url",names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+            @Option(paramLabel = "conn_url", names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
             String changesetDbUrl
     ) throws IOException {
         return ReplicationManager.init(changesetsPath, changesetDbUrl);
-    }
-
-    @Command(description = "initial database for elements updates")
-    public int elements(
-            @Option(paramLabel = "path_to_pbf",names = {"--pbf"}, required = true, description = "initial osm.pbf from planet. https://planet.openstreetmap.org/pbf/planet-latest.osm.pbf")
-            Path pbfPath,
-            @Option(paramLabel = "path_to_dir", names = {"--dir"}, required = true, description = "Output directory for key-value latest contribution store")
-            Path directory) {
-        return 0;
     }
 }

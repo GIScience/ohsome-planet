@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
@@ -31,10 +32,12 @@ public class ReplicationState {
 
     private final Instant timestamp;
     private final int sequenceNumber;
+    private String endpoint;
 
     public ReplicationState(Properties props, String sequenceKey, String timestampKey, Function<String, Instant> parser) {
         this.sequenceNumber = Integer.parseInt(props.getProperty(sequenceKey));
         this.timestamp = parser.apply(props.getProperty(timestampKey));
+        this.endpoint = props.getProperty("endpoint");
     }
 
     public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") int sequenceNumber) {
@@ -71,7 +74,19 @@ public class ReplicationState {
         return timestamp;
     }
 
-    public Integer getSequenceNumber() {
+    public int getSequenceNumber() {
         return sequenceNumber;
+    }
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public void store(OutputStream out, String endpoint) throws IOException {
+        var props = new Properties();
+        props.setProperty("sequenceNumber", Integer.toString(sequenceNumber));
+        props.setProperty("timestamp", timestamp.toString());
+        props.setProperty("endpoint", endpoint);
+        props.store(out, null);
     }
 }
