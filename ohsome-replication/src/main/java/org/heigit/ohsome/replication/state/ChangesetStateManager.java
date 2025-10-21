@@ -18,19 +18,23 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static java.net.URI.create;
+import static java.util.function.Function.identity;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
-import static org.heigit.ohsome.replication.state.ReplicationState.sequenceNumberAsPath;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
-    private static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
-    ChangesetDB changesetDB;
+    public static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
+    public ChangesetDB changesetDB;
 
     public ChangesetStateManager(String dbUrl) {
-        super(CHANGESET_ENDPOINT, "state.yaml", "sequence", "last_run", ".osm.gz", 1);
+        this(CHANGESET_ENDPOINT, dbUrl);
+    }
+
+    public ChangesetStateManager(String endpoint, String dbUrl) {
+        super(endpoint + "/", "state.yaml", "sequence", "last_run", ".osm.gz", 1);
         changesetDB = new ChangesetDB(dbUrl);
     }
 
@@ -46,9 +50,10 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
             localState = changesetDB.getLocalState();
         } catch (NoSuchElementException e) {
             System.out.println("No local state detected for changesets, trying to estimate starting replication state");
+            var maxChangesetDBTimestamp = changesetDB.getMaxLocalTimestamp();
             updateLocalState(
                     estimateLocalReplicationState(
-                            changesetDB.getMaxLocalTimestamp(), fetchRemoteState()
+                            maxChangesetDBTimestamp, fetchRemoteState()
                     )
             );
             System.out.println("Estimated replication state:" + this.localState);
@@ -62,36 +67,31 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     }
 
     @Override
-    protected Iterator<OSMChangeset> getParser(InputStream input) {
-        try {
-            return OSMChangesets.readChangesets(
-                    input
-            ).iterator();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    protected Iterator<OSMChangeset> getParser(InputStream input) throws IOException {
+        return OSMChangesets.readChangesets(input).iterator();
     }
 
     public void updateTowardsRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
 
+
         Flux.range(nextReplication, steps)
                 .buffer(500)
                 .concatMap(batch ->
                         Flux.fromIterable(batch)
-                                .flatMap(number ->
-                                        fromCallable(() -> fetchReplicationBatch(sequenceNumberAsPath(number)))
-                                                .subscribeOn(parallel())
+                                .map(ReplicationState::sequenceNumberAsPath)
+                                .flatMap(path ->
+                                        fromCallable(() -> fetchReplicationBatch(path))
+                                                .subscribeOn(boundedElastic())
                                 )
                                 .flatMap(cs -> fromCallable(() -> {
                                             changesetDB.upsertChangesets(cs);
                                             return cs;
-                                        })
-                                                .subscribeOn(boundedElastic()),
+                                        }).subscribeOn(boundedElastic()),
                                         5
                                 )
-                                .flatMapIterable(list -> list)
+                                .flatMapIterable(identity())
                                 .filter(OSMChangeset::isClosed)
                                 .collectList()
                                 .doOnSuccess(ignore -> {
@@ -108,7 +108,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .buffer(100)
                 .flatMap(partition -> fromCallable(() -> {
                             var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
-                                    + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
+                                      + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
                             return fetchFile(url);
                         })
                 )
