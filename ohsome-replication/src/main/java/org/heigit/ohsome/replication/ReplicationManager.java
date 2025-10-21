@@ -1,6 +1,11 @@
 package org.heigit.ohsome.replication;
 
-import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.contributions.FileInfo;
+import org.heigit.ohsome.contributions.util.Progress;
+import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.pbf.BlobHeader;
+import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
@@ -9,12 +14,45 @@ import org.heigit.ohsome.replication.state.ReplicationState;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static java.nio.file.StandardOpenOption.READ;
+import static org.heigit.ohsome.contributions.util.Utils.getBlobHeaders;
+
 
 public class ReplicationManager {
+
+    public static int initElements(Path pbfPath, Path out, String replicationUrl, int parallel) throws IOException {
+        Files.createDirectories(out);
+
+        var pbf = OSMPbf.open(pbfPath);
+        FileInfo.printInfo(pbf);
+        var blobHeaders = getBlobHeaders(pbf);
+        var blobTypes = pbf.blobsByType(blobHeaders);
+
+//        try (var ch = FileChannel.open(pbf.path(), READ)) {
+//            var init = new InitElements(ch, parallel, blobTypes);
+//            for (var type : OSMType.values()) {
+//                var bla = new Bla(type);
+//                init.init(type, bla);
+//                System.out.printf("%s maxTimestamp = %s%n", type, bla.maxTimestamp());
+//                System.out.printf("%s elements = %s%n", type, bla.elements());
+//            }
+//        }
+
+        return 0;
+    }
+
+
+
 
     private ReplicationManager() {
         // utility class
