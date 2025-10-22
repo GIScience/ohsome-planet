@@ -1,11 +1,8 @@
 package org.heigit.ohsome.replication;
 
 import org.heigit.ohsome.contributions.FileInfo;
-import org.heigit.ohsome.contributions.util.Progress;
-import org.heigit.ohsome.osm.OSMEntity;
-import org.heigit.ohsome.osm.OSMType;
-import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
@@ -14,17 +11,11 @@ import org.heigit.ohsome.replication.state.ReplicationState;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static java.nio.file.StandardOpenOption.READ;
 import static org.heigit.ohsome.contributions.util.Utils.getBlobHeaders;
 
 
@@ -59,10 +50,11 @@ public class ReplicationManager {
     }
 
     public static int init(Path changesetsPath, String changesetDbUrl) throws IOException {
-        var changesetManager = new ChangesetStateManager(changesetDbUrl);
+      try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
+        var changesetManager = new ChangesetStateManager(changesetDb);
         changesetManager.initDbWithXML(changesetsPath);
-
         return 0;
+      }
     }
 
     public static int update(Path directory, String changesetDbUrl) throws Exception {
@@ -80,8 +72,9 @@ public class ReplicationManager {
         });
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        try (var keyValueDB = new KeyValueDB(directory)) {
-            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDbUrl);
+        try (var keyValueDB = new KeyValueDB(directory);
+             var changesetDb = new ChangesetDB(changesetDbUrl)) {
+            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
             var contribProcessor = new ContributionsProcessor();
             var contributionManager = ContributionStateManager.openManager(directory);

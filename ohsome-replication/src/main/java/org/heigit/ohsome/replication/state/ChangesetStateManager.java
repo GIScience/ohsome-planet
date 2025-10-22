@@ -29,19 +29,18 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     public static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
     public ChangesetDB changesetDB;
 
-    public ChangesetStateManager(String dbUrl) {
-        this(CHANGESET_ENDPOINT, dbUrl);
+    public ChangesetStateManager(ChangesetDB changesetDB) {
+      this(CHANGESET_ENDPOINT, changesetDB);
     }
 
-    public ChangesetStateManager(String endpoint, String dbUrl) {
+    public ChangesetStateManager(String endpoint, ChangesetDB changesetDB) {
         super(endpoint + "/", "state.yaml", "sequence", "last_run", ".osm.gz", 1);
-        changesetDB = new ChangesetDB(dbUrl);
+        this.changesetDB = changesetDB;
     }
 
     @Override
     public Instant timestampParser(String timestamp) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
-        return OffsetDateTime.parse(timestamp, formatter).toInstant();
+        return OffsetDateTime.parse(timestamp,  DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX")).toInstant();
     }
 
     @Override
