@@ -74,7 +74,6 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
 
-
         Flux.range(nextReplication, steps)
                 .buffer(500)
                 .concatMap(batch ->
