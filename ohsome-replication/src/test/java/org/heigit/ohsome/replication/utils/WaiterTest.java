@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,7 +16,7 @@ class WaiterTest {
 
     @Test
     void returnsFalseWhenChangesetReplicationIsNew() throws InterruptedException {
-        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000));
+        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false));
 
         assertFalse(waiter.optionallyWaitAndTryAgain(new ReplicationState(Instant.now(), 100000)));
     }
@@ -24,7 +25,7 @@ class WaiterTest {
     void returnsTrueWhenLastChangesetReplicationFileIsRecent() throws InterruptedException {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(20), 100000);
 
-        var mockWaiter = spy(new Waiter(changesetState, new ReplicationState(Instant.EPOCH, 1000)));
+        var mockWaiter = spy(new Waiter(changesetState, new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false)));
         Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
 
         assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
@@ -35,7 +36,7 @@ class WaiterTest {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(20), 98765);
 
-        var mockWaiter = spy(new Waiter(changesetState, contributionState));
+        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
         Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
 
         assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
@@ -46,7 +47,7 @@ class WaiterTest {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
 
-        var mockWaiter = spy(new Waiter(changesetState, contributionState));
+        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
         Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
 
         assertFalse(mockWaiter.optionallyWaitAndTryAgain(changesetState));
@@ -57,7 +58,7 @@ class WaiterTest {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
 
-        var mockWaiter = spy(new Waiter(changesetState, contributionState));
+        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
         Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
 
         assertFalse(mockWaiter.optionallyWaitAndTryAgain(changesetState));
@@ -68,7 +69,7 @@ class WaiterTest {
 
     @Test
     void waitXSecondsActuallyWaitsXSeconds() throws InterruptedException {
-        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000));
+        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false));
         var now = Instant.now();
         waiter.waitXSeconds(1);
         var nowNow = Instant.now();

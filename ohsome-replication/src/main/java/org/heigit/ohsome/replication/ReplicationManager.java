@@ -43,18 +43,16 @@ public class ReplicationManager {
     }
 
 
-
-
     private ReplicationManager() {
         // utility class
     }
 
     public static int init(Path changesetsPath, String changesetDbUrl) throws IOException {
-      try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
-        var changesetManager = new ChangesetStateManager(changesetDb);
-        changesetManager.initDbWithXML(changesetsPath);
-        return 0;
-      }
+        try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
+            var changesetManager = new ChangesetStateManager(changesetDb);
+            changesetManager.initDbWithXML(changesetsPath);
+            return 0;
+        }
     }
 
     public static int update(Path directory, String changesetDbUrl) throws Exception {
@@ -64,7 +62,6 @@ public class ReplicationManager {
     public static int update(Path directory, String changesetDbUrl, String replicationChangesetUrl) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
-
         var shutdownInitiated = new AtomicBoolean(false);
         var shutdownHook = new Thread(() -> {
             shutdownInitiated.set(true);
@@ -75,14 +72,13 @@ public class ReplicationManager {
         try (var keyValueDB = new KeyValueDB(directory);
              var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
-
             var contribProcessor = new ContributionsProcessor();
             var contributionManager = ContributionStateManager.openManager(directory);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
 
-            var waiter = new Waiter(changesetManager.getLocalState(), contributionManager.getLocalState());
+            var waiter = new Waiter(changesetManager.getLocalState(), contributionManager.getLocalState(), shutdownInitiated);
 
             while (!shutdownInitiated.get()) {
                 var remoteChangesetState = changesetManager.fetchRemoteState();
