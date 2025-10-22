@@ -14,14 +14,14 @@ import static org.mockito.Mockito.spy;
 class WaiterTest {
 
     @Test
-    void returnsFalseWhenChangesetReplicationIsNew() {
+    void returnsFalseWhenChangesetReplicationIsNew() throws InterruptedException {
         var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000));
 
         assertFalse(waiter.optionallyWaitAndTryAgain(new ReplicationState(Instant.now(), 100000)));
     }
 
     @Test
-    void returnsTrueWhenLastChangesetReplicationFileIsRecent() {
+    void returnsTrueWhenLastChangesetReplicationFileIsRecent() throws InterruptedException {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(20), 100000);
 
         var mockWaiter = spy(new Waiter(changesetState, new ReplicationState(Instant.EPOCH, 1000)));
@@ -31,7 +31,7 @@ class WaiterTest {
     }
 
     @Test
-    void returnsTrueWhenLastContributionReplicationFileIsRecent() {
+    void returnsTrueWhenLastContributionReplicationFileIsRecent() throws InterruptedException {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(20), 98765);
 
@@ -42,7 +42,7 @@ class WaiterTest {
     }
 
     @Test
-    void returnsFalseWhenLastContributionAndChangesetFilesAreOld() {
+    void returnsFalseWhenLastContributionAndChangesetFilesAreOld() throws InterruptedException {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
 
@@ -53,7 +53,7 @@ class WaiterTest {
     }
 
     @Test
-    void returnsAlternatingTrueFalseWhenLastContributionAndChangesetFilesAreOldAndItIsCalledRepeatedly() {
+    void returnsAlternatingTrueFalseWhenLastContributionAndChangesetFilesAreOldAndItIsCalledRepeatedly() throws InterruptedException {
         var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
         var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
 
@@ -67,7 +67,7 @@ class WaiterTest {
     }
 
     @Test
-    void waitXSecondsActuallyWaitsXSeconds() {
+    void waitXSecondsActuallyWaitsXSeconds() throws InterruptedException {
         var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000));
         var now = Instant.now();
         waiter.waitXSeconds(1);
