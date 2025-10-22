@@ -5,17 +5,21 @@ import org.heigit.ohsome.replication.state.ReplicationState;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Waiter {
+    private final AtomicBoolean shutdownInitiated;
+
     private ReplicationState lastChangesetState;
     private ReplicationState lastContributionState;
 
     private boolean alreadyWaited = false;
     private boolean firstTimeAfterSuccess = true;
 
-    public Waiter(ReplicationState localChangesetState, ReplicationState localContributionState) {
+    public Waiter(ReplicationState localChangesetState, ReplicationState localContributionState, AtomicBoolean shutdownInitiated) {
         lastChangesetState = localChangesetState;
         lastContributionState = localContributionState;
+        this.shutdownInitiated = shutdownInitiated;
     }
 
     public boolean optionallyWaitAndTryAgain(ReplicationState remoteChangesetState) throws InterruptedException {
@@ -63,11 +67,12 @@ public class Waiter {
     }
 
     protected void waitXSeconds(long x) throws InterruptedException {
-        try {
-            TimeUnit.SECONDS.sleep(x);
-        } catch (InterruptedException ignored) {
-            System.out.println("--Waiter:  got interrupted");
-            throw new InterruptedException("Interupted in during waiting");
+        for (var i = 0; i < x; i++) {
+            TimeUnit.SECONDS.sleep(1);
+            if (shutdownInitiated.get()) {
+                System.out.println("--Waiter:  got interrupted");
+                throw new InterruptedException("Interrupted during waiting. Gracefully shutting down.");
+            }
         }
     }
 
