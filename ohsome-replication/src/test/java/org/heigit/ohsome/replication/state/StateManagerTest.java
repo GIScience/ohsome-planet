@@ -49,7 +49,7 @@ class StateManagerTest {
 
     @Test
     void testStateManagerGetRemoteReplicationState() throws IOException {
-        var changesetStateManager = new ChangesetStateManager(dbUrl);
+        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var contributionStateManager = new ContributionStateManager(PLANET_OSM_MINUTELY, RESOURCE_PATH);
 
         var changesetState = changesetStateManager.fetchRemoteState();
@@ -63,14 +63,14 @@ class StateManagerTest {
 
     @Test
     void testGetLocalState() {
-        var changesetStateManager = new ChangesetStateManager(dbUrl);
+        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         assertEquals(10020, changesetStateManager.getLocalState().getSequenceNumber());
     }
 
     @Test
     void testUpdateLocalState() {
-        var changesetStateManager = new ChangesetStateManager(dbUrl);
+        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         var localstateBefore = changesetStateManager.getLocalState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.now(), 1431412));
@@ -82,7 +82,7 @@ class StateManagerTest {
 
     @Test
     void testUpdateToRemoteState() {
-        var changesetStateManager = new ChangesetStateManager(dbUrl);
+        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var remoteState = changesetStateManager.fetchRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
 
@@ -94,7 +94,7 @@ class StateManagerTest {
 
     @Test
     void testUpdatedUnclosedChangesets() {
-        var changesetStateManager = new ChangesetStateManager(dbUrl);
+        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var changesetDB = new ChangesetDB(dbUrl);
         var changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();
         assertFalse(changesets.isEmpty());
@@ -109,7 +109,7 @@ class StateManagerTest {
         var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
         var instant = OffsetDateTime.parse("2025-08-14 11:51:33.163329000 +00:00", formatter).toInstant();
 
-        var changesetManager = new ChangesetStateManager(dbUrl);
+        var changesetManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
 
         for(var time : List.of(
                 "2025-08-04T00:00:00Z",
@@ -125,6 +125,5 @@ class StateManagerTest {
             var secondsBetween = Duration.between(maxChangesetDbTimetsamp, oldReplication.getTimestamp()).toSeconds();
             assertTrue(secondsBetween < 80);
         }
-
     }
 }
