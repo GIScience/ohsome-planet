@@ -22,7 +22,7 @@ import java.util.*;
 
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
-public class ChangesetDB {
+public class ChangesetDB implements AutoCloseable {
     private static final HikariConfig config = new HikariConfig();
     private final HikariDataSource dataSource;
 
@@ -158,6 +158,8 @@ public class ChangesetDB {
     }
 
 
+
+
     static final String NULL = "";
 
     public byte[] changesets2CSV(List<OSMChangeset> changesets) throws IOException {
@@ -224,4 +226,9 @@ public class ChangesetDB {
             throw new RuntimeException(e);
         }
     }
+
+  @Override
+  public void close() {
+    dataSource.close();
+  }
 }
