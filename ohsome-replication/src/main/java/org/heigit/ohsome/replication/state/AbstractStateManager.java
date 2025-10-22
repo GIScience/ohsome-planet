@@ -47,16 +47,12 @@ public abstract class AbstractStateManager<T> {
         return connection.getInputStream();
     }
 
-    public ReplicationState fetchRemoteState() {
-        try {
-            var input = getFileStream(create(this.targetUrl + topLevelFile).toURL());
-            var props = new Properties();
-            props.load(input);
-            this.remoteState = new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
-            return this.remoteState;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public ReplicationState fetchRemoteState() throws IOException {
+        var input = getFileStream(create(this.targetUrl + topLevelFile).toURL());
+        var props = new Properties();
+        props.load(input);
+        this.remoteState = new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
+        return this.remoteState;
     }
 
     public ReplicationState getRemoteState() {
