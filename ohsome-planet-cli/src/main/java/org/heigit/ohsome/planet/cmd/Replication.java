@@ -39,9 +39,15 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--country-file"})
             Path countryFilePath,
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
-            int parallel
+            int parallel,
+            @Option(names={"-v", "--verbose"}, description="If set, logging is set to info, else to warn")
+            boolean verbose
 
     ) throws Exception {
+        if (verbose){
+            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
+        }
+
         return ReplicationManager.update(directory, changesetDbUrl);
     }
 }
