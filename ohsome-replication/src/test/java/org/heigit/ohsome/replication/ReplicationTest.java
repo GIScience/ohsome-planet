@@ -1,5 +1,6 @@
 package org.heigit.ohsome.replication;
 
+import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.nio.file.Path;
+import java.util.NoSuchElementException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
 /**
  * Unit test for simple App.
@@ -41,11 +46,15 @@ class ReplicationTest {
     void testReplication() throws Exception {
         var replicationChangesetUrl = RESOURCE_PATH.resolve("replication/changesets").toUri().toURL().toString();
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
-        System.out.println("replicationChangesetUrl = " + replicationChangesetUrl);
 
-//        var changesetManager = new ChangesetStateManager(replicationChangesetUrl, dbUrl);
-//        changesetManager.initializeLocalState();
 
-//        ReplicationManager.update(ohsomePlanetPath, dbUrl, replicationChangesetUrl);
+        try (var changesetDb = new ChangesetDB(dbUrl)) {
+            assertThrowsExactly(NoSuchElementException.class, changesetDb::getLocalState);
+
+            ReplicationManager.update(ohsomePlanetPath, dbUrl, replicationChangesetUrl, false);
+            var localStateAfterUpdate = changesetDb.getLocalState();
+
+            assertEquals(6737400, localStateAfterUpdate.getSequenceNumber());
+        }
     }
 }
