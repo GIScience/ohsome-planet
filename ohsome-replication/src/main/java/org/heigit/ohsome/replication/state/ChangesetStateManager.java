@@ -1,6 +1,9 @@
 package org.heigit.ohsome.replication.state;
 
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
@@ -18,7 +21,6 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static java.net.URI.create;
-import static java.util.function.Function.identity;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
 import static reactor.core.publisher.Mono.fromCallable;
@@ -44,7 +46,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     }
 
     @Override
-    public void initializeLocalState() {
+    public void initializeLocalState() throws IOException {
         try {
             localState = changesetDB.getLocalState();
         } catch (NoSuchElementException e) {
@@ -76,28 +78,30 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
         Flux.range(nextReplication, steps)
                 .buffer(500)
-                .concatMap(batch ->
-                        Flux.fromIterable(batch)
-                                .map(ReplicationState::sequenceNumberAsPath)
-                                .flatMap(path ->
-                                        fromCallable(() -> fetchReplicationBatch(path))
-                                                .subscribeOn(boundedElastic())
-                                )
-                                .flatMap(cs -> fromCallable(() -> {
-                                            changesetDB.upsertChangesets(cs);
-                                            return cs;
-                                        }).subscribeOn(boundedElastic()),
-                                        5
-                                )
-                                .flatMapIterable(identity())
-                                .filter(OSMChangeset::isClosed)
-                                .collectList()
-                                .doOnSuccess(ignore -> {
-                                    var lastReplication = getRemoteReplication(batch.getLast());
-                                    updateLocalState(lastReplication);
-                                    System.out.println("Updated state up to " + lastReplication);
-                                })
-                ).blockLast();
+                .concatMap(batch -> fromCallable(() -> updateBatch(batch)))
+                .blockLast();
+    }
+
+
+    private Set<Long> updateBatch(List<Integer> batch) throws IOException {
+      var closed = new HashSet<Long>();
+      for (var changesets : Flux.fromIterable(batch)
+          .map(ReplicationState::sequenceNumberAsPath)
+          .flatMap(path -> fromCallable(() -> fetchReplicationBatch(path)).subscribeOn(boundedElastic()))
+          .flatMap(cs -> fromCallable(() -> {
+                changesetDB.upsertChangesets(cs);
+                return cs;
+              }).subscribeOn(boundedElastic()),
+              5
+          )
+          .toIterable()){
+        changesets.stream().filter(OSMChangeset::isClosed).map(OSMChangeset::id).forEach(closed::add);
+      }
+
+      var lastReplication = getRemoteReplication(batch.getLast());
+      updateLocalState(lastReplication);
+      System.out.println("Updated state up to " + lastReplication);
+      return closed;
     }
 
 
