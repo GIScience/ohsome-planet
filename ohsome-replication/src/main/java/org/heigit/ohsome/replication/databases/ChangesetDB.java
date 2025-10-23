@@ -91,13 +91,9 @@ public class ChangesetDB implements AutoCloseable {
             throw new RuntimeException(ex);
         }
     }
-     // todo: currently unused
+
     public int getMaxConnections() {
-        try {
-            return dataSource.getConnection().getMetaData().getMaxConnections();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return config.getMaximumPoolSize();
     }
 
     public void upsertChangesets(List<OSMChangeset> changesets) throws JsonProcessingException, SQLException {
@@ -156,8 +152,6 @@ public class ChangesetDB implements AutoCloseable {
             pstmt.executeBatch();
         }
     }
-
-
 
 
     static final String NULL = "";

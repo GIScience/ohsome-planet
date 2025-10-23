@@ -1,9 +1,6 @@
 package org.heigit.ohsome.replication.state;
 
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
@@ -16,8 +13,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.net.URI.create;
@@ -32,7 +28,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     public ChangesetDB changesetDB;
 
     public ChangesetStateManager(ChangesetDB changesetDB) {
-      this(CHANGESET_ENDPOINT, changesetDB);
+        this(CHANGESET_ENDPOINT, changesetDB);
     }
 
     public ChangesetStateManager(String endpoint, ChangesetDB changesetDB) {
@@ -42,7 +38,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
     @Override
     public Instant timestampParser(String timestamp) {
-        return OffsetDateTime.parse(timestamp,  DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX")).toInstant();
+        return OffsetDateTime.parse(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX")).toInstant();
     }
 
     @Override
@@ -84,24 +80,24 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
 
     private Set<Long> updateBatch(List<Integer> batch) throws IOException {
-      var closed = new HashSet<Long>();
-      for (var changesets : Flux.fromIterable(batch)
-          .map(ReplicationState::sequenceNumberAsPath)
-          .flatMap(path -> fromCallable(() -> fetchReplicationBatch(path)).subscribeOn(boundedElastic()))
-          .flatMap(cs -> fromCallable(() -> {
-                changesetDB.upsertChangesets(cs);
-                return cs;
-              }).subscribeOn(boundedElastic()),
-              5
-          )
-          .toIterable()){
-        changesets.stream().filter(OSMChangeset::isClosed).map(OSMChangeset::id).forEach(closed::add);
-      }
+        var closed = new HashSet<Long>();
+        for (var changesets : Flux.fromIterable(batch)
+                .map(ReplicationState::sequenceNumberAsPath)
+                .flatMap(path -> fromCallable(() -> fetchReplicationBatch(path)).subscribeOn(boundedElastic()))
+                .flatMap(cs -> fromCallable(() -> {
+                            changesetDB.upsertChangesets(cs);
+                            return cs;
+                        }).subscribeOn(boundedElastic()),
+                        changesetDB.getMaxConnections()
+                )
+                .toIterable()) {
+            changesets.stream().filter(OSMChangeset::isClosed).map(OSMChangeset::id).forEach(closed::add);
+        }
 
-      var lastReplication = getRemoteReplication(batch.getLast());
-      updateLocalState(lastReplication);
-      System.out.println("Updated state up to " + lastReplication);
-      return closed;
+        var lastReplication = getRemoteReplication(batch.getLast());
+        updateLocalState(lastReplication);
+        System.out.println("Updated state up to " + lastReplication);
+        return closed;
     }
 
 
@@ -110,7 +106,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .buffer(100)
                 .flatMap(partition -> fromCallable(() -> {
                             var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
-                                      + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
+                                    + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
                             return fetchFile(url);
                         })
                 )
@@ -121,7 +117,8 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                             changesetDB.upsertChangesets(cs);
                             return cs;
                         }).subscribeOn(boundedElastic()),
-                        5
+                        changesetDB.getMaxConnections()
+
                 )
                 .doOnNext(cs -> System.out.println(Instant.now() + "; Upserted previously unclosed changesets :" + cs.size()))
                 .blockLast();
@@ -149,7 +146,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                                 changesetDB.bulkInsertChangesets(changesets);
                                 return changesets;
                             }).subscribeOn(boundedElastic()),
-                            5 // todo: changesetDB.getMaxConnections() for some reason does not work with citus
+                            changesetDB.getMaxConnections()
                     )
                     .doOnComplete(pb::close)
                     .blockLast();

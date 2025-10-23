@@ -62,14 +62,14 @@ class StateManagerTest {
     }
 
     @Test
-    void testGetLocalState() {
+    void testGetLocalState() throws IOException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         assertEquals(10020, changesetStateManager.getLocalState().getSequenceNumber());
     }
 
     @Test
-    void testUpdateLocalState() {
+    void testUpdateLocalState() throws IOException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         var localstateBefore = changesetStateManager.getLocalState();
@@ -81,7 +81,7 @@ class StateManagerTest {
 
 
     @Test
-    void testUpdateToRemoteState() {
+    void testUpdateToRemoteState() throws IOException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var remoteState = changesetStateManager.fetchRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
@@ -105,7 +105,7 @@ class StateManagerTest {
     }
 
     @Test
-    void testGettingOldSequenceNumberFromOldTimestamp() {
+    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException {
         var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
         var instant = OffsetDateTime.parse("2025-08-14 11:51:33.163329000 +00:00", formatter).toInstant();
 
