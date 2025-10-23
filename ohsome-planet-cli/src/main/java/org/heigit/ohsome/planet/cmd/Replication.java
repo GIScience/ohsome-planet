@@ -40,12 +40,13 @@ public class Replication implements Callable<Integer> {
             Path countryFilePath,
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
             int parallel,
-            @Option(names={"-v", "--verbose"}, description="If set, logging is set to info, else to warn")
-            boolean verbose
+            @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
+            boolean[] verbosity
 
     ) throws Exception {
-        if (verbose){
-            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
+        if (verbosity != null) {
+            var levels = new String[]{"warn", "info", "debug", "trace"};
+            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", levels[verbosity.length < levels.length ? verbosity.length : levels.length - 1]);
         }
 
         return ReplicationManager.update(directory, changesetDbUrl);
