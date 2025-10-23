@@ -94,4 +94,5 @@ public class ReplicationManager {
         changesetManager.updateTowardsRemoteState();
         changesetManager.updateUnclosedChangesets();
     }
+
 }
