@@ -1,8 +1,12 @@
 package org.heigit.ohsome.replication.state;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -12,6 +16,8 @@ import java.util.zip.GZIPInputStream;
 import static java.net.URI.create;
 
 public abstract class AbstractStateManager<T> {
+    private static final Logger logger = LoggerFactory.getLogger(AbstractStateManager.class);
+
     protected final String targetUrl;
     protected final String topLevelFile;
     protected final String sequenceKey;
@@ -34,9 +40,9 @@ public abstract class AbstractStateManager<T> {
 
     protected abstract Instant timestampParser(String timestamp);
 
-    protected abstract void initializeLocalState() throws IOException;
+    protected abstract void initializeLocalState() throws Exception;
 
-    protected abstract void updateLocalState(ReplicationState state) throws IOException;
+    protected abstract void updateLocalState(ReplicationState state) throws IOException, SQLException;
 
     protected abstract Iterator<T> getParser(InputStream input) throws Exception;
 
@@ -60,14 +66,14 @@ public abstract class AbstractStateManager<T> {
     }
 
     public ReplicationState getRemoteReplication(int sequenceNumber) throws IOException {
-         var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
-         var props = new Properties();
-         props.load(input);
-         return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
+        var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
+        var props = new Properties();
+        props.load(input);
+        return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
     }
 
     private InputStream getReplicationFile(String replicationPath) throws IOException {
-         return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
+        return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
     }
 
     protected List<T> fetchReplicationBatch(String replicationPath) throws Exception {
@@ -85,35 +91,39 @@ public abstract class AbstractStateManager<T> {
         return elements;
     }
 
-    public ReplicationState estimateLocalReplicationState(Instant targetTimestamp, ReplicationState remoteState)
-        throws IOException {
+    public ReplicationState estimateLocalReplicationState(Instant lastTimestampChangeset, ReplicationState remoteState)
+            throws IOException {
         var replicationMap = new HashMap<Integer, ReplicationState>();
-        var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);
+        var targetMinute = lastTimestampChangeset.truncatedTo(ChronoUnit.MINUTES);
+        logger.debug("Trying to estimate Replication ID for {}", lastTimestampChangeset);
 
         while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
             var minutes = Duration.between(targetMinute, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
             remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
+            logger.debug("Found remote state state {}", remoteState);
 
             if (replicationMap.putIfAbsent(remoteState.getSequenceNumber(), remoteState) != null) {
-                return getRemoteStateInCaseOfLoop(targetTimestamp, replicationMap);
+                logger.debug("Loop detected, trying to brute force replication date");
+                return getRemoteStateInCaseOfLoop(lastTimestampChangeset, replicationMap);
             }
         }
-        return targetTimestamp.isBefore(remoteState.getTimestamp())
+        return lastTimestampChangeset.isBefore(remoteState.getTimestamp())
                 ? remoteState
                 : getRemoteReplication(remoteState.getSequenceNumber() + 1 + replicationOffset);
     }
 
     private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, Map<Integer, ReplicationState> replicationMap)
-        throws IOException {
+            throws IOException {
         var closestReplicationState = replicationMap.values().stream()
                 .filter(rs -> rs.getTimestamp().isBefore(targetTimestamp))
                 .max(Comparator.comparing(ReplicationState::getTimestamp))
                 .orElseThrow(); // can not happen since we cannot loop if we are never below timestamp
-
+        logger.debug("Starting brute force at {}", closestReplicationState);
         ReplicationState previous;
         do {
             previous = closestReplicationState;
             closestReplicationState = getRemoteReplication(previous.getSequenceNumber() + 1 + replicationOffset);
+            logger.debug("Then comes {}", closestReplicationState);
         } while (closestReplicationState.getTimestamp().isBefore(targetTimestamp));
         return previous;
     }

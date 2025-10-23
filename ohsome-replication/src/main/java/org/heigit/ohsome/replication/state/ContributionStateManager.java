@@ -59,7 +59,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
   }
 
   @Override
-  public void initializeLocalState() throws IOException {
+  public void initializeLocalState() throws Exception {
     if (Files.exists(localStatePath)) {
       var props = new Properties();
       try (var in = Files.newInputStream(localStatePath)) {

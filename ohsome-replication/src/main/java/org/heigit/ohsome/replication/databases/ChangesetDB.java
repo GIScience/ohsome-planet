@@ -10,6 +10,8 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.postgresql.PGConnection;
 import org.postgresql.util.PGobject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,6 +25,7 @@ import java.util.*;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
 public class ChangesetDB implements AutoCloseable {
+    private static final Logger logger = LoggerFactory.getLogger(ChangesetDB.class);
     private static final HikariConfig config = new HikariConfig();
     private final HikariDataSource dataSource;
 
@@ -38,7 +41,7 @@ public class ChangesetDB implements AutoCloseable {
         getterDb = new ChangesetDb(dataSource);
     }
 
-    public ReplicationState getLocalState() throws NoSuchElementException {
+    public ReplicationState getLocalState() throws NoSuchElementException, SQLException {
         try (var conn = dataSource.getConnection();
              var pstmt = conn.prepareStatement("SELECT last_sequence, last_timestamp FROM changeset_state")
         ) {
@@ -48,12 +51,10 @@ public class ChangesetDB implements AutoCloseable {
             } else {
                 throw new NoSuchElementException("No state in changesetDB");
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
     }
 
-    public Instant getMaxLocalTimestamp() {
+    public Instant getMaxLocalTimestamp() throws SQLException {
         try (var conn = dataSource.getConnection();
              var pstmt = conn.prepareStatement("SELECT max(created_at) FROM changesets")
         ) {
@@ -61,17 +62,13 @@ public class ChangesetDB implements AutoCloseable {
             if (results.next()) {
                 return results.getTimestamp(1).toInstant();
             } else {
-
-                throw new RuntimeException("No data in changesetDB");
+                throw new NoSuchElementException("No data in changesetDB, run changeset command first to initialize changesetDB");
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
         }
-
     }
 
 
-    public void updateState(ReplicationState state) {
+    public void updateState(ReplicationState state) throws SQLException {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
@@ -87,8 +84,7 @@ public class ChangesetDB implements AutoCloseable {
             pstmt.setInt(1, state.getSequenceNumber());
             pstmt.setTimestamp(2, Timestamp.from(state.getTimestamp()));
             pstmt.executeUpdate();
-        } catch (SQLException ex) {
-            throw new RuntimeException(ex);
+            logger.debug("State updated to {}", state.getSequenceNumber());
         }
     }
 
@@ -149,7 +145,9 @@ public class ChangesetDB implements AutoCloseable {
                 pstmt.setArray(9, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
                 pstmt.addBatch();
             }
+            logger.debug("Trying to upsert {} changesets",  changesets.size());
             pstmt.executeBatch();
+            logger.debug("Successfully upserted {} changesets",  changesets.size());
         }
     }
 
@@ -214,15 +212,15 @@ public class ChangesetDB implements AutoCloseable {
             while (results.next()) {
                 ids.add(results.getLong(1));
             }
-            System.out.println("Got " + ids.size() + " unclosed changesets older than 2 hours from database");
+            logger.info("Got " + ids.size() + " unclosed changesets older than 2 hours from database");
             return ids;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
-  @Override
-  public void close() {
-    dataSource.close();
-  }
+    @Override
+    public void close() {
+        dataSource.close();
+    }
 }

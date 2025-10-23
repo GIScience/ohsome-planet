@@ -11,6 +11,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -62,14 +63,14 @@ class StateManagerTest {
     }
 
     @Test
-    void testGetLocalState() throws IOException {
+    void testGetLocalState() throws Exception {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         assertEquals(10020, changesetStateManager.getLocalState().getSequenceNumber());
     }
 
     @Test
-    void testUpdateLocalState() throws IOException {
+    void testUpdateLocalState() throws Exception {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         changesetStateManager.initializeLocalState();
         var localstateBefore = changesetStateManager.getLocalState();
@@ -81,7 +82,7 @@ class StateManagerTest {
 
 
     @Test
-    void testUpdateToRemoteState() throws IOException {
+    void testUpdateToRemoteState() throws IOException, SQLException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var remoteState = changesetStateManager.fetchRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
@@ -93,7 +94,7 @@ class StateManagerTest {
     }
 
     @Test
-    void testUpdatedUnclosedChangesets() {
+    void testUpdatedUnclosedChangesets() throws SQLException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var changesetDB = new ChangesetDB(dbUrl);
         var changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();
@@ -111,7 +112,7 @@ class StateManagerTest {
 
         var changesetManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
 
-        for(var time : List.of(
+        for (var time : List.of(
                 "2025-08-04T00:00:00Z",
                 "2025-08-04T00:10:12Z")) {
             var maxChangesetDbTimetsamp = Instant.parse(time);
