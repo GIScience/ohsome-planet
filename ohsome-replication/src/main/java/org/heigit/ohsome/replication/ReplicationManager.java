@@ -7,7 +7,6 @@ import org.heigit.ohsome.replication.databases.KeyValueDB;
 import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
-import org.heigit.ohsome.replication.state.ReplicationState;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
@@ -70,9 +69,9 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try (var keyValueDB = new KeyValueDB(directory);
-             var changesetDb = new ChangesetDB(changesetDbUrl)) {
+            var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
-            var contribProcessor = new ContributionsProcessor();
+            var contribProcessor = new ContributionsProcessor(changesetDb);
             var contributionManager = ContributionStateManager.openManager(directory);
 
             changesetManager.initializeLocalState();
@@ -86,12 +85,12 @@ public class ReplicationManager {
                 if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)) {
                     continue;
                 }
-                var remoteContributionState = contributionManager.fetchRemoteState();
-                waiter.registerLastContributionState(remoteContributionState);
+
+                waiter.registerLastContributionState(contributionManager.fetchRemoteState());
 
                 fetchChangesets(changesetManager);
                 // todo: if (justChangesets) {continue;}
-                fetchContributions(contributionManager, remoteContributionState, contribProcessor);
+                contributionManager.updateTowardsRemoteState(contribProcessor);
             }
         } finally {
             lock.unlock();
@@ -104,9 +103,4 @@ public class ReplicationManager {
         changesetManager.updateUnclosedChangesets();
     }
 
-    private static void fetchContributions(ContributionStateManager contributionManager, ReplicationState remoteContributionState, ContributionsProcessor contribProcessor) throws Exception {
-        while (!contributionManager.getLocalState().equals(remoteContributionState)) {
-            contributionManager.updateTowardsRemoteState(contribProcessor);
-        }
-    }
 }

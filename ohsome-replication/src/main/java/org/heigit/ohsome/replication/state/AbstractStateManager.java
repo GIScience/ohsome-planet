@@ -59,31 +59,22 @@ public abstract class AbstractStateManager<T> {
         return this.remoteState;
     }
 
-    public ReplicationState getRemoteReplication(Integer sequenceNumber) {
-        try {
-            var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
-            var props = new Properties();
-            props.load(input);
-            return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public ReplicationState getRemoteReplication(int sequenceNumber) throws IOException {
+         var input = getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL());
+         var props = new Properties();
+         props.load(input);
+         return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
     }
 
-    protected InputStream getReplicationFile(String replicationPath) {
-        try {
-            return getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private InputStream getReplicationFile(String replicationPath) throws IOException {
+         return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
     }
 
     protected List<T> fetchReplicationBatch(String replicationPath) throws Exception {
-        try (var gzipStream = new GZIPInputStream(getReplicationFile(replicationPath))) {
-            return parse(gzipStream);
+        try (var input = getReplicationFile(replicationPath)) {
+            return parse(input);
         }
     }
-
 
     protected List<T> parse(InputStream input) throws Exception {
         var xmlReader = getParser(input);
@@ -94,7 +85,8 @@ public abstract class AbstractStateManager<T> {
         return elements;
     }
 
-    public ReplicationState estimateLocalReplicationState(Instant targetTimestamp, ReplicationState remoteState) {
+    public ReplicationState estimateLocalReplicationState(Instant targetTimestamp, ReplicationState remoteState)
+        throws IOException {
         var replicationMap = new HashMap<Integer, ReplicationState>();
         var targetMinute = targetTimestamp.truncatedTo(ChronoUnit.MINUTES);
 
@@ -111,7 +103,8 @@ public abstract class AbstractStateManager<T> {
                 : getRemoteReplication(remoteState.getSequenceNumber() + 1 + replicationOffset);
     }
 
-    private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, HashMap<Integer, ReplicationState> replicationMap) {
+    private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, Map<Integer, ReplicationState> replicationMap)
+        throws IOException {
         var closestReplicationState = replicationMap.values().stream()
                 .filter(rs -> rs.getTimestamp().isBefore(targetTimestamp))
                 .max(Comparator.comparing(ReplicationState::getTimestamp))

@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication.processor;
 import com.google.common.base.Stopwatch;
 import org.heigit.ohsome.contributions.transformer.Transformer;
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
 import org.heigit.ohsome.replication.update.UpdateStore;
 import reactor.core.publisher.Mono;
@@ -16,12 +17,12 @@ import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
 public class ContributionsProcessor {
 
-
     private final UpdateStore store = new UpdateStore();
     private final Path output = Path.of(".");
+    private final ChangesetDB changesetDb;
 
-
-    public ContributionsProcessor() {
+    public ContributionsProcessor(ChangesetDB changesetDb) {
+      this.changesetDb = changesetDb;
     }
 
 
