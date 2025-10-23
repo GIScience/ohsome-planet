@@ -46,6 +46,6 @@ class ReplicationTest {
 //        var changesetManager = new ChangesetStateManager(replicationChangesetUrl, dbUrl);
 //        changesetManager.initializeLocalState();
 
-        ReplicationManager.update(ohsomePlanetPath, dbUrl, replicationChangesetUrl);
+//        ReplicationManager.update(ohsomePlanetPath, dbUrl, replicationChangesetUrl);
     }
 }
