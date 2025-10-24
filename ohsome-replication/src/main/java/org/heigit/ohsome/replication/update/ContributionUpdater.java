@@ -44,11 +44,11 @@ public class ContributionUpdater {
         return Flux.concat(
                 Flux.just(itr).concatMap(this::updateNodes),
                 Flux.just(itr).concatMap(this::updateWays),
-                Flux.just(itr).concatMap(this::updateRelations))
-                .doOnComplete(this::updateStore);
+                Flux.just(itr).concatMap(this::updateRelations));
     }
 
-    private void updateStore() {
+
+    public void updateStore() {
         store.updateNodes(newNodes.values().stream()
                 .map(Entity::newVersions)
                 .map(List::getLast)
@@ -195,18 +195,18 @@ public class ContributionUpdater {
 
     private <T extends OSMEntity> Map<Long, Entity<T>> filter(Map<Long, List<T>> newVersions, Map<Long, T> versionBefore) {
         var filtered = new HashMap<Long, Entity<T>>();
-        newVersions.forEach((id, versions) -> {
+        newVersions.forEach((id, osh) -> {
             var before = versionBefore.get(id);
-            if (versions.isEmpty()) {
+            if (osh.isEmpty()) {
                 // minor edits
-                filtered.put(id, new Entity<>(versions, before));
+                filtered.put(id, new Entity<>(osh, before));
                 return;
             }
             if (before != null) {
-                versions.removeIf(version -> version.version() <= before.version());
+                osh.removeIf(version -> version.version() <= before.version());
             }
-            if (!versions.isEmpty()) {
-                filtered.put(id, new Entity<>(versions, before));
+            if (!osh.isEmpty()) {
+                filtered.put(id, new Entity<>(osh, before));
             }
         });
         return filtered;
