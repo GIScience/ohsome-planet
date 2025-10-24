@@ -5,11 +5,14 @@ import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,8 +27,9 @@ import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
+    private static final Logger logger = LoggerFactory.getLogger(ChangesetStateManager.class);
     public static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
-    public ChangesetDB changesetDB;
+    private static ChangesetDB changesetDB;
 
     public ChangesetStateManager(ChangesetDB changesetDB) {
         this(CHANGESET_ENDPOINT, changesetDB);
@@ -42,23 +46,23 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     }
 
     @Override
-    public void initializeLocalState() throws IOException {
+    public void initializeLocalState() throws Exception {
         try {
             localState = changesetDB.getLocalState();
         } catch (NoSuchElementException e) {
-            System.out.println("No local state detected for changesets, trying to estimate starting replication state");
+            logger.info("No local state detected for changesets, trying to estimate starting replication state");
             var maxChangesetDBTimestamp = changesetDB.getMaxLocalTimestamp();
             updateLocalState(
                     estimateLocalReplicationState(
                             maxChangesetDBTimestamp, fetchRemoteState()
                     )
             );
-            System.out.println("Estimated replication state:" + this.localState);
+            logger.info("Estimated replication state for {}: {}", maxChangesetDBTimestamp, this.localState);
         }
     }
 
     @Override
-    protected void updateLocalState(ReplicationState state) {
+    protected void updateLocalState(ReplicationState state) throws SQLException {
         changesetDB.updateState(state);
         localState = state;
     }
@@ -79,7 +83,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
     }
 
 
-    private Set<Long> updateBatch(List<Integer> batch) throws IOException {
+    private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException {
         var closed = new HashSet<Long>();
         for (var changesets : Flux.fromIterable(batch)
                 .map(ReplicationState::sequenceNumberAsPath)
@@ -96,7 +100,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
 
         var lastReplication = getRemoteReplication(batch.getLast());
         updateLocalState(lastReplication);
-        System.out.println("Updated state up to " + lastReplication);
+        logger.info("Updated state up to {}", lastReplication);
         return closed;
     }
 
@@ -106,7 +110,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .buffer(100)
                 .flatMap(partition -> fromCallable(() -> {
                             var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
-                                    + partition.stream().map(String::valueOf).collect(Collectors.joining(","));
+                                    + partition.stream().map(String::valueOf).collect(Collectors.joining(",", "", ""));
                             return fetchFile(url);
                         })
                 )
@@ -120,17 +124,13 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                         changesetDB.getMaxConnections()
 
                 )
-                .doOnNext(cs -> System.out.println(Instant.now() + "; Upserted previously unclosed changesets :" + cs.size()))
+                .doOnNext(cs -> logger.info("Upserted {} previously unclosed changesets", cs.size()))
                 .blockLast();
     }
 
 
-    private InputStream fetchFile(String url) {
-        try {
-            return getFileStream(create(url).toURL());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private InputStream fetchFile(String url) throws IOException {
+        return getFileStream(create(url).toURL());
     }
 
     public void initDbWithXML(Path changesetsPath) throws IOException {

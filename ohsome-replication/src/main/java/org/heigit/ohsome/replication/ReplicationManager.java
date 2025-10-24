@@ -55,10 +55,10 @@ public class ReplicationManager {
     }
 
     public static int update(Path directory, String changesetDbUrl) throws Exception {
-        return update(directory, ContributionStateManager.PLANET_OSM_MINUTELY, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT);
+        return update(directory, ContributionStateManager.PLANET_OSM_MINUTELY, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, true);
     }
 
-    public static int update(Path directory, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl) throws Exception {
+    public static int update(Path directory, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
         var shutdownInitiated = new AtomicBoolean(false);
@@ -69,29 +69,28 @@ public class ReplicationManager {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         try (var keyValueDB = new KeyValueDB(directory);
-            var changesetDb = new ChangesetDB(changesetDbUrl)) {
+             var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
             var contribProcessor = new ContributionsProcessor(changesetDb);
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory);
+            var contributionManager = ContributionStateManager.openManager(directory);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
 
             var waiter = new Waiter(changesetManager.getLocalState(), contributionManager.getLocalState(), shutdownInitiated);
 
-            while (!shutdownInitiated.get()) {
+            do {
                 var remoteChangesetState = changesetManager.fetchRemoteState();
 
                 if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)) {
                     continue;
                 }
-
                 waiter.registerLastContributionState(contributionManager.fetchRemoteState());
 
                 fetchChangesets(changesetManager);
                 // todo: if (justChangesets) {continue;}
                 contributionManager.updateTowardsRemoteState(contribProcessor);
-            }
+            } while (!shutdownInitiated.get() && continuous);
         } finally {
             lock.unlock();
         }
