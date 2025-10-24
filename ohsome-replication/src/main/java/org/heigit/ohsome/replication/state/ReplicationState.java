@@ -78,6 +78,10 @@ public class ReplicationState {
         return sequenceNumber;
     }
 
+    public Path getSequenceNumberPath(Path base) {
+        return base.resolve(sequenceNumberAsPath(sequenceNumber));
+    }
+
     public String getEndpoint() {
         return endpoint;
     }

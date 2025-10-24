@@ -55,10 +55,10 @@ public class ReplicationManager {
     }
 
     public static int update(Path directory, String changesetDbUrl) throws Exception {
-        return update(directory, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT);
+        return update(directory, ContributionStateManager.PLANET_OSM_MINUTELY, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT);
     }
 
-    public static int update(Path directory, String changesetDbUrl, String replicationChangesetUrl) throws Exception {
+    public static int update(Path directory, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
         var shutdownInitiated = new AtomicBoolean(false);
@@ -72,7 +72,7 @@ public class ReplicationManager {
             var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
             var contribProcessor = new ContributionsProcessor(changesetDb);
-            var contributionManager = ContributionStateManager.openManager(directory);
+            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
