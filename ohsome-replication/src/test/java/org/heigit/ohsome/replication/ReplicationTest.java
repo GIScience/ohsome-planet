@@ -45,13 +45,15 @@ class ReplicationTest {
     @Test
     void testReplication() throws Exception {
         var replicationChangesetUrl = RESOURCE_PATH.resolve("replication/changesets").toUri().toURL().toString();
+        var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
+        var out = RESOURCE_PATH.resolve("out");
 
 
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             assertThrowsExactly(NoSuchElementException.class, changesetDb::getLocalState);
 
-            ReplicationManager.update(ohsomePlanetPath, dbUrl, replicationChangesetUrl, false);
+            ReplicationManager.update(ohsomePlanetPath, out, replicationElementsUrl, dbUrl, replicationChangesetUrl, false);
             var localStateAfterUpdate = changesetDb.getLocalState();
 
             assertEquals(6737400, localStateAfterUpdate.getSequenceNumber());
