@@ -1,6 +1,8 @@
 package org.heigit.ohsome.planet.cmd;
 
+import java.net.URL;
 import org.heigit.ohsome.replication.ReplicationManager;
+import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -36,6 +38,12 @@ public class Replication implements Callable<Integer> {
             Path directory,
             @Option(names = {"--output"}, defaultValue = "out", description = "output directory, Default: ${DEFAULT-VALUE}")
             Path out,
+            @Option(names = {"--replication"}, defaultValue = "https://planet.openstreetmap.org/replication/minute/", description = "output directory, Default: ${DEFAULT-VALUE}")
+            URL replicationElementsUrl,
+
+            @Option(names = "--continuous", defaultValue = "false", description = "continuous updates")
+            boolean contiuous,
+
             @Option(names = {"--country-file"})
             Path countryFilePath,
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
@@ -49,6 +57,6 @@ public class Replication implements Callable<Integer> {
             System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", levels[verbosity.length < levels.length ? verbosity.length : levels.length - 1]);
         }
 
-        return ReplicationManager.update(directory, changesetDbUrl);
+        return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, contiuous);
     }
 }
