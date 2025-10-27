@@ -37,8 +37,8 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
   private final Path out;
 
 
-  public ContributionStateManager(String endpoint, Path directory) throws IOException {
-    this(endpoint, directory, null, null);
+  public ContributionStateManager(String endpoint, Path directory, Path out) throws IOException {
+    this(endpoint, directory, null, out);
   }
 
   public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out)
