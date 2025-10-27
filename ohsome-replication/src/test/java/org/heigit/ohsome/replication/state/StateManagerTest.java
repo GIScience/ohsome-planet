@@ -51,7 +51,7 @@ class StateManagerTest {
     @Test
     void testStateManagerGetRemoteReplicationState() throws IOException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
-        var contributionStateManager = new ContributionStateManager(PLANET_OSM_MINUTELY, RESOURCE_PATH);
+        var contributionStateManager = new ContributionStateManager(PLANET_OSM_MINUTELY, RESOURCE_PATH, Path.of("."));
 
         var changesetState = changesetStateManager.fetchRemoteState();
         System.out.println("changesetState = " + changesetState);
