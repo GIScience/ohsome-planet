@@ -44,7 +44,8 @@ class ContributionStateManagerTest {
 
     @Test
     void getState() throws Exception {
-        var endpoint = RESOURCES.resolve("replication/minute").toUri().toURL().toString();
+        var endpointPath = RESOURCES.resolve("replication/minute");
+        var endpointUrl = endpointPath.toUri().toURL().toString();
 
         var rootDir = Path.of("test-output/ohsome-planet");
         if (Files.exists(rootDir)) {
@@ -52,10 +53,10 @@ class ContributionStateManagerTest {
         }
         var out = rootDir.resolve("out");
         try(var changesetDb = new ChangesetDB(dbUrl)) {
-            var manager = ContributionStateManager.openManager(endpoint, rootDir, out, changesetDb);
+            var manager = ContributionStateManager.openManager(endpointUrl, rootDir, out, changesetDb);
             var remoteState = manager.fetchRemoteState();
             System.out.println("remoteState = " + remoteState);
-            var localState = new ReplicationState(Instant.now(), remoteState.getSequenceNumber() - 1);
+            var localState = ReplicationState.read(endpointPath.resolve("006/824/839.state.txt"));
             manager.updateLocalState(localState);
             System.out.println("localState = " + localState);
             manager.updateTowardsRemoteState();
