@@ -1,6 +1,8 @@
 package org.heigit.ohsome.replication.update;
 
+import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.osm.changesets.Changesets;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -16,11 +18,12 @@ public class ContributionUpdaterTest {
     @Test
     void update() {
         var store = new UpdateStore();
-        var updater = new ContributionUpdater(store);
+        var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP);
         var diffs = updater.update(List.of(
                 node(1, 1, 1, 1),
                 node(2, 1, 1, 1),
                 way(23, 1, 1, 1, List.of(1L, 2L)))).collectList().block();
+        updater.updateStore();
 
         diffs.forEach(System.out::println);
 
@@ -31,6 +34,8 @@ public class ContributionUpdaterTest {
         diffs = updater.update(List.of(
                 node(1, 2, 2, 2)
         )).collectList().block();
+
+        diffs.forEach(System.out::println);
 
 
     }

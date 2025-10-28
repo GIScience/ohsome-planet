@@ -25,15 +25,17 @@ import static reactor.core.scheduler.Schedulers.parallel;
 public class ContributionUpdater {
     public record Entity<T extends OSMEntity>(List<T> newVersions, T before) {}
 
-    private final Changesets changesetDb = Changesets.NOOP;
-    private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
+    private final Changesets changesetDb;
+    private final SpatialJoiner countryJoiner;
     private final UpdateStore store;
 
     private Map<Long, Entity<OSMNode>> newNodes;
     private Map<Long, Entity<OSMWay>> newWays;
 
-    public ContributionUpdater(UpdateStore store) {
+    public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner) {
         this.store = store;
+        this.changesetDb = changesetDb;
+        this.countryJoiner = countryJoiner;
     }
 
     public Flux<Contrib> update(List<OSMEntity> osc) {

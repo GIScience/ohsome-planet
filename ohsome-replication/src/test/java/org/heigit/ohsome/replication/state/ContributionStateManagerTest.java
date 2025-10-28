@@ -1,35 +1,76 @@
 package org.heigit.ohsome.replication.state;
 
-import org.heigit.ohsome.replication.processor.ContributionsProcessor;
+import com.google.common.io.MoreFiles;
+import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.utility.DockerImageName;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 class ContributionStateManagerTest {
 
     private static final Path RESOURCES = Path.of("src/test/resources");
 
+    @Container
+    private static final PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgis/postgis:17-3.5")
+                    .asCompatibleSubstituteFor("postgres"))
+            .withDatabaseName("testdb")
+            .withUsername("testuser")
+            .withPassword("testpass");
+    private static String dbUrl;
+
+    @BeforeAll
+    static void setUp() {
+        postgresContainer.withInitScript("setupDB/setupReplicationUpdate.sql");
+        postgresContainer.start();
+        dbUrl = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
+    }
+
+    @AfterAll
+    static void tearDown() {
+        postgresContainer.stop();
+    }
+
+
     @Test
     void getState() throws Exception {
-
         var endpoint = RESOURCES.resolve("replication/minute").toUri().toURL().toString();
-        System.out.println("endpoint = " + endpoint);
-        Path directory = RESOURCES.resolve("ohsome-planet");
-        var out = RESOURCES.resolve("ohsome-planet/out");
-        var manager = ContributionStateManager.openManager(endpoint, directory, out);
 
-        var remoteState = manager.fetchRemoteState();
-        System.out.println("remoteState = " + remoteState);
-        var localState = manager.getLocalState();
-        System.out.println("localState = " + localState);
+        var rootDir = Path.of("test-output/ohsome-planet");
+        if (Files.exists(rootDir)) {
+            MoreFiles.deleteRecursively(rootDir);
+        }
+        var out = rootDir.resolve("out");
+        try(var changesetDb = new ChangesetDB(dbUrl)) {
+            var manager = ContributionStateManager.openManager(endpoint, rootDir, out, changesetDb);
+            var remoteState = manager.fetchRemoteState();
+            System.out.println("remoteState = " + remoteState);
+            var localState = new ReplicationState(Instant.now(), remoteState.getSequenceNumber() - 1);
+            manager.updateLocalState(localState);
+            System.out.println("localState = " + localState);
+            manager.updateTowardsRemoteState();
 
-        var processor = processor();
-        manager.updateTowardsRemoteState(processor);
+            var changesets = changesetDb.changesets(Set.of(1L), this::changeset);
+            System.out.println("changesets = " + changesets);
+
+        } finally {
+//            MoreFiles.deleteRecursively(rootDir);
+        }
 
     }
 
-    private ContributionsProcessor processor() {
-        return null;
+    private Long changeset(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor, int numChanges) {
+        return id;
     }
 
 }

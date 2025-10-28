@@ -24,13 +24,14 @@ import java.util.*;
 
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
-public class ChangesetDB implements AutoCloseable {
+public class ChangesetDB implements Changesets, AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetDB.class);
     private static final HikariConfig config = new HikariConfig();
     private final HikariDataSource dataSource;
 
+    @Override
     public <T> Map<Long, T> changesets(Set<Long> ids, Changesets.Factory<T> factory) throws Exception {
-        return getterDb.changesets(ids, factory);
+        return getterDb.changesets(ids, "changesets", factory);
     }
 
     private final ChangesetDb getterDb;
@@ -145,9 +146,9 @@ public class ChangesetDB implements AutoCloseable {
                 pstmt.setArray(9, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
                 pstmt.addBatch();
             }
-            logger.debug("Trying to upsert {} changesets",  changesets.size());
+            logger.debug("Trying to upsert {} changesets", changesets.size());
             pstmt.executeBatch();
-            logger.debug("Successfully upserted {} changesets",  changesets.size());
+            logger.debug("Successfully upserted {} changesets", changesets.size());
         }
     }
 
@@ -195,7 +196,7 @@ public class ChangesetDB implements AutoCloseable {
             try (var stream = new ByteArrayInputStream(changesetCSV)) {
                 copyManager.copyIn(
                         "COPY changesets (changeset_id, user_id, created_at, closed_at, open, user_name, tags, hashtags, editor)" +
-                                "FROM STDIN WITH CSV DELIMITER '\t'",
+                        "FROM STDIN WITH CSV DELIMITER '\t'",
                         stream
                 );
             }
@@ -222,5 +223,26 @@ public class ChangesetDB implements AutoCloseable {
     @Override
     public void close() {
         dataSource.close();
+    }
+
+    public void pendingChangesets(Set<Long> ids) throws SQLException {
+        var sql = """
+                INSERT INTO changesets (
+                        changeset_id,
+                        created_at,
+                        user_id,
+                        user_name,
+                        open)
+                VALUES (?, '2000-01-01 00:00:00', 0, '', true)
+                ON CONFLICT (changeset_id) DO NOTHING
+                """;
+        try (var conn = dataSource.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
+            for (var id : ids) {
+                stmt.setLong(1, id);
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+        }
     }
 }
