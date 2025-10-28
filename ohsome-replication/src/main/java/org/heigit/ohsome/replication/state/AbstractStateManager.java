@@ -72,8 +72,17 @@ public abstract class AbstractStateManager<T> {
         return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
     }
 
+    public InputStream getReplicationFile(ReplicationState state) throws IOException {
+        return getReplicationFile(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
+
+    }
     private InputStream getReplicationFile(String replicationPath) throws IOException {
         return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
+    }
+
+    protected List<T> fetchReplicationBatch(ReplicationState state) throws Exception {
+        return fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
+
     }
 
     protected List<T> fetchReplicationBatch(String replicationPath) throws Exception {

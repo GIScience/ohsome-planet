@@ -71,8 +71,7 @@ public class ReplicationManager {
         try (var keyValueDB = new KeyValueDB(directory);
              var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
-            var contribProcessor = new ContributionsProcessor(changesetDb);
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out);
+            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, changesetDb);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
@@ -89,7 +88,7 @@ public class ReplicationManager {
 
                 fetchChangesets(changesetManager);
                 // todo: if (justChangesets) {continue;}
-                contributionManager.updateTowardsRemoteState(contribProcessor);
+                contributionManager.updateTowardsRemoteState();
             } while (!shutdownInitiated.get() && continuous);
         } finally {
             lock.unlock();

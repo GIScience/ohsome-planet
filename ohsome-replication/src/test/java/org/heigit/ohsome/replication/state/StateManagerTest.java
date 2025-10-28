@@ -50,16 +50,18 @@ class StateManagerTest {
 
     @Test
     void testStateManagerGetRemoteReplicationState() throws IOException {
-        var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
-        var contributionStateManager = new ContributionStateManager(PLANET_OSM_MINUTELY, RESOURCE_PATH, Path.of("."));
+        try (var changesetDb = new ChangesetDB(dbUrl)) {
+           var changesetStateManager = new ChangesetStateManager(changesetDb);
+            var contributionStateManager = new ContributionStateManager(PLANET_OSM_MINUTELY, RESOURCE_PATH, Path.of("."), changesetDb);
 
-        var changesetState = changesetStateManager.fetchRemoteState();
-        System.out.println("changesetState = " + changesetState);
-        var contributionState = contributionStateManager.fetchRemoteState();
-        System.out.println("contributionState = " + contributionState);
+            var changesetState = changesetStateManager.fetchRemoteState();
+            System.out.println("changesetState = " + changesetState);
+            var contributionState = contributionStateManager.fetchRemoteState();
+            System.out.println("contributionState = " + contributionState);
 
-        assertNotNull(changesetState.getSequenceNumber());
-        assertNotNull(contributionState.getSequenceNumber());
+            assertNotNull(changesetState.getSequenceNumber());
+            assertNotNull(contributionState.getSequenceNumber());
+        }
     }
 
     @Test
