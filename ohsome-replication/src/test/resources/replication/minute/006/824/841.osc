@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osmChange version="0.6" generator="osmdbt-create-diff/0.9">
+  <modify>
+      <node id="2" version="2" timestamp="2025-10-22T09:03:12Z" uid="1" user="One" changeset="1" lat="2.0" lon="2.0"/>
+  </modify>
+  <create>
+      <node id="3" version="1" timestamp="2025-10-22T09:03:06Z" uid="1" user="One" changeset="2" lat="1.0" lon="3.0"/>
+  </create>
+</osmChange>

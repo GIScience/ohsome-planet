@@ -2,7 +2,6 @@ package org.heigit.ohsome.replication.parser;
 
 
 import org.heigit.ohsome.oshdb.osm.OSMCoordinates;
-import org.heigit.ohsome.oshdb.util.tagtranslator.OSMRole;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
@@ -225,8 +224,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
 
         LOG.debug("node/{} {} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset,
                 user, uid, tags, lon, lat);
-        return new OSMNode(id, version(version, visible), timestamp, changeset, uid, user, visible, tags,
-                lonLatConversion(lon), lonLatConversion(lat));
+        return new OSMNode(id, version(version, visible), timestamp, changeset, uid, user, visible, tags, lon, lat);
     }
 
     private Integer version(Integer version, boolean visible) {

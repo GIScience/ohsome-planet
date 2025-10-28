@@ -4,7 +4,6 @@ import org.heigit.ohsome.contributions.FileInfo;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.databases.KeyValueDB;
-import org.heigit.ohsome.replication.processor.ContributionsProcessor;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;

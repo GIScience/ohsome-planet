@@ -57,7 +57,11 @@ public abstract class AbstractStateManager<T> {
         var input = getFileStream(create(this.targetUrl + topLevelFile).toURL());
         var props = new Properties();
         props.load(input);
-        this.remoteState = new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
+        return setRemoteState(new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser));
+    }
+
+    public ReplicationState setRemoteState(ReplicationState remoteState) throws IOException {
+        this.remoteState = remoteState;
         return this.remoteState;
     }
 

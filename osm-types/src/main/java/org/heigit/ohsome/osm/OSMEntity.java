@@ -40,6 +40,10 @@ public sealed interface OSMEntity {
       return OSMType.NODE;
     }
 
+    public OSMNode withChangeset(long changeset) {
+        return new OSMNode(id, version, timestamp, changeset, userId, user, visible, tags, lon, lat);
+    }
+
     @Override
     public List<OSMMember> members() {
       return Collections.emptyList();
@@ -61,6 +65,10 @@ public sealed interface OSMEntity {
     public OSMType type() {
       return OSMType.WAY;
     }
+
+      public OSMWay withChangeset(long changeset) {
+          return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags, refs);
+      }
 
     @Override
     public List<OSMMember> members() {
