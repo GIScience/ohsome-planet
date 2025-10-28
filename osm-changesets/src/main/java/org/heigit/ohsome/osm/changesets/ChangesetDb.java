@@ -1,5 +1,6 @@
 package org.heigit.ohsome.osm.changesets;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -14,6 +15,7 @@ import java.util.Set;
 
 public class ChangesetDb implements Changesets {
 
+    private final ObjectMapper mapper = new ObjectMapper();
     private final HikariDataSource dataSource;
 
     public ChangesetDb(HikariDataSource dataSource) {
@@ -22,8 +24,12 @@ public class ChangesetDb implements Changesets {
 
     @Override
     public <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception {
+        return changesets(ids, "osm_changeset", factory);
+    }
+
+    public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, num_changes from osm_changeset where id = any(?)");
+             var pstmt = conn.prepareStatement("select changeset_id, created_at, closed_at, tags, hashtags, num_changes from %s where changeset_id = any(?)".formatted(table));
              var array = ClosableSqlArray.createArray(conn, "int", ids)) {
             pstmt.setArray(1, array.array());
             var map = Maps.<Long, T>newHashMapWithExpectedSize(ids.size());
@@ -33,10 +39,10 @@ public class ChangesetDb implements Changesets {
                     var createdAt = Optional.ofNullable(rst.getTimestamp(2)).map(Timestamp::toInstant).orElse(null);
                     var closedAt = Optional.ofNullable(rst.getTimestamp(3)).map(Timestamp::toInstant).orElse(null);
                     @SuppressWarnings("unchecked")
-                    var tags = (Map<String, String>) rst.getObject(4);
-                    var numChanges = rst.getInt(5);
+                    var tags = (Map<String, String>) mapper.readValue(rst.getString(4), Map.class);
                     var hashTags = ChangesetHashtags.hashTags(tags);
                     var editor = tags.get("created_by");
+                    var numChanges = rst.getInt(6);
                     map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor, numChanges));
                 }
                 return map;
