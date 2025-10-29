@@ -3,7 +3,10 @@ package org.heigit.ohsome.replication.update;
 import com.google.common.collect.Iterators;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
-import org.heigit.ohsome.contributions.contrib.*;
+import org.heigit.ohsome.contributions.contrib.Contributions;
+import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
+import org.heigit.ohsome.contributions.contrib.ContributionsNode;
+import org.heigit.ohsome.contributions.contrib.ContributionsWay;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
@@ -23,7 +26,8 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class ContributionUpdater {
-    public record Entity<T extends OSMEntity>(List<T> newVersions, T before) {}
+    public record Entity<T extends OSMEntity>(List<T> newVersions, T before) {
+    }
 
     private final Changesets changesetDb;
     private final SpatialJoiner countryJoiner;
@@ -31,6 +35,9 @@ public class ContributionUpdater {
 
     private Map<Long, Entity<OSMNode>> newNodes;
     private Map<Long, Entity<OSMWay>> newWays;
+
+    private final Map<Long, OSMWay> updatedWays = new HashMap<>();
+
 
     public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner) {
         this.store = store;
@@ -41,6 +48,7 @@ public class ContributionUpdater {
     public Flux<Contrib> update(List<OSMEntity> osc) {
         return update(osc.iterator());
     }
+
     public Flux<Contrib> update(Iterator<OSMEntity> osc) {
         var itr = Iterators.peekingIterator(osc);
         return Flux.concat(
@@ -56,12 +64,7 @@ public class ContributionUpdater {
                 .map(List::getLast)
                 .collect(toMap(OSMEntity::id, identity())));
 
-        store.updateWays(newWays.values().stream()
-                .map(Entity::newVersions)
-                .filter(not(List::isEmpty))
-                .map(List::getLast)
-                .collect(toMap(OSMEntity::id, identity()))
-        );
+        store.updateWays(updatedWays);
 
         updateNodeWayBackRefs();
     }
@@ -71,6 +74,9 @@ public class ContributionUpdater {
         var nodeWayBackRefsToRemove = new HashMap<Long, Set<Long>>();
 
         newWays.forEach((wayId, way) -> {
+            if (way.newVersions().isEmpty()) {
+                return;
+            }
             var refs = new HashSet<Long>();
             way.newVersions().forEach(osm -> refs.addAll(osm.refs()));
             if (way.before() != null) {
@@ -78,13 +84,13 @@ public class ContributionUpdater {
                         .filter(not(refs::contains))
                         .forEach(refToRemove -> nodeWayBackRefsToRemove.computeIfAbsent(refToRemove, x -> new HashSet<>()).add(wayId));
             }
-            refs.forEach(ref ->nodeWayBackRefsToExists.computeIfAbsent(ref, x -> new HashSet<>()).add(wayId));
+            refs.forEach(ref -> nodeWayBackRefsToExists.computeIfAbsent(ref, x -> new HashSet<>()).add(wayId));
         });
 
         var refIds = new HashSet<>(nodeWayBackRefsToExists.keySet());
         refIds.addAll(nodeWayBackRefsToRemove.keySet());
         var nodeWayBackRefs = new HashMap<>(store.getNodeWayBackRefs(refIds));
-        for(var nodeId : refIds) {
+        for (var nodeId : refIds) {
             var wayBackRefs = nodeWayBackRefs.computeIfAbsent(nodeId, x -> new HashSet<>());
             wayBackRefs.addAll(nodeWayBackRefsToExists.getOrDefault(nodeId, emptySet()));
             nodeWayBackRefsToRemove.getOrDefault(nodeId, emptySet()).forEach(wayBackRefs::remove);
@@ -123,17 +129,30 @@ public class ContributionUpdater {
         var changesets = fetchChangesets(changesetIds, changesetDb);
 
         var contributions = new ContributionsNode(osh);
-        var skipFirst = before != null && contributions.hasNext();
-        return getContribs(contributions, changesets, skipFirst);
+        return getContribs(contributions, before, changesets);
     }
 
-    private ArrayList<Contrib> getContribs(Contributions contributions, Map<Long, ContribChangeset> changesets, boolean skipFirst) {
+    private <T extends OSMEntity> ArrayList<Contrib> getContribs(Contributions contributions, T before, Map<Long, ContribChangeset> changesets) {
         var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
-        if (skipFirst && converter.hasNext()) {
-            converter.next();
+        if (before != null) {
+            converter.setMinorAndEdits(before.minorVersion(), before.edits() - 1);
         }
+
         var updates = new ArrayList<Contrib>();
-        converter.forEachRemaining(contrib -> contrib.ifPresent(updates::add));
+        while(converter.hasNext()) {
+            var contrib = converter.next();
+            if (contrib.isEmpty()) {
+                continue;
+            }
+            var con = contrib.get();
+            if (before != null && before.version() == con.getOsmVersion()) {
+                con.setOsmMinorVersion(con.getOsmMinorVersion() + before.minorVersion());
+            }
+            if (con.getChangeset().getId() != -1) {
+                updates.add(con);
+            }
+
+        }
         return updates;
     }
 
@@ -148,13 +167,8 @@ public class ContributionUpdater {
         osh.forEach(osm -> refIds.addAll(osm.refs()));
 
         var nodes = store.getNodes(refIds).values().stream()
+                .map(node -> node.withChangeset(-1))
                 .collect(Collectors.toMap(OSMNode::id, List::of));
-
-        Contribution contribBefore = null;
-        if (before != null) {
-            var contributions = new ContributionsWay(List.of(before), nodes);
-            contribBefore = contributions.next();
-        }
 
         // update nodes with new node versions in osc
         newNodes.forEach((id, entity) -> {
@@ -175,8 +189,15 @@ public class ContributionUpdater {
         var changesets = fetchChangesets(changesetIds, changesetDb);
 
         var contributions = new ContributionsWay(osh, nodes);
-        var skipFirst = contributions.hasNext() && contributions.peek().equals(contribBefore);
-        return getContribs(contributions,changesets, skipFirst);
+        var contribs = getContribs(contributions, before, changesets);
+
+        var last = contribs.getLast();
+        var osm = osh.getLast();
+        var minorVersion = last.getOsmMinorVersion();
+        var edits = last.getOsmEdits();
+        updatedWays.put(osm.id(), osm.withMinorAndEdits(minorVersion, edits));
+
+        return contribs;
     }
 
 
@@ -193,6 +214,7 @@ public class ContributionUpdater {
             newVersions.put(id, osh);
         }
         return newVersions;
+
     }
 
     private <T extends OSMEntity> Map<Long, Entity<T>> filter(Map<Long, List<T>> newVersions, Map<Long, T> versionBefore) {
@@ -216,14 +238,20 @@ public class ContributionUpdater {
 
     public Map<Long, Entity<OSMNode>> newNodes(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMNode.class);
-        return filter(newVersions, store.getNodes(newVersions.keySet()));
+
+        var versionBefore = new HashMap<>(store.getNodes(newVersions.keySet()));
+        versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
+        return filter(newVersions, versionBefore);
     }
 
     public Map<Long, Entity<OSMWay>> newWays(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMWay.class);
         var nodeWaysBackRefs = store.getNodeWayBackRefs(newNodes.keySet());
         nodeWaysBackRefs.forEach((nodeId, ways) -> ways.forEach(wayId -> newVersions.computeIfAbsent(wayId, x -> List.of())));
-        return filter(newVersions, store.getWays(newVersions.keySet()));
+
+        var versionBefore = new HashMap<>(store.getWays(newVersions.keySet()));
+        versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
+        return filter(newVersions, versionBefore);
     }
 
 }

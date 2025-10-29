@@ -1,4 +1,0 @@
-#Wed Oct 22 13:56:59 CEST 2025
-endpoint=file\:./src/test/resources/replication/minute
-sequenceNumber=6824840
-timestamp=2025-10-20T09\:15\:42Z
