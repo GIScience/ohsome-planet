@@ -231,4 +231,9 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
     private ByteBuffer wkb(Geometry geometry) {
         return ByteBuffer.wrap(wkb.write(geometry));
     }
+
+    public void setMinorAndEdits(int minorVersion, int edits) {
+        this.minorVersion = minorVersion;
+        this.edits = edits;
+    }
 }

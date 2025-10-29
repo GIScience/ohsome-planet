@@ -8,7 +8,6 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class ContributionUpdaterTest {
 
@@ -19,24 +18,36 @@ public class ContributionUpdaterTest {
     void update() {
         var store = new UpdateStore();
         var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP);
-        var diffs = updater.update(List.of(
+
+
+        System.out.println("--");
+        updater.update(List.of(
                 node(1, 1, 1, 1),
                 node(2, 1, 1, 1),
-                way(23, 1, 1, 1, List.of(1L, 2L)))).collectList().block();
+                way(23, 1, 1, 1, List.of(1L, 2L))))
+                .collectList().blockOptional().orElseThrow().forEach(System.out::println);
         updater.updateStore();
 
-        diffs.forEach(System.out::println);
 
-        var n1WayBackRefs = store.getNodeWayBackRefs(Set.of(1L));
-        System.out.println("n1WayBackRefs = " + n1WayBackRefs);
+        System.out.println("--");
+        updater.update(List.of(
+                node(1, 2, 2, 1)
+        )).collectList().blockOptional().orElseThrow().forEach(System.out::println);
+        updater.updateStore();
 
 
-        diffs = updater.update(List.of(
-                node(1, 2, 2, 2)
-        )).collectList().block();
+        System.out.println("--");
+        updater.update(List.of(
+                node(1, 3, 3, 1)
+        )).collectList().blockOptional().orElseThrow().forEach(System.out::println);
+        updater.updateStore();
 
-        diffs.forEach(System.out::println);
-
+        System.out.println("--");
+        updater.update(List.of(
+                node(1, 4, 4, 2),
+                way(23, 2, 4, 2, List.of(1L, 2L))
+        )).collectList().blockOptional().orElseThrow().forEach(System.out::println);
+        updater.updateStore();
 
     }
 
