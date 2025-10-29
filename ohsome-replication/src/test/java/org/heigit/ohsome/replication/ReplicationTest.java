@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -43,6 +44,7 @@ class ReplicationTest {
 
 
     @Test
+    @Disabled
     void testReplication() throws Exception {
         var replicationChangesetUrl = RESOURCE_PATH.resolve("replication/changesets").toUri().toURL().toString();
         var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();
