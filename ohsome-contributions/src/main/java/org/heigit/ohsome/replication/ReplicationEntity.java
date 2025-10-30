@@ -1,0 +1,95 @@
+package org.heigit.ohsome.replication;
+
+import com.google.common.collect.Maps;
+import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.util.io.Input;
+import org.heigit.ohsome.util.io.Output;
+
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Map;
+
+public class ReplicationEntity {
+
+
+    public static void serialize(OSMEntity.OSMNode node, Output output) {
+        serializeEntity(node, output);
+        output.writeS64(Math.round(node.lon() * 1_0000000L));
+        output.writeS64(Math.round(node.lat() * 1_0000000L));
+    }
+
+    public static OSMEntity.OSMNode  deserializeNode(long id, byte[] bytes) {
+        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var lon = input.readS64() / 1_0000000.0;
+        var lat = input.readS64() / 1_0000000.0;
+        return new OSMEntity.OSMNode(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                lon, lat);
+    }
+
+    public static void serialize(OSMEntity.OSMWay way, Output output) {
+        serializeEntity(way, output);
+        output.writeU32(way.minorVersion());
+        output.writeU32(way.edits());
+        output.writeU32(way.refs().size());
+        var lastRef = 0L;
+        for (var ref : way.refs()) {
+            output.writeS64(ref - lastRef);
+            lastRef = ref;
+        }
+    }
+
+    public static OSMEntity.OSMWay deserializeWay(long id, byte[] bytes) {
+        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var minorVersion = input.readU32();
+        var edits = input.readU32();
+        var refsSize = input.readU32();
+        var refs = new ArrayList<Long>(refsSize);
+        var lastRef = 0L;
+        for (var i = 0; i < refsSize; i++) {
+            lastRef = lastRef  + input.readS64();
+            refs.add(lastRef);
+        }
+        return new OSMEntity.OSMWay(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                refs, minorVersion, edits, null, null);
+    }
+
+    private record EntityInfo(Instant timestamp, int version, Map<String, String> tags) {}
+
+    private static void serializeEntity(OSMEntity entity, Output output) {
+        output.writeU64(entity.timestamp().getEpochSecond());
+//        output.writeU64(entity.changeset());
+        output.writeU32(entity.version());
+//        output.writeU32(entity.userId());
+//        output.writeUTF8(entity.user());
+        output.writeU32(entity.tags().size());
+        for(var tag : entity.tags().entrySet()) {
+            output.writeUTF8(tag.getKey());
+            output.writeUTF8(tag.getValue());
+        }
+    }
+
+    private static EntityInfo deserializeEntity(Input input) {
+        var timestamp = input.readU64();
+//        var changeset = input.readU64();
+        var version = input.readU32();
+        var tagsSize = input.readU32();
+        var tags = Maps.<String, String>newHashMapWithExpectedSize(tagsSize);
+        for (var i = 0; i < tagsSize; i++) {
+            tags.put(input.readUTF8(), input.readUTF8());
+        }
+        return new EntityInfo(Instant.ofEpochSecond(timestamp), version, tags);
+    }
+
+
+}
