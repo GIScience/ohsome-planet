@@ -16,7 +16,7 @@ public class ContributionUpdaterTest {
 
     @Test
     void update() {
-        var store = new UpdateStore();
+        var store = new UpdateStoreMap();
         var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP);
 
 
