@@ -23,6 +23,9 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--output", "-o"})
     private Path out = Path.of("out");
 
+    @CommandLine.Option(names = {"--temp"})
+    private Path temp;
+
     @CommandLine.Option(names = {"--overwrite"})
     private boolean overwrite = false;
 
@@ -60,12 +63,16 @@ public class Contributions implements Callable<Integer> {
             }
         }
 
+        if (temp == null) {
+            temp = out;
+        }
+
         if (replicationWorkDir != null) {
             Files.createDirectories(replicationWorkDir);
         }
 
         var contributionsToParquet = new Contributions2Parquet(
-                pbfPath, out, parallel,
+                pbfPath, temp, out, parallel,
                 changesetDbUrl, countryFilePath,
                 replicationWorkDir, replicationEndpoint,
                 includeTags, debug);
