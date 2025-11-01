@@ -4,8 +4,6 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.Contrib;
@@ -31,11 +29,11 @@ import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import picocli.CommandLine;
-import picocli.CommandLine.Option;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,52 +57,37 @@ import static org.heigit.ohsome.osm.pbf.ProtoZero.decodeMessage;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
-@CommandLine.Command(name = "contributions", aliases = {"contribs"},
-        mixinStandardHelpOptions = true,
-        version = "ohsome-planet contribution 1.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
-        description = "generates parquet files")
 public class Contributions2Parquet implements Callable<Integer> {
 
-    @Option(names = {"--pbf"}, required = true)
-    private Path pbfPath;
 
-    @Option(names = {"--output"})
-    private Path out = Path.of("out");
-
-    @Option(names = {"--overwrite"})
-    private boolean overwrite = false;
-
-    @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
-    private int parallel = Runtime.getRuntime().availableProcessors() - 1;
-
-    @Option(names = {"--country-file"})
-    private Path countryFilePath;
-
-    @Option(names = {"--changeset-db"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
-    private String changesetDbUrl = "";
-
-    @Option(names = {"--debug"}, description = "Print debug information.")
-    private boolean debug = false;
-
-    @Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
-    private String includeTags = "";
-
+    private final Path pbfPath;
+    private final Path out;
+    private final int parallel;
+    private final String changesetDbUrl;
+    private final Path countryFilePath;
+    private final Path replicationWorkDir;
+    private final URL replicationEndpoint;
+    private final String includeTags;
+    private final boolean debug;
     private SpatialJoiner countryJoiner;
+
+    public Contributions2Parquet(Path pbfPath, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags, boolean debug) {
+        this.pbfPath = pbfPath;
+        this.out = out;
+        this.parallel = parallel;
+        this.changesetDbUrl = changesetDbUrl;
+        this.countryFilePath = countryFilePath;
+        this.replicationWorkDir = replicationWorkDir;
+        this.replicationEndpoint = replicationEndpoint;
+        this.includeTags = includeTags;
+        this.debug = debug;
+    }
 
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
         if (debug) {
             printInfo(pbf);
-        }
-
-        if (Files.exists(out)) {
-            if (overwrite) {
-                MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
-            } else {
-                System.out.println("Directory already exists. To overwrite use --overwrite");
-                System.exit(0);
-            }
         }
 
         var total = Stopwatch.createStarted();
