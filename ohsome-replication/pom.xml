@@ -72,24 +72,24 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.avro</groupId>
-                <artifactId>avro-maven-plugin</artifactId>
-                <version>1.12.0</version>
-                <configuration>
-                    <imports>
-                        <import>${project.basedir}/../ohsome-contributions/src/main/avro/contrib.avsc</import>
-                    </imports>
-                </configuration>
-                <executions>
-                    <execution>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>schema</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.apache.avro</groupId>-->
+<!--                <artifactId>avro-maven-plugin</artifactId>-->
+<!--                <version>1.12.0</version>-->
+<!--                <configuration>-->
+<!--                    <imports>-->
+<!--                        <import>${project.basedir}/../ohsome-contributions/src/main/avro/contrib.avsc</import>-->
+<!--                    </imports>-->
+<!--                </configuration>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <phase>generate-sources</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>schema</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
         </plugins>
     </build>
 
