@@ -8,6 +8,7 @@ import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.parser.OscParser;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
 import org.heigit.ohsome.replication.update.UpdateStore;
+import org.heigit.ohsome.replication.update.UpdateStoreMap;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
@@ -35,7 +36,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
 
     private final ChangesetDB changesetDB;
     private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
-    private final UpdateStore updateStore = new UpdateStore();
+    private final UpdateStore updateStore = new UpdateStoreMap();
 
     private final String endpoint;
     private final Path directory;
@@ -117,6 +118,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
         try (var writer = ParquetUtil.openWriter(path, Contrib.getClassSchema(), builder -> {
         })) {
             for (var contrib : updater.update(osc).toIterable()) {
+                System.out.println("contrib = " + contrib);
                 writer.write(contrib);
                 var changeset = contrib.getChangeset();
                 if (changeset.getClosedAt() == null) {

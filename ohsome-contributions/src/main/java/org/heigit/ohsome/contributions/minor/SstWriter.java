@@ -4,6 +4,8 @@ import org.heigit.ohsome.util.io.Output;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
+import org.rocksdb.EnvOptions;
+import org.rocksdb.Options;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.SstFileWriter;
 
@@ -15,6 +17,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 public class SstWriter implements AutoCloseable {
+    private final Options options;
+    private final EnvOptions envOptions;
     private final SstFileWriter writer;
     private final Output output = new Output(4 << 10);
     private final ByteBuffer keyBuffer = ByteBuffer.allocateDirect(Long.BYTES).order(ByteOrder.BIG_ENDIAN);
@@ -22,9 +26,22 @@ public class SstWriter implements AutoCloseable {
     private long counter = 0;
 
     public SstWriter(Path path, SstFileWriter writer) throws IOException, RocksDBException {
-        this.writer = writer;
+        this(path, writer, null, null);
+    }
+    public SstWriter(Path path, SstFileWriter writer, Options options, EnvOptions envOptions) throws IOException, RocksDBException {
+        this.writer = writer != null ? writer: new SstFileWriter(envOptions, options);
+        this.options = options;
+        this.envOptions = envOptions;
         Files.createDirectories(path.getParent());
-        writer.open(path.toString());
+        this.writer.open(path.toString());
+    }
+
+    public SstWriter(Path path, EnvOptions env, Options options) throws RocksDBException, IOException {
+        this(path, null , options, env);
+    }
+
+    public SstWriter(Path path, Options options) throws RocksDBException, IOException {
+        this(path, null, options, new EnvOptions());
     }
 
     @Override
@@ -35,6 +52,12 @@ public class SstWriter implements AutoCloseable {
             }
         } finally {
             writer.close();
+        }
+        if (envOptions != null) {
+            envOptions.close();
+        }
+        if (options != null) {
+            options.close();
         }
     }
 
@@ -48,12 +71,22 @@ public class SstWriter implements AutoCloseable {
         for (T osm : osh) {
             builder.add(osm);
         }
+        write(id, builder::serialize);
+    }
 
+    @FunctionalInterface
+    public interface Out {
+        void accept(Output output) throws IOException;
+    }
+
+    public void write(long id, Out out) throws IOException, RocksDBException {
         output.reset();
-        builder.serialize(output);
+
+        out.accept(output);
         if (output.length == 0) {
             return;
         }
+
         keyBuffer.clear().putLong(id).flip();
         if (output.length > valBuffer.capacity()) {
             valBuffer = ByteBuffer.allocateDirect(output.length);

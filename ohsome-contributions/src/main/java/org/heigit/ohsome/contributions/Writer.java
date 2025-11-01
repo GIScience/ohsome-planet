@@ -25,6 +25,7 @@ class Writer implements AutoCloseable {
 
     private final int writerId;
     private final OSMType type;
+    private final Path temp;
     private final Path outputDir;
     private final Consumer<AvroUtil.AvroBuilder<Contrib>> config;
 
@@ -33,9 +34,10 @@ class Writer implements AutoCloseable {
     ByteBuffer valBuffer = ByteBuffer.allocateDirect(4 << 10);
     private PrintWriter logWriter;
 
-    Writer(int writerId, OSMType type, Path outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
+    Writer(int writerId, OSMType type, Path temp, Path outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
         this.writerId = writerId;
         this.type = type;
+        this.temp = temp;
         this.outputDir = outputDir;
         this.config = config;
     }
@@ -74,12 +76,12 @@ class Writer implements AutoCloseable {
     }
 
     private Path progressPath(String status) {
-        return outputDir.resolve("progress")
+        return temp.resolve("progress")
                 .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
     }
 
     private Path logPath() {
-        return outputDir.resolve("log")
+        return temp.resolve("log")
                 .resolve("writer-%s-%d.log".formatted(type, writerId));
     }
 

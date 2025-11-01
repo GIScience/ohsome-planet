@@ -5,7 +5,6 @@ import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.SstWriter;
-import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.contributions.util.RocksMap;
@@ -15,10 +14,8 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
-import org.rocksdb.EnvOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.SstFileWriter;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,45 +34,27 @@ import static org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
-    public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel,
-                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
+    public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel,
+                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerWays(pbf, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb);
+        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationWorkDir);
         transformer.process(blobsByType);
         moveSstToRocksDb(rocksDbPath);
     }
 
 
     private final RocksDB minorNodesStorage;
-    private final Path sstDirectory;
     private final LongPredicate writeMinor;
 
-    public TransformerWays(OSMPbf pbf, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(WAY, pbf, out, parallel, countryJoiner, changesetDb);
+    public TransformerWays(OSMPbf pbf, Path temp, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) {
+        super(WAY, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, replicationWorkDir);
         this.minorNodesStorage = minorNodesStorage;
-        this.sstDirectory = sstDirectory;
         this.writeMinor = writeMinor;
     }
 
+
     @Override
-    protected void process(Processor processor, Progress progress) throws Exception {
-        try (var writer = openWriter(outputDir, osmType, builder -> {
-        })) {
-            process(processor, progress, writer);
-        }
-    }
-
-    protected void process(Processor processor, Progress progress, Parquet writer) throws Exception {
-        try (var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
-             var env = new EnvOptions();
-             var sstWriter = new SstWriter(
-                     sstDirectory.resolve("nodes-%03d.sst".formatted(processor.id())),
-                     new SstFileWriter(env, options))) {
-            process(processor, progress, writer, sstWriter);
-        }
-    }
-
-    private void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
+    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
@@ -162,5 +141,4 @@ public class TransformerWays extends Transformer {
                 .collect(Collectors.toSet());
         return RocksMap.get(minorNodesStorage, refs, MinorNode::deserialize);
     }
-
 }

@@ -61,6 +61,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
 
     private final Path pbfPath;
+    private final Path temp;
     private final Path out;
     private final int parallel;
     private final String changesetDbUrl;
@@ -71,8 +72,9 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final boolean debug;
     private SpatialJoiner countryJoiner;
 
-    public Contributions2Parquet(Path pbfPath, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags, boolean debug) {
+    public Contributions2Parquet(Path pbfPath, Path temp, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags, boolean debug) {
         this.pbfPath = pbfPath;
+        this.temp = temp;
         this.out = out;
         this.parallel = parallel;
         this.changesetDbUrl = changesetDbUrl;
@@ -112,24 +114,25 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         var changesetDb = Changesets.open(changesetDbUrl, parallel);
 
+        Files.createDirectories(temp);
         Files.createDirectories(out);
 
         RocksDB.loadLibrary();
-        var minorNodesPath = out.resolve("minorNodes");
-        processNodes(pbf, blobTypes, out, parallel, minorNodesPath, countryJoiner, changesetDb);
-        var minorWaysPath = out.resolve("minorWays");
+        var minorNodesPath = temp.resolve("minorNodes");
+        processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationWorkDir);
+        var minorWaysPath = temp.resolve("minorWays");
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
              var minorNodes = RocksDB.open(options, minorNodesPath.toString())) {
-            processWays(pbf, blobTypes, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
+            processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWorkDir);
         }
 
-        processRelations(pbfPath, out, parallel, blobTypes, keyFilter, changesetDb);
+        processRelations(pbfPath, temp, out, parallel, blobTypes, keyFilter, changesetDb);
 
         System.out.println("done in " + total);
         return CommandLine.ExitCode.OK;
     }
 
-    private void processRelations(Path pbfPath, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
+    private void processRelations(Path pbfPath, Path temp, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
         try (var ch = FileChannel.open(pbfPath, READ);
              var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
              var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
@@ -143,7 +146,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
 
-            var writers = getWriters(output, numFiles);
+            var writers = getWriters(temp, output, numFiles);
 
             var blocks = Flux.fromIterable(blobTypes.get(RELATION))
                     // read blob from file
@@ -201,10 +204,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         return osh;
     }
 
-    private static ArrayBlockingQueue<Writer> getWriters(Path output, int numFiles) {
+    private static ArrayBlockingQueue<Writer> getWriters(Path temp, Path output, int numFiles) {
         var writers = new ArrayBlockingQueue<Writer>(numFiles);
         for (var i = 0; i < numFiles; i++) {
-            writers.add(new Writer(i, RELATION, output, Contributions2Parquet::relationParquetConfig));
+            writers.add(new Writer(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
         }
         return writers;
     }

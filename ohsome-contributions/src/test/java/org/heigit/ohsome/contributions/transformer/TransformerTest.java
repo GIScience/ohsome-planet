@@ -11,7 +11,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static junit.framework.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
+
 
 class TransformerTest {
 

@@ -15,9 +15,9 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.emptySet;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
@@ -36,7 +36,7 @@ public class ContributionUpdater {
     private Map<Long, Entity<OSMNode>> newNodes;
     private Map<Long, Entity<OSMWay>> newWays;
 
-    private final Map<Long, OSMWay> updatedWays = new HashMap<>();
+    private final Map<Long, OSMWay> updatedWays = new ConcurrentHashMap<>();
 
 
     public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner) {
@@ -59,43 +59,49 @@ public class ContributionUpdater {
 
 
     public void updateStore() {
-        store.updateNodes(newNodes.values().stream()
+        store.nodes(newNodes.values().stream()
                 .map(Entity::newVersions)
                 .map(List::getLast)
                 .collect(toMap(OSMEntity::id, identity())));
 
-        store.updateWays(updatedWays);
+        store.ways(updatedWays);
 
         updateNodeWayBackRefs();
     }
 
+    private record BackRefsUpdate(Set<Long> exist, Set<Long> toRemove) {
+        public BackRefsUpdate(){
+            this(new HashSet<>(), new HashSet<>());
+        }
+    }
+
     private void updateNodeWayBackRefs() {
-        var nodeWayBackRefsToExists = new HashMap<Long, Set<Long>>();
-        var nodeWayBackRefsToRemove = new HashMap<Long, Set<Long>>();
+        var nodeWayBackRefsUpdate = new HashMap<Long, BackRefsUpdate>();
 
-        newWays.forEach((wayId, way) -> {
-            if (way.newVersions().isEmpty()) {
-                return;
-            }
-            var refs = new HashSet<Long>();
-            way.newVersions().forEach(osm -> refs.addAll(osm.refs()));
-            if (way.before() != null) {
-                way.before().refs().stream()
-                        .filter(not(refs::contains))
-                        .forEach(refToRemove -> nodeWayBackRefsToRemove.computeIfAbsent(refToRemove, x -> new HashSet<>()).add(wayId));
-            }
-            refs.forEach(ref -> nodeWayBackRefsToExists.computeIfAbsent(ref, x -> new HashSet<>()).add(wayId));
-        });
+        newWays.entrySet().stream()
+                .filter(not(entry -> entry.getValue().newVersions().isEmpty()))
+                .forEach(entry -> {
+                    var wayId = entry.getKey();
+                    var newVersions = entry.getValue().newVersions();
+                    var before = Optional.ofNullable(entry.getValue().before());
+                    var refs = new HashSet<Long>();
+                    refs.addAll(newVersions.getLast().refs());
+                    before.map(OSMWay::refs).ifPresent(oldRefs -> oldRefs.stream()
+                            .filter(not(refs::contains))
+                            .forEach(refToRemove -> nodeWayBackRefsUpdate.computeIfAbsent(refToRemove, x -> new BackRefsUpdate()).toRemove().add(wayId))
+                    );
+                    refs.forEach(refToExists -> nodeWayBackRefsUpdate.computeIfAbsent(refToExists, x -> new BackRefsUpdate()).exist().add(wayId));
+                });
 
-        var refIds = new HashSet<>(nodeWayBackRefsToExists.keySet());
-        refIds.addAll(nodeWayBackRefsToRemove.keySet());
-        var nodeWayBackRefs = new HashMap<>(store.getNodeWayBackRefs(refIds));
+        var refIds = new HashSet<>(nodeWayBackRefsUpdate.keySet());
+        var nodeWayBackRefs = new HashMap<>(store.backRefsNodeWay(refIds));
         for (var nodeId : refIds) {
             var wayBackRefs = nodeWayBackRefs.computeIfAbsent(nodeId, x -> new HashSet<>());
-            wayBackRefs.addAll(nodeWayBackRefsToExists.getOrDefault(nodeId, emptySet()));
-            nodeWayBackRefsToRemove.getOrDefault(nodeId, emptySet()).forEach(wayBackRefs::remove);
+            var update = nodeWayBackRefsUpdate.get(nodeId);
+            wayBackRefs.addAll(update.exist());
+            wayBackRefs.removeAll(update.toRemove());
         }
-        store.updateNodeWayBackRefs(nodeWayBackRefs);
+        store.backRefsNodeWay(nodeWayBackRefs);
     }
 
     public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {
@@ -166,7 +172,7 @@ public class ContributionUpdater {
         var refIds = new HashSet<Long>();
         osh.forEach(osm -> refIds.addAll(osm.refs()));
 
-        var nodes = store.getNodes(refIds).values().stream()
+        var nodes = store.nodes(refIds).values().stream()
                 .map(node -> node.withChangeset(-1))
                 .collect(Collectors.toMap(OSMNode::id, List::of));
 
@@ -239,17 +245,17 @@ public class ContributionUpdater {
     public Map<Long, Entity<OSMNode>> newNodes(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMNode.class);
 
-        var versionBefore = new HashMap<>(store.getNodes(newVersions.keySet()));
+        var versionBefore = new HashMap<>(store.nodes(newVersions.keySet()));
         versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
         return filter(newVersions, versionBefore);
     }
 
     public Map<Long, Entity<OSMWay>> newWays(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMWay.class);
-        var nodeWaysBackRefs = store.getNodeWayBackRefs(newNodes.keySet());
+        var nodeWaysBackRefs = store.backRefsNodeWay(newNodes.keySet());
         nodeWaysBackRefs.forEach((nodeId, ways) -> ways.forEach(wayId -> newVersions.computeIfAbsent(wayId, x -> List.of())));
 
-        var versionBefore = new HashMap<>(store.getWays(newVersions.keySet()));
+        var versionBefore = new HashMap<>(store.ways(newVersions.keySet()));
         versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
         return filter(newVersions, versionBefore);
     }
