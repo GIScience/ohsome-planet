@@ -100,6 +100,10 @@ public class RocksUtil {
         return writeOptions;
     }
 
+    public static byte[] key(long key) {
+        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(key).array();
+    }
+
     public static long longFromByteArray(byte[] a) {
         return ByteBuffer.wrap(a).order(ByteOrder.LITTLE_ENDIAN).getLong(0);
     }

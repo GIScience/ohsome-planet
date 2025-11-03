@@ -42,7 +42,7 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--replication-workdir", "--workdir"})
     private Path replication;
 
-    @CommandLine.Option(names = {"--replication-endpoint"}, converter = UrlConverter.class)
+    @CommandLine.Option(names = {"--replication-endpoint", "--endpoint" }, converter = UrlConverter.class)
     private URL replicationEndpoint;
 
     @CommandLine.Option(names = {"--debug"}, description = "Print debug information.")

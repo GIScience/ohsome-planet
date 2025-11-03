@@ -15,6 +15,7 @@ import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.transformer.Transformer;
 import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
@@ -26,17 +27,21 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.replication.ReplicationServer;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.StringAppendOperator;
 import picocli.CommandLine;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
@@ -67,9 +72,11 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final String changesetDbUrl;
     private final Path countryFilePath;
     private final Path replication;
-    private final URL replicationEndpoint;
     private final String includeTags;
     private final boolean debug;
+
+
+    private URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
 
     public Contributions2Parquet(Path pbfPath, Path temp, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags, boolean debug) {
@@ -90,6 +97,20 @@ public class Contributions2Parquet implements Callable<Integer> {
         var pbf = OSMPbf.open(pbfPath);
         if (debug) {
             printInfo(pbf);
+        }
+
+        if (replicationEndpoint == null && pbf.header().replicationBaseUrl() != null) {
+            replicationEndpoint = URI.create(pbf.header().replicationBaseUrl()).toURL();
+        }
+        if (replicationEndpoint != null) {
+            try {
+                var state = ReplicationServer.state(replicationEndpoint);
+                System.out.println("latest replication state: " + state);
+            } catch (IOException e) {
+                System.err.println(e.getMessage());
+                System.err.println("could not retrieve latest state for replication. " + replicationEndpoint);
+                replicationEndpoint = null;
+            }
         }
 
         var total = Stopwatch.createStarted();
@@ -120,21 +141,43 @@ public class Contributions2Parquet implements Callable<Integer> {
         RocksDB.loadLibrary();
         var minorNodesPath = temp.resolve("minorNodes");
         var replicationNodesPath = replication.resolve("nodes");
-        processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+        var summaryNodes = processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
         var minorWaysPath = temp.resolve("minorWays");
         var replicationWaysPath = replication.resolve("ways");
+        var summaryWays = Transformer.Summary.EMPTY;
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
-             var minorNodes = RocksDB.open(options, minorNodesPath.toString())) {
-            processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath);
+             var minorNodes = RocksDB.open(options, minorNodesPath.toString());
+             var optionsWithMerge = RocksUtil.defaultOptions()
+                     .setCreateIfMissing(true)
+                     .setMergeOperator(new StringAppendOperator((char) 0));
+             var nodeWayBackRefs = RocksDB.open(optionsWithMerge, replication.resolve("backRefsNodeWays").toString())) {
+            summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
         }
 
-        processRelations(pbfPath, temp, out, parallel, blobTypes, keyFilter, changesetDb);
+        var summaryRelations = processRelations(pbfPath, temp, out, parallel, blobTypes, keyFilter, changesetDb);
+
+        System.out.println("summaryNodes = " + summaryNodes);
+        System.out.println("summaryWays = " + summaryWays);
+        System.out.println("summaryRelations = " + summaryRelations);
+
+        var replicationTimestamp = Math.max(Math.max(
+                        summaryNodes.replicationTimestamp().getEpochSecond(),
+                        summaryWays.replicationTimestamp().getEpochSecond()),
+                summaryRelations.replicationTimestamp().getEpochSecond());
+        System.out.println("replicationTimestamp = " + replicationTimestamp);
+
+        var replicationState = ReplicationServer.tryToFindStartFromTimestamp(replicationEndpoint, Instant.ofEpochSecond(replicationTimestamp));
+        System.out.println("replicationState = " + replicationState);
+
+        try (var output = Files.newOutputStream(replication.resolve("state.txt"))) {
+            replicationState.store(output, null);
+        }
 
         System.out.println("done in " + total);
         return CommandLine.ExitCode.OK;
     }
 
-    private void processRelations(Path pbfPath, Path temp, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
+    private Transformer.Summary processRelations(Path pbfPath, Path temp, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
         try (var ch = FileChannel.open(pbfPath, READ);
              var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
              var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
@@ -166,9 +209,18 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
+            var replicationLatestTimestamp = 0L;
+            var replicationElementsCount = 0L;
+
             var canceled = new AtomicBoolean(false);
             while (entities.hasNext() && !canceled.get()) {
                 var osh = getNextOSH(entities);
+
+                var last = osh.getLast();
+                if (last.visible()) {
+                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
+                }
 
                 if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
                     continue;
@@ -194,6 +246,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var writer = writers.take();
                 writer.close(canceled.get());
             }
+            return new Transformer.Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
         }
     }
 

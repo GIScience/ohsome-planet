@@ -5,6 +5,7 @@ import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.SstWriter;
+import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.contributions.util.RocksMap;
@@ -15,16 +16,16 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.replication.ReplicationEntity;
+import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteOptions;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.time.Instant;
+import java.util.*;
 import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 
@@ -35,31 +36,38 @@ import static org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
-    public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel,
-                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
+    public static Summary processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel,
+                                      RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath, RocksDB nodeWayBackRefs) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
         Files.createDirectories(replicationPath);
 
-        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationPath.resolve("ingest"));
-        transformer.process(blobsByType);
+        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationPath.resolve("ingest"), nodeWayBackRefs);
+        var summary = transformer.process(blobsByType);
 
         moveSstToRocksDb(rocksDbPath);
         moveSstToRocksDb(replicationPath);
+
+        return summary;
     }
 
 
     private final RocksDB minorNodesStorage;
     private final LongPredicate writeMinor;
+    private final RocksDB nodeWayBackRefs;
 
-    public TransformerWays(OSMPbf pbf, Path temp, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) {
+    public TransformerWays(OSMPbf pbf, Path temp, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir, RocksDB nodeWayBackRefs) {
         super(WAY, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, replicationWorkDir);
         this.minorNodesStorage = minorNodesStorage;
         this.writeMinor = writeMinor;
+        this.nodeWayBackRefs = nodeWayBackRefs;
     }
 
 
     @Override
-    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+    protected Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+        var replicationLatestTimestamp = 0L;
+        var replicationElementsCount = 0L;
+
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
@@ -77,8 +85,11 @@ public class TransformerWays extends Transformer {
         }
         var BATCH_SIZE = 10_000;
         var batch = new ArrayList<List<OSMWay>>(BATCH_SIZE);
+        var backRefsNodeWays = new HashMap<Long, Set<Long>>();
+        var outputBackRefs = new Output(4 << 10);
         while (offset < limit && entities.hasNext()) {
             batch.clear();
+            backRefsNodeWays.clear();
             while (offset < limit && entities.hasNext() && batch.size() < BATCH_SIZE) {
                 var osh = new ArrayList<OSMWay>();
                 var id = entities.peek().id();
@@ -113,7 +124,14 @@ public class TransformerWays extends Transformer {
 
                 var last = osh.getLast();
                 if (last.visible()) {
+                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
+
                     replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+
+                    for (var ref : last.refs()) {
+                        backRefsNodeWays.computeIfAbsent(ref, x -> new TreeSet<>()).add(last.id());
+                    }
                 }
 
                 if (hasNoTags(osh)) {
@@ -121,6 +139,21 @@ public class TransformerWays extends Transformer {
                 }
                 batch.add(osh);
             }
+
+            try (var writeOpts = new WriteOptions()) {
+                for (var entry : backRefsNodeWays.entrySet()) {
+                    outputBackRefs.reset();
+                    var key = RocksUtil.key(entry.getKey());
+                    var set = entry.getValue();
+                    var last = 0L;
+                    for (var id : set) {
+                        outputBackRefs.writeU64(id - last);
+                        last = id;
+                    }
+                    nodeWayBackRefs.merge(writeOpts, key, 0, key.length, outputBackRefs.array, 0, outputBackRefs.length);
+                }
+            }
+
 
             var minorNodes = fetchMinors(batch);
             var changesetIds = batch.stream()
@@ -143,6 +176,7 @@ public class TransformerWays extends Transformer {
                 }
             }
         }
+        return new Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
     }
 
     private Map<Long, List<OSMNode>> fetchMinors(List<List<OSMWay>> batch) {

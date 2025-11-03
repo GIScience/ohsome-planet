@@ -1,7 +1,5 @@
 package org.heigit.ohsome.contributions;
 
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.pbf.Block;
@@ -10,14 +8,15 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class OSMIterator implements Iterator<OSMEntity> {
+public class OSMIterator implements Iterator<OSMEntity>, AutoCloseable {
     private final Iterator<Block> blocks;
     private final Progress progress;
-    private PeekingIterator<OSMEntity> entities = Iterators.peekingIterator(Collections.emptyIterator());
+    private Iterator<OSMEntity> entities;
     private OSMEntity next;
 
     public OSMIterator(Iterator<Block> blocks, Progress progress) {
         this.blocks = blocks;
+        this.entities = blocks.hasNext() ? blocks.next().entities().iterator() :  Collections.emptyIterator();
         this.progress = progress;
     }
 
@@ -41,12 +40,14 @@ public class OSMIterator implements Iterator<OSMEntity> {
             if (!blocks.hasNext()) {
                 return null;
             }
-            entities = Iterators.peekingIterator(blocks.next().entities().iterator());
-        }
-        var n = entities.next();
-        if (!entities.hasNext()) {
             progress.step();
+            entities = blocks.next().entities().iterator();
         }
-        return n;
+        return entities.next();
+    }
+
+    @Override
+    public void close() {
+        progress.step();
     }
 }

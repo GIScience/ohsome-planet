@@ -18,6 +18,7 @@ import org.rocksdb.RocksDBException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -35,26 +36,32 @@ public class TransformerNodes extends Transformer {
         super(NODE, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, sstReplicationPath);
     }
 
-    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
+    public static Summary processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
         Files.createDirectories(replicationPath);
 
         var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb, replicationPath.resolve("ingest"));
-        transformer.process(blobsByType);
+        var summary = transformer.process(blobsByType);
 
         moveSstToRocksDb(rocksDbPath);
         moveSstToRocksDb(replicationPath);
+
+        return summary;
     }
 
 
     @Override
-    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+    protected Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+        var replicationLatestTimestamp = 0L;
+        var replicationElementsCount = 0L;
+
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
         var limit = processor.limit();
         var entities = peekingIterator(BlockReader.readBlock(ch, blobs.get(offset)).entities().iterator());
         var osm = entities.peek();
+
         if (processor.isWithHistory() && offset > 0 && osm.version() > 1) {
             while (entities.hasNext() && entities.peek().id() == osm.id()) {
                 entities.next();
@@ -97,6 +104,8 @@ public class TransformerNodes extends Transformer {
                 sstWriter.writeMinorNode(osh);
                 var last = osh.getLast();
                 if (last.visible()) {
+                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
                     replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
                 }
 
@@ -127,5 +136,6 @@ public class TransformerNodes extends Transformer {
                 }
             }
         }
+        return new Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
     }
 }

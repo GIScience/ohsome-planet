@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,7 +68,23 @@ public abstract class Transformer {
         this.replicationSstDirectory = replicationSstDir;
     }
 
-    protected abstract void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter sstWriterReplication) throws Exception;
+    public record Summary(Instant replicationTimestamp, long replicationElementsCount) {
+
+        public static final Summary EMPTY = new Summary(Instant.EPOCH, 0L);
+        public static Summary empty() {
+            return EMPTY;
+        }
+
+        public static Summary merge(Summary a, Summary b) {
+            return new Summary(Instant.ofEpochSecond(
+                    Math.max(a.replicationTimestamp().getEpochSecond(),
+                             b.replicationTimestamp().getEpochSecond())),
+                    a.replicationElementsCount() + b.replicationElementsCount());
+        }
+
+    }
+
+    protected abstract Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter sstWriterReplication) throws Exception;
 
     public record Chunk(int start, int limit) {
 
@@ -93,7 +110,7 @@ public abstract class Transformer {
         return chunks;
     }
 
-    protected void process(Map<OSMType, List<BlobHeader>> blobsByType) throws IOException {
+    protected Summary process(Map<OSMType, List<BlobHeader>> blobsByType) throws IOException {
         var blobs = blobsByType.get(osmType);
         var chunks = blocksPerChunk(blobs, parallel);
         try (var progress = new ProgressBarBuilder()
@@ -102,19 +119,20 @@ public abstract class Transformer {
                 .setUnit(" blk", 1)
                 .build();
              var ch = FileChannel.open(pbf.path(), READ)) {
-            Flux.range(0, chunks.size())
-                    .flatMap(id -> Mono.fromRunnable(
+            return Flux.range(0, chunks.size())
+                    .flatMap(id -> Mono.fromCallable(
                                     () -> process(id, progress::stepBy, ch, chunks.get(id), blobs))
                             .subscribeOn(Schedulers.boundedElastic()), parallel)
-                    .blockLast();
+                    .reduce(Summary::merge)
+                    .blockOptional().orElseThrow();
         }
     }
 
-    private void process(int id, Progress progress, FileChannel ch, Chunk chunk,
+    private Summary process(int id, Progress progress, FileChannel ch, Chunk chunk,
                          List<BlobHeader> blobs) {
         try {
             var processor = Transformer.processor(id, ch, chunk, blobs, pbf);
-            process(processor, progress);
+            return process(processor, progress);
         } catch (Exception e) {
             throw new TransformerException("Error processing chunk " + id, e);
         }
@@ -170,19 +188,19 @@ public abstract class Transformer {
         return builder.build();
     }
 
-    protected void process(Processor processor, Progress progress) throws Exception {
+    protected Summary process(Processor processor, Progress progress) throws Exception {
         try (var writer = openWriter(tempDir, outputDir, osmType, this::avroConfig)) {
-            process(processor, progress, writer);
+            return process(processor, progress, writer);
         }
     }
 
-    protected void process(Processor processor, Progress progress, Parquet writer) throws Exception {
+    protected Summary process(Processor processor, Progress progress, Parquet writer) throws Exception {
         var minorSSTPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
         var replicationSSTPath = replicationSstDirectory.resolve("%03d.sst".formatted(processor.id()));
         try ( var option = RocksUtil.defaultOptions().setCreateIfMissing(true);
               var minorSSTWriter = new SstWriter(minorSSTPath, option);
               var replicationSSTWriter = new SstWriter(replicationSSTPath, option)) {
-            process(processor, progress, writer, minorSSTWriter, replicationSSTWriter);
+            return process(processor, progress, writer, minorSSTWriter, replicationSSTWriter);
         }
     }
 
