@@ -11,7 +11,6 @@ import org.heigit.ohsome.contributions.minor.SstWriter;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
-import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
@@ -47,7 +46,7 @@ public abstract class Transformer {
     protected final SpatialJoiner countryJoiner;
     protected final Changesets changesetDb;
     protected final Path minorSstDirectory;
-    private final Path replicationWorkDir;
+    private final Path replicationSstDirectory;
 
 
     protected Transformer(OSMType type, OSMPbf pbf, Path temp, Path out, int parallel,
@@ -56,7 +55,7 @@ public abstract class Transformer {
     }
 
     protected Transformer(OSMType type, OSMPbf pbf, Path temp, Path out, int parallel,
-                          SpatialJoiner countryJoiner, Changesets changesetDb, Path minorSstDir, Path replicationWorkDir) {
+                          SpatialJoiner countryJoiner, Changesets changesetDb, Path minorSstDir, Path replicationSstDir) {
         this.osmType = type;
         this.pbf = pbf;
         this.tempDir = temp;
@@ -65,10 +64,10 @@ public abstract class Transformer {
         this.countryJoiner = countryJoiner;
         this.changesetDb = changesetDb;
         this.minorSstDirectory = minorSstDir;
-        this.replicationWorkDir = replicationWorkDir;
+        this.replicationSstDirectory = replicationSstDir;
     }
 
-    protected abstract void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception;
+    protected abstract void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter sstWriterReplication) throws Exception;
 
     public record Chunk(int start, int limit) {
 
@@ -178,9 +177,12 @@ public abstract class Transformer {
     }
 
     protected void process(Processor processor, Progress progress, Parquet writer) throws Exception {
-        var sstPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
-        try (var sstWriter = new SstWriter(sstPath, RocksUtil.defaultOptions().setCreateIfMissing(true))) {
-            process(processor, progress, writer, sstWriter);
+        var minorSSTPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
+        var replicationSSTPath = replicationSstDirectory.resolve("%03d.sst".formatted(processor.id()));
+        try ( var option = RocksUtil.defaultOptions().setCreateIfMissing(true);
+              var minorSSTWriter = new SstWriter(minorSSTPath, option);
+              var replicationSSTWriter = new SstWriter(replicationSSTPath, option)) {
+            process(processor, progress, writer, minorSSTWriter, replicationSSTWriter);
         }
     }
 
@@ -200,15 +202,6 @@ public abstract class Transformer {
         Files.deleteIfExists(rocksDbPath.resolve("ingest"));
     }
 
-
-    protected <T extends OSMEntity> void writeReplication(T entity) {
-        if (!entity.visible()) {
-            return;
-        }
-
-
-
-    }
 
     public static class Parquet implements Closeable {
 

@@ -40,7 +40,7 @@ public class Contributions implements Callable<Integer> {
 
 
     @CommandLine.Option(names = {"--replication-workdir", "--workdir"})
-    private Path replicationWorkDir;
+    private Path replication;
 
     @CommandLine.Option(names = {"--replication-endpoint"}, converter = UrlConverter.class)
     private URL replicationEndpoint;
@@ -67,14 +67,18 @@ public class Contributions implements Callable<Integer> {
             temp = out;
         }
 
-        if (replicationWorkDir != null) {
-            Files.createDirectories(replicationWorkDir);
+        if (replication == null) {
+            replication = out.resolve("replication");
         }
+
+        Files.createDirectories(out);
+        Files.createDirectories(temp);
+        Files.createDirectories(replication);
 
         var contributionsToParquet = new Contributions2Parquet(
                 pbfPath, temp, out, parallel,
                 changesetDbUrl, countryFilePath,
-                replicationWorkDir, replicationEndpoint,
+                replication, replicationEndpoint,
                 includeTags, debug);
 
         return contributionsToParquet.call();

@@ -66,7 +66,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final int parallel;
     private final String changesetDbUrl;
     private final Path countryFilePath;
-    private final Path replicationWorkDir;
+    private final Path replication;
     private final URL replicationEndpoint;
     private final String includeTags;
     private final boolean debug;
@@ -79,7 +79,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.parallel = parallel;
         this.changesetDbUrl = changesetDbUrl;
         this.countryFilePath = countryFilePath;
-        this.replicationWorkDir = replicationWorkDir;
+        this.replication = replicationWorkDir;
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
         this.debug = debug;
@@ -119,11 +119,13 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         RocksDB.loadLibrary();
         var minorNodesPath = temp.resolve("minorNodes");
-        processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationWorkDir);
+        var replicationNodesPath = replication.resolve("nodes");
+        processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
         var minorWaysPath = temp.resolve("minorWays");
+        var replicationWaysPath = replication.resolve("ways");
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
              var minorNodes = RocksDB.open(options, minorNodesPath.toString())) {
-            processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWorkDir);
+            processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath);
         }
 
         processRelations(pbfPath, temp, out, parallel, blobTypes, keyFilter, changesetDb);

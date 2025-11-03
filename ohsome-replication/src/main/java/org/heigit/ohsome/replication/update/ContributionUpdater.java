@@ -83,9 +83,9 @@ public class ContributionUpdater {
                 .forEach(entry -> {
                     var wayId = entry.getKey();
                     var newVersions = entry.getValue().newVersions();
+                    var last = newVersions.getLast();
                     var before = Optional.ofNullable(entry.getValue().before());
-                    var refs = new HashSet<Long>();
-                    refs.addAll(newVersions.getLast().refs());
+                    var refs = new HashSet<>(last.refs());
                     before.map(OSMWay::refs).ifPresent(oldRefs -> oldRefs.stream()
                             .filter(not(refs::contains))
                             .forEach(refToRemove -> nodeWayBackRefsUpdate.computeIfAbsent(refToRemove, x -> new BackRefsUpdate()).toRemove().add(wayId))
