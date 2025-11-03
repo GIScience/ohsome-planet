@@ -16,7 +16,7 @@ public abstract class GroupPrimitive<T extends OSMEntity> extends Group<T> {
     protected long changeset;
     protected int userId;
     protected String user;
-    protected boolean visible;
+    protected boolean visible = true;
 
     protected final List<String> keys = new ArrayList<>();
     protected final List<String> vals = new ArrayList<>();

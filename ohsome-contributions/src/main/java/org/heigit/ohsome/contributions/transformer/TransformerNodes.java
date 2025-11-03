@@ -12,6 +12,7 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.replication.ReplicationEntity;
 import org.rocksdb.RocksDBException;
 
 import java.io.IOException;
@@ -30,21 +31,24 @@ import static org.heigit.ohsome.osm.OSMType.NODE;
 
 public class TransformerNodes extends Transformer {
 
-    public TransformerNodes(OSMPbf pbf, Path temp, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) {
-        super(NODE, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, replicationWorkDir);
+    public TransformerNodes(OSMPbf pbf, Path temp, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb, Path sstReplicationPath) {
+        super(NODE, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, sstReplicationPath);
     }
 
-    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) throws IOException, RocksDBException {
+    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
+        Files.createDirectories(replicationPath);
 
-        var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb, replicationWorkDir);
+        var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb, replicationPath.resolve("ingest"));
         transformer.process(blobsByType);
+
         moveSstToRocksDb(rocksDbPath);
+        moveSstToRocksDb(replicationPath);
     }
 
 
     @Override
-    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
+    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
@@ -91,8 +95,10 @@ public class TransformerNodes extends Transformer {
                 }
 
                 sstWriter.writeMinorNode(osh);
-
-                writeReplicationNodes(osh.getLast());
+                var last = osh.getLast();
+                if (last.visible()) {
+                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                }
 
                 if (hasNoTags(osh)) {
                     continue;
@@ -115,15 +121,11 @@ public class TransformerNodes extends Transformer {
 
                 while (converter.hasNext()) {
                     var contrib = converter.next();
-                    if(contrib.isPresent()) {
+                    if (contrib.isPresent()) {
                         writer.write(processor.id(), contrib.get());
                     }
                 }
             }
         }
-    }
-
-    private void writeReplicationNodes(OSMNode last) {
-
     }
 }

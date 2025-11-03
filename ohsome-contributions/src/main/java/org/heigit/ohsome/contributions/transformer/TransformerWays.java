@@ -14,6 +14,7 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.replication.ReplicationEntity;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
@@ -35,11 +36,15 @@ import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
     public static void processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel,
-                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir) throws IOException, RocksDBException {
+                                   RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationWorkDir);
+        Files.createDirectories(replicationPath);
+
+        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationPath.resolve("ingest"));
         transformer.process(blobsByType);
+
         moveSstToRocksDb(rocksDbPath);
+        moveSstToRocksDb(replicationPath);
     }
 
 
@@ -54,7 +59,7 @@ public class TransformerWays extends Transformer {
 
 
     @Override
-    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
+    protected void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
@@ -105,6 +110,12 @@ public class TransformerWays extends Transformer {
                 if (writeMinor.test(osh.getFirst().id())) {
                     sstWriter.writeMinorWay(osh);
                 }
+
+                var last = osh.getLast();
+                if (last.visible()) {
+                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                }
+
                 if (hasNoTags(osh)) {
                     continue;
                 }
