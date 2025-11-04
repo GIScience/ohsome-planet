@@ -55,7 +55,7 @@ class ReplicationTest {
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             assertThrowsExactly(NoSuchElementException.class, changesetDb::getLocalState);
 
-            ReplicationManager.update(ohsomePlanetPath, out, replicationElementsUrl, dbUrl, replicationChangesetUrl, false);
+            ReplicationManager.update(ohsomePlanetPath, out, replicationElementsUrl, dbUrl, replicationChangesetUrl, false, false);
             var localStateAfterUpdate = changesetDb.getLocalState();
 
             assertEquals(6737400, localStateAfterUpdate.getSequenceNumber());
