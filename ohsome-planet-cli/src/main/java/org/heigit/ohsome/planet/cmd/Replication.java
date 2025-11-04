@@ -49,7 +49,10 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
             int parallel,
             @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
-            boolean[] verbosity
+            boolean[] verbosity,
+
+            @Option(names= {"--jcs", "--just-changesets"}, description="Do not process contributions, just changesets")
+            boolean justChangesets
 
     ) throws Exception {
         if (verbosity != null) {
@@ -57,6 +60,6 @@ public class Replication implements Callable<Integer> {
             System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", levels[verbosity.length < levels.length ? verbosity.length : levels.length - 1]);
         }
 
-        return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, contiuous);
+        return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, contiuous, justChangesets);
     }
 }

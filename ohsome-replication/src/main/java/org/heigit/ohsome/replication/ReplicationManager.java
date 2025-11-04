@@ -54,10 +54,10 @@ public class ReplicationManager {
     }
 
     public static int update(Path directory, Path out, String changesetDbUrl) throws Exception {
-        return update(directory, out, ContributionStateManager.PLANET_OSM_MINUTELY, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, true);
+        return update(directory, out, ContributionStateManager.PLANET_OSM_MINUTELY, changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, true, false);
     }
 
-    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
         var shutdownInitiated = new AtomicBoolean(false);
@@ -86,7 +86,9 @@ public class ReplicationManager {
                 waiter.registerLastContributionState(contributionManager.fetchRemoteState());
 
                 fetchChangesets(changesetManager);
-                // todo: if (justChangesets) {continue;}
+                if (justChangesets) {
+                    continue;
+                }
                 contributionManager.updateTowardsRemoteState();
             } while (!shutdownInitiated.get() && continuous);
         } finally {
