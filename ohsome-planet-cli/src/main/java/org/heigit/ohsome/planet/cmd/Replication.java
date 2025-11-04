@@ -42,7 +42,7 @@ public class Replication implements Callable<Integer> {
             URL replicationElementsUrl,
 
             @Option(names = "--continuous", defaultValue = "false", description = "continuous updates")
-            boolean contiuous,
+            boolean continuous,
 
             @Option(names = {"--country-file"})
             Path countryFilePath,
@@ -60,6 +60,6 @@ public class Replication implements Callable<Integer> {
             System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", levels[verbosity.length < levels.length ? verbosity.length : levels.length - 1]);
         }
 
-        return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, contiuous, justChangesets);
+        return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, continuous, justChangesets);
     }
 }
