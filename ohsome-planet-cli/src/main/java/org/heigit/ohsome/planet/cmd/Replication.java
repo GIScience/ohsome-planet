@@ -1,5 +1,6 @@
 package org.heigit.ohsome.planet.cmd;
 
+import org.heigit.ohsome.planet.utils.CliUtils;
 import org.heigit.ohsome.replication.ReplicationManager;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import picocli.CommandLine;
@@ -52,10 +53,7 @@ public class Replication implements Callable<Integer> {
             boolean justChangesets
 
     ) throws Exception {
-        if (verbosity != null) {
-            var levels = new String[]{"warn", "info", "debug", "trace"};
-            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", levels[verbosity.length < levels.length ? verbosity.length : levels.length - 1]);
-        }
+        CliUtils.setVerbosity(verbosity);
 
         return ReplicationManager.update(directory, out, replicationElementsUrl.toString(), changesetDbUrl, ChangesetStateManager.CHANGESET_ENDPOINT, continuous, justChangesets);
     }

@@ -195,8 +195,20 @@ public class ChangesetDB implements Changesets, AutoCloseable {
 
             try (var stream = new ByteArrayInputStream(changesetCSV)) {
                 copyManager.copyIn(
-                        "COPY changesets (changeset_id, user_id, created_at, closed_at, open, user_name, tags, hashtags, editor)" +
-                        "FROM STDIN WITH CSV DELIMITER '\t'",
+                        """
+                                COPY changesets (
+                                    changeset_id,
+                                    user_id,
+                                    created_at,
+                                    closed_at,
+                                    open,
+                                    user_name,
+                                    tags,
+                                    hashtags,
+                                    editor
+                                )
+                                FROM STDIN WITH CSV DELIMITER '\t'
+                                """,
                         stream
                 );
             }
@@ -243,6 +255,14 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                 stmt.addBatch();
             }
             stmt.executeBatch();
+        }
+    }
+
+    public void truncateChangesetTables() throws SQLException {
+        var sql = "Truncate changesets; truncate changeset_state;"                ;
+        try (var conn = dataSource.getConnection();
+             var stmt = conn.prepareStatement(sql)) {
+            stmt.execute();
         }
     }
 }
