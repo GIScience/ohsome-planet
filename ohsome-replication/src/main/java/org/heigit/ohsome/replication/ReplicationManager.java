@@ -7,6 +7,7 @@ import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -17,8 +18,12 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int initChangesets(Path changesetsPath, String changesetDbUrl) throws IOException {
+    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean override) throws IOException, SQLException {
         try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
+            if (override){
+                changesetDb.truncateChangesetTables();
+            }
+
             var changesetManager = new ChangesetStateManager(changesetDb);
             changesetManager.initDbWithXML(changesetsPath);
             return 0;

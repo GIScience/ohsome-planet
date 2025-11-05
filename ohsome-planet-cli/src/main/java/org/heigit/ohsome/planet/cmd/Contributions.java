@@ -4,6 +4,7 @@ import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.planet.converter.UrlConverter;
+import org.heigit.ohsome.planet.utils.CliUtils;
 import picocli.CommandLine;
 
 import java.net.URL;
@@ -51,9 +52,14 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
     private String includeTags = "";
 
+    @CommandLine.Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
+    boolean[] verbosity;
+
 
     @Override
     public Integer call() throws Exception {
+        CliUtils.setVerbosity(verbosity);
+
         if (Files.exists(out)) {
             if (overwrite) {
                 MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
