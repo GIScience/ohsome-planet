@@ -146,9 +146,9 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                 pstmt.setArray(9, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
                 pstmt.addBatch();
             }
-            logger.debug("Trying to upsert {} changesets", changesets.size());
+            logger.trace("Trying to upsert {} changesets", changesets.size());
             pstmt.executeBatch();
-            logger.debug("Successfully upserted {} changesets", changesets.size());
+            logger.trace("Successfully upserted {} changesets", changesets.size());
         }
     }
 

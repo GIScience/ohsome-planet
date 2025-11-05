@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication.state;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -53,6 +54,14 @@ public abstract class AbstractStateManager<T> {
         return connection.getInputStream();
     }
 
+    protected byte[] getFile(URL url) throws IOException {
+        return getFileStream(url).readAllBytes();
+    }
+
+    protected byte[] getFile(String url) throws IOException {
+        return getFile(create(this.targetUrl + url + this.replicationFileName).toURL());
+    }
+
     public ReplicationState fetchRemoteState() throws IOException {
         var input = getFileStream(create(this.targetUrl + topLevelFile).toURL());
         var props = new Properties();
@@ -60,7 +69,7 @@ public abstract class AbstractStateManager<T> {
         return setRemoteState(new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser));
     }
 
-    public ReplicationState setRemoteState(ReplicationState remoteState) throws IOException {
+    public ReplicationState setRemoteState(ReplicationState remoteState) {
         this.remoteState = remoteState;
         return this.remoteState;
     }
@@ -76,17 +85,18 @@ public abstract class AbstractStateManager<T> {
         return new ReplicationState(props, sequenceKey, timestampKey, this::timestampParser);
     }
 
-    public InputStream getReplicationFile(ReplicationState state) throws IOException {
-        return getReplicationFile(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
-
-    }
     private InputStream getReplicationFile(String replicationPath) throws IOException {
         return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
     }
 
     protected List<T> fetchReplicationBatch(ReplicationState state) throws Exception {
         return fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
+    }
 
+    protected List<T> fetchReplicationBatch(byte[] file) throws Exception {
+        try (var input = new GZIPInputStream(new ByteArrayInputStream(file))) {
+            return parse(input);
+        }
     }
 
     protected List<T> fetchReplicationBatch(String replicationPath) throws Exception {

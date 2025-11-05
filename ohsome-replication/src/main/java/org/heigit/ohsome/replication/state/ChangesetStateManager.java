@@ -76,6 +76,8 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
 
+        logger.debug("Trying to update from replication state {} to {}", nextReplication, nextReplication + steps);
+
         Flux.range(nextReplication, steps)
                 .buffer(500)
                 .concatMap(batch -> fromCallable(() -> updateBatch(batch)))
@@ -87,7 +89,8 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         var closed = new HashSet<Long>();
         for (var changesets : Flux.fromIterable(batch)
                 .map(ReplicationState::sequenceNumberAsPath)
-                .flatMap(path -> fromCallable(() -> fetchReplicationBatch(path)).subscribeOn(boundedElastic()))
+                .flatMap(path -> fromCallable(() -> getFile(path)).subscribeOn(boundedElastic()), 20)
+                .flatMap(file -> fromCallable(() -> fetchReplicationBatch(file)).subscribeOn(parallel()))
                 .flatMap(cs -> fromCallable(() -> {
                             changesetDB.upsertChangesets(cs);
                             return cs;
