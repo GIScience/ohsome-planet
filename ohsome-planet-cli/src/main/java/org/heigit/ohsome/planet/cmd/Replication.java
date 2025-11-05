@@ -1,21 +1,18 @@
 package org.heigit.ohsome.planet.cmd;
 
-import java.net.URL;
 import org.heigit.ohsome.replication.ReplicationManager;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
 @Command(name = "replication",
         mixinStandardHelpOptions = true,
-        description = "",
-        subcommands = {
-           ReplicationInit.class
-        }
+        description = ""
 )
 public class Replication implements Callable<Integer> {
     public enum ReplicationInterval {
@@ -51,7 +48,7 @@ public class Replication implements Callable<Integer> {
             @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
             boolean[] verbosity,
 
-            @Option(names= {"--jcs", "--just-changesets"}, description="Do not process contributions, just changesets")
+            @Option(names = {"--jcs", "--just-changesets"}, description = "Do not process contributions, just changesets")
             boolean justChangesets
 
     ) throws Exception {
