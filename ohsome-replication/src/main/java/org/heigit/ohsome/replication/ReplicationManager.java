@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
@@ -53,9 +54,10 @@ public class ReplicationManager {
         });
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
+        try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
+             var changesetDb = new ChangesetDB(changesetDbUrl)) {
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, changesetDb);
+            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();

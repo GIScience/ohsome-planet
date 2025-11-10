@@ -33,7 +33,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
     private long id = -1;
     private int version = -1;
     private Instant timestamp = EPOCH;
-    private long changeset = -1;
+    private long changeset = 0;
     private int uid = -1;
     private String user = "";
     private boolean visible = false;
@@ -181,7 +181,8 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
     }
 
     private void clearVariables() {
-        id = changeset = uid = version = -1;
+        id = uid = version = -1;
+        changeset = 0;
         timestamp = EPOCH;
         user = "";
         lon = lat = -999.9;
