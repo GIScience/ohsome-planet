@@ -123,17 +123,24 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         } else {
             builder.clearBbox();
             builder.clearCentroid();
+            builder.setCountries(List.of());
             builder.setXzcodeBuilder(xzCodeBuilder.setLevel(-1).setCode(0));
+            builder.clearGeometryType();
+            builder.clearGeometry();
+
             var collection = ContributionGeometry.relGeometryCollection(contribution);
             if (!collection.isEmpty()) {
                 setBBoxCentroidAndXZ(collection);
+                builder.setCountries(List.copyOf(countryJoiner.join(collection)));
+                builder.setGeometry(wkb(collection));
+                builder.setGeometryType(collection.getGeometryType());
             }
 
-            builder.clearGeometryType();
             if (geometry != null) {
                 builder.setGeometryType(geometry.getGeometryType());
+                builder.setGeometry(wkb(geometry));
             }
-            builder.clearGeometry();
+
             area = 0.0;
             length = 0.0;
             if (!"deleted".equals(status)) {
