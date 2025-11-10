@@ -18,7 +18,7 @@ public interface Changesets  {
     };
 
     interface Factory<T> {
-        T apply(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor, int numChanges);
+        T apply(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor);
     }
 
     static Changesets open(String changesetDb, int poolSize) {

@@ -18,9 +18,9 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean override) throws IOException, SQLException {
+    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean overwrite) throws IOException, SQLException {
         try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
-            if (override){
+            if (overwrite){
                 changesetDb.truncateChangesetTables();
             }
 
