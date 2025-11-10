@@ -33,3 +33,13 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### ROCKSDB files ###
+**.log
+LOG**
+**IDENTITY
+**LOCK
+**CURRENT
+**.sst
+**MANIFEST**
+**OPTIONS**

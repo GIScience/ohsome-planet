@@ -38,7 +38,7 @@ class StateManagerTest {
 
     @BeforeAll
     static void setUp() {
-        postgresContainer.withInitScript("setupDB/setupChangesetDB.sql");
+        postgresContainer.withInitScripts("setupDB/setupChangesetDB.sql", "setupDB/initializeDataForChangesetTests.sql");
         postgresContainer.start();
         dbUrl = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
     }

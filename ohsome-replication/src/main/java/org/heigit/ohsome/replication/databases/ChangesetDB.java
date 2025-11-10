@@ -113,24 +113,24 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
                                   INSERT INTO changesets (
-                                      changeset_id,
+                                      id,
                                       user_id,
                                       created_at,
                                       closed_at,
                                       open,
                                       user_name,
                                       tags,
-                                      editor,
-                                      hashtags
+                                      hashtags,
+                                      geom
                                   )
-                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?)
-                                  ON CONFLICT (changeset_id) DO UPDATE
+                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?::geometry)
+                                  ON CONFLICT (id) DO UPDATE
                                   SET
                                       closed_at = EXCLUDED.closed_at,
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,
                                       hashtags = EXCLUDED.hashtags,
-                                      editor = EXCLUDED.editor
+                                      geom = EXCLUDED.geom
                                   WHERE NOT EXCLUDED.open;
                         """
                 )
@@ -157,8 +157,8 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                 jsonTags.setValue(objectMapper.writeValueAsString(tags));
                 pstmt.setObject(7, jsonTags);
 
-                pstmt.setString(8, tags.get("created_by"));
-                pstmt.setArray(9, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
+                pstmt.setArray(8, conn.createArrayOf("varchar", ChangesetHashtags.hashTags(tags).toArray()));
+                pstmt.setString(9, changeset.getBBOXasWKT());
                 pstmt.addBatch();
             }
             logger.trace("Trying to upsert {} changesets", changesets.size());
@@ -186,7 +186,7 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                         changeset.user() == null ? "\"\"" : escapeCsv(changeset.user()),
                         escapeCsv(objectMapper.writeValueAsString(tags)),
                         escapeCsv("{" + String.join(",", ChangesetHashtags.hashTags(tags)) + "}"),
-                        escapeCsv(tags.get("created_by"))
+                        escapeCsv(changeset.getBBOXasWKT())
                 );
                 writer.write(line);
             }
@@ -212,7 +212,7 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                 copyManager.copyIn(
                         """
                                 COPY changesets (
-                                    changeset_id,
+                                    id,
                                     user_id,
                                     created_at,
                                     closed_at,
@@ -220,7 +220,7 @@ public class ChangesetDB implements Changesets, AutoCloseable {
                                     user_name,
                                     tags,
                                     hashtags,
-                                    editor
+                                    geom
                                 )
                                 FROM STDIN WITH CSV DELIMITER '\t'
                                 """,
@@ -233,14 +233,14 @@ public class ChangesetDB implements Changesets, AutoCloseable {
     public List<Long> getOpenChangesetsOlderThanTwoHours() {
         try (
                 var conn = dataSource.getConnection();
-                var pstmt = conn.prepareStatement("SELECT changeset_id FROM changesets where created_at < now() - interval '2 hours' and open")
+                var pstmt = conn.prepareStatement("SELECT id FROM changesets where created_at < now() - interval '2 hours' and open")
         ) {
             var results = pstmt.executeQuery();
             List<Long> ids = new ArrayList<>();
             while (results.next()) {
                 ids.add(results.getLong(1));
             }
-            logger.info("Got " + ids.size() + " unclosed changesets older than 2 hours from database");
+            logger.info("Got {} unclosed changesets older than 2 hours from database", ids.size());
             return ids;
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -255,13 +255,16 @@ public class ChangesetDB implements Changesets, AutoCloseable {
     public void pendingChangesets(Set<Long> ids) throws SQLException {
         var sql = """
                 INSERT INTO changesets (
-                        changeset_id,
-                        created_at,
-                        user_id,
-                        user_name,
-                        open)
-                VALUES (?, '2000-01-01 00:00:00', 0, '', true)
-                ON CONFLICT (changeset_id) DO NOTHING
+                    id,
+                    created_at,
+                    user_id,
+                    user_name,
+                    open,
+                    tags,
+                    hashtags
+                )
+                VALUES (?, '2000-01-01 00:00:00', 0, '', true, '{}', '{}')
+                ON CONFLICT (id) DO NOTHING
                 """;
         try (var conn = dataSource.getConnection();
              var stmt = conn.prepareStatement(sql)) {

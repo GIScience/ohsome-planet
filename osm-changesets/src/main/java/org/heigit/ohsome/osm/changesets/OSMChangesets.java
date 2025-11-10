@@ -1,6 +1,5 @@
 package org.heigit.ohsome.osm.changesets;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,6 +15,7 @@ import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.zip.GZIPInputStream;
 
 import static java.util.Collections.emptyList;
@@ -66,11 +66,26 @@ public class OSMChangesets {
         private boolean open;
 
         private String user;
+
         private int uid;
 
-        @JsonAlias({"changes_count"})
-        @JacksonXmlProperty(localName = "num_changes")
-        private int numChanges;
+        @JsonProperty("min_lon")
+        public Double minLon;
+        @JsonProperty("min_lat")
+        public Double minLat;
+        @JsonProperty("max_lon")
+        public Double maxLon;
+        @JsonProperty("max_lat")
+        public Double maxLat;
+
+        public String getBBOXasWKT() {
+            if (Objects.isNull(minLat) || Double.isNaN(minLat) || Double.isNaN(minLon) || Double.isNaN(maxLat) || Double.isNaN(maxLon)) {
+                return null;
+            }
+            // todo: what happens at antimeridian? Column is currently Polygon-Only
+            return String.format("SRID=4326;POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
+                    minLon, minLat, maxLon, minLat, maxLon, maxLat, minLon, maxLat, minLon, minLat);
+        }
 
         @JacksonXmlProperty(localName = "tag")
         @JacksonXmlElementWrapper(useWrapping = false)
@@ -116,10 +131,6 @@ public class OSMChangesets {
             return uid;
         }
 
-        public int numChanges() {
-            return numChanges;
-        }
-
         public Map<String, String> tags() {
             var map = new LinkedHashMap<String, String>();
             tags.forEach(tag -> map.put(tag.key(), tag.value()));
@@ -140,7 +151,6 @@ public class OSMChangesets {
             }
             return OffsetDateTime.parse(s).toInstant();
         }
-
 
         public static class Tag {
 

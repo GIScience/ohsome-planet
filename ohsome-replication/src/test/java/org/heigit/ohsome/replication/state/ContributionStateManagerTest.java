@@ -31,7 +31,7 @@ class ContributionStateManagerTest {
 
     @BeforeAll
     static void setUp() {
-        postgresContainer.withInitScript("setupDB/setupReplicationUpdate.sql");
+        postgresContainer.withInitScripts("setupDB/setupChangesetDB.sql", "setupDB/initializeDataForReplicationUpdate.sql");
         postgresContainer.start();
         dbUrl = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
     }
@@ -70,7 +70,7 @@ class ContributionStateManagerTest {
 
     }
 
-    private Long changeset(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor, int numChanges) {
+    private Long changeset(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor) {
         return id;
     }
 

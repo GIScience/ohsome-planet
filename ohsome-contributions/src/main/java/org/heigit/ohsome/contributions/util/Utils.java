@@ -49,7 +49,7 @@ public class Utils {
 
     public static Map<Long, ContribChangeset> fetchChangesets(Set<Long> ids, Changesets changesetDb) throws Exception {
         var changesetBuilder = ContribChangeset.newBuilder();
-        var changesets = changesetDb.changesets(ids, (id, created, closed, tags, hashtags, editor, numChanges) ->
+        var changesets = changesetDb.changesets(ids, (id, created, closed, tags, hashtags, editor) ->
                 changesetBuilder
                         .setId(id)
                         .setCreatedAt(created)
@@ -57,7 +57,6 @@ public class Utils {
                         .setTags(Map.copyOf(tags))
                         .setHashtags(List.copyOf(hashtags))
                         .setEditor(editor)
-                        .setNumChanges(numChanges)
                         .build());
         changesetBuilder
                 .setCreatedAt(Instant.ofEpochSecond(0))

@@ -19,8 +19,8 @@ public class Changesets implements Callable<Integer> {
     Path changesetsPath;
     @Option(paramLabel = "conn_url", names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
     String changesetDbUrl;
-    @Option(paramLabel = "override", names = {"--override"}, description = "If set, truncate changeset and changeset_state tables before refilling.")
-    boolean override;
+    @Option(paramLabel = "overwrite", names = {"--overwrite"}, description = "If set, truncate changeset and changeset_state tables before refilling.")
+    boolean overwrite;
     @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
 
@@ -29,6 +29,6 @@ public class Changesets implements Callable<Integer> {
     public Integer call() throws IOException, SQLException {
         CliUtils.setVerbosity(verbosity);
 
-        return ReplicationManager.initChangesets(changesetsPath, changesetDbUrl, override);
+        return ReplicationManager.initChangesets(changesetsPath, changesetDbUrl, overwrite);
     }
 }
