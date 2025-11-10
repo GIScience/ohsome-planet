@@ -52,13 +52,18 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         } catch (NoSuchElementException e) {
             logger.info("No local state detected for changesets, trying to estimate starting replication state");
             var maxChangesetDBTimestamp = changesetDB.getMaxLocalTimestamp();
-            updateLocalState(
+            setInitialState(
                     estimateLocalReplicationState(
                             maxChangesetDBTimestamp, fetchRemoteState()
                     )
             );
             logger.info("Estimated replication state for {}: {}", maxChangesetDBTimestamp, this.localState);
         }
+    }
+
+    protected void setInitialState(ReplicationState state) throws SQLException {
+        changesetDB.setInitialState(state);
+        localState = state;
     }
 
     @Override

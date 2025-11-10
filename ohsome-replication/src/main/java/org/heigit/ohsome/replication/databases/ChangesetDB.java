@@ -69,16 +69,31 @@ public class ChangesetDB implements Changesets, AutoCloseable {
     }
 
 
-    public void updateState(ReplicationState state) throws SQLException {
+    public void setInitialState(ReplicationState state) throws  SQLException{
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
                         INSERT INTO changeset_state
-                        VALUES(0, ?, ?::timestamp)
-                        ON CONFLICT (id) DO UPDATE
+                        VALUES(?, ?::timestamp)
+                        """
+                )
+        ) {
+            pstmt.setInt(1, state.getSequenceNumber());
+            pstmt.setTimestamp(2, Timestamp.from(state.getTimestamp()));
+            pstmt.executeUpdate();
+            logger.debug("State initialized to {}", state.getSequenceNumber());
+        }
+    }
+
+
+    public void updateState(ReplicationState state) throws SQLException {
+        try (
+                var conn = dataSource.getConnection();
+                var pstmt = conn.prepareStatement("""
+                        UPDATE changeset_state
                         SET
-                            last_sequence = EXCLUDED.last_sequence,
-                            last_timestamp = EXCLUDED.last_timestamp
+                            last_sequence = ?,
+                            last_timestamp = ?::timestamp
                         """
                 )
         ) {
