@@ -5,10 +5,10 @@ import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.parquet.ParquetUtil;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.databases.ChangesetStoreForUpdate;
 import org.heigit.ohsome.replication.parser.OscParser;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
 import org.heigit.ohsome.replication.update.UpdateStore;
-import org.heigit.ohsome.replication.update.UpdateStoreMap;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
@@ -25,34 +25,30 @@ import static reactor.core.scheduler.Schedulers.boundedElastic;
 
 public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
 
-    public static ContributionStateManager openManager(String endpoint, Path directory, Path out, ChangesetDB changesetDB) throws IOException {
+    public static ContributionStateManager openManager(String endpoint, Path directory, Path out, UpdateStore updateStore, ChangesetDB changesetDB) throws IOException {
         var localStatePath = directory.resolve("state.txt");
         var localState = loadLocalState(localStatePath);
-        return new ContributionStateManager(endpoint, directory, localState, out, changesetDB);
+        return new ContributionStateManager(endpoint, directory, localState, out, updateStore, changesetDB);
     }
 
     public static final String PLANET_OSM_MINUTELY = "https://planet.openstreetmap.org/replication/minute/";
     public static final String PLANET_OSM_HOURLY = "https://planet.openstreetmap.org/replication/hour/";
 
-    private final ChangesetDB changesetDB;
+    private final ChangesetStoreForUpdate changesetDB;
     private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
-    private final UpdateStore updateStore = new UpdateStoreMap();
+    private final UpdateStore updateStore;
 
     private final String endpoint;
     private final Path directory;
     private final Path localStatePath;
     private final Path out;
 
-
-    public ContributionStateManager(String endpoint, Path directory, Path out, ChangesetDB changesetDB) throws IOException {
-        this(endpoint, directory, null, out, changesetDB);
-    }
-
-    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, ChangesetDB changesetDB) throws IOException {
+    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, ChangesetStoreForUpdate changesetDB) throws IOException {
         super(endpoint + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz", 0);
         this.endpoint = endpoint;
         this.directory = directory;
         this.out = out;
+        this.updateStore = updateStore;
         this.changesetDB = changesetDB;
 
         Files.createDirectories(directory);
@@ -93,6 +89,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
         try (var out = Files.newOutputStream(localStatePath)) {
             props.store(out, null);
         }
+        System.out.println("update local state : " + state);
         localState = state;
     }
 
@@ -118,10 +115,10 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
         try (var writer = ParquetUtil.openWriter(path, Contrib.getClassSchema(), builder -> {
         })) {
             for (var contrib : updater.update(osc).toIterable()) {
-                System.out.println("contrib = " + contrib);
                 writer.write(contrib);
                 var changeset = contrib.getChangeset();
-                if (changeset.getClosedAt() == null) {
+                if (changeset.getClosedAt() == null &&
+                    changeset.getId() > 0) {
                     // store pending
                     unclosedChangesets.add(changeset.getId());
                 }

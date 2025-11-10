@@ -70,7 +70,7 @@ public class ContributionUpdater {
     }
 
     private record BackRefsUpdate(Set<Long> exist, Set<Long> toRemove) {
-        public BackRefsUpdate(){
+        public BackRefsUpdate() {
             this(new HashSet<>(), new HashSet<>());
         }
     }
@@ -106,15 +106,15 @@ public class ContributionUpdater {
 
     public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {
         newNodes = newNodes(osc);
-        return Flux.fromIterable(newNodes.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity.newVersions(), entity.before())).subscribeOn(parallel()))
+        return Flux.fromIterable(newNodes.entrySet())
+                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity.getKey(), entity.getValue().newVersions(), entity.getValue().before())).subscribeOn(parallel()))
                 .flatMapIterable(identity());
     }
 
     public Flux<Contrib> updateWays(Iterator<OSMEntity> osc) {
         newWays = newWays(osc);
-        return Flux.fromIterable(newWays.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity.newVersions(), entity.before())).subscribeOn(parallel()))
+        return Flux.fromIterable(newWays.entrySet())
+                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity.getKey(), entity.getValue().newVersions(), entity.getValue().before())).subscribeOn(parallel()))
                 .flatMapIterable(identity());
     }
 
@@ -124,7 +124,7 @@ public class ContributionUpdater {
     }
 
 
-    private List<Contrib> updateNode(List<OSMNode> newVersions, OSMNode before) throws Exception {
+    private List<Contrib> updateNode(long nodeId,List<OSMNode> newVersions, OSMNode before) throws Exception {
         var osh = new ArrayList<OSMNode>(newVersions.size() + 1);
         if (before != null) {
             osh.add(before);
@@ -145,7 +145,7 @@ public class ContributionUpdater {
         }
 
         var updates = new ArrayList<Contrib>();
-        while(converter.hasNext()) {
+        while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isEmpty()) {
                 continue;
@@ -162,7 +162,7 @@ public class ContributionUpdater {
         return updates;
     }
 
-    private List<Contrib> updateWay(List<OSMWay> newVersions, OSMWay before) throws Exception {
+    private List<Contrib> updateWay(long wayId, List<OSMWay> newVersions, OSMWay before) throws Exception {
         var osh = new ArrayList<OSMWay>(newVersions.size() + 1);
         if (before != null) {
             osh.add(before);
@@ -177,17 +177,18 @@ public class ContributionUpdater {
                 .collect(Collectors.toMap(OSMNode::id, List::of));
 
         // update nodes with new node versions in osc
-        newNodes.forEach((id, entity) -> {
-            if (!refIds.contains(id)) {
-                return;
-            }
-            var oshNode = new ArrayList<OSMNode>(entity.newVersions().size());
-            if (entity.before() != null) {
-                oshNode.add(entity.before());
-            }
-            oshNode.addAll(entity.newVersions());
-            nodes.put(id, oshNode);
-        });
+        refIds.stream()
+                .filter(newNodes::containsKey)
+                .map(newNodes::get)
+                .forEach(entity -> {
+                    var oshNode = new ArrayList<OSMNode>(entity.newVersions().size());
+                    if (entity.before() != null) {
+                        oshNode.add(entity.before());
+                    }
+                    oshNode.addAll(entity.newVersions());
+                    nodes.put(oshNode.getFirst().id(), oshNode);
+                });
+
 
         var changesetIds = new HashSet<Long>();
         nodes.forEach((nodeId, oshNode) -> oshNode.forEach(osm -> changesetIds.add(osm.changeset())));
@@ -234,7 +235,10 @@ public class ContributionUpdater {
             }
             if (before != null) {
                 osh.removeIf(version -> version.version() <= before.version());
+            } else {
+                osh.removeIf(not(OSMEntity::visible));
             }
+
             if (!osh.isEmpty()) {
                 filtered.put(id, new Entity<>(osh, before));
             }
@@ -246,7 +250,6 @@ public class ContributionUpdater {
         var newVersions = getByType(osc, OSMNode.class);
 
         var versionBefore = new HashMap<>(store.nodes(newVersions.keySet()));
-        versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
         return filter(newVersions, versionBefore);
     }
 
@@ -256,7 +259,6 @@ public class ContributionUpdater {
         nodeWaysBackRefs.forEach((nodeId, ways) -> ways.forEach(wayId -> newVersions.computeIfAbsent(wayId, x -> List.of())));
 
         var versionBefore = new HashMap<>(store.ways(newVersions.keySet()));
-        versionBefore.replaceAll((i, v) -> versionBefore.get(i).withChangeset(-1));
         return filter(newVersions, versionBefore);
     }
 
