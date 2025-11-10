@@ -74,7 +74,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     private boolean overwrite = false;
 
     @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
-    private int parallel = Runtime.getRuntime().availableProcessors() - 1;
+    private int parallel = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
 
     @Option(names = {"--country-file"})
     private Path countryFilePath;
