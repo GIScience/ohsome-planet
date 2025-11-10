@@ -17,13 +17,12 @@ CREATE TABLE changesets
 
 CREATE TABLE changeset_state
 (
-    id                 int NOT NULL UNIQUE,
     last_sequence      bigint NOT NULL,
     last_timestamp     timestamptz NOT NULL
 );
 
 INSERT INTO changeset_state
-VALUES (0, 10020, '2021-12-12 09:10:15');
+VALUES (10020, '2021-12-12 09:10:15');
 
 INSERT INTO changesets (changeset_id, user_id, created_at, closed_at, open, user_name)
 VALUES (111, 1231, '2021-12-12 09:10:15', null, true, 'bob'),
