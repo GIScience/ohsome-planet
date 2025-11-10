@@ -259,6 +259,8 @@ public class ChangesetDB implements Changesets, AutoCloseable {
     }
 
     public void truncateChangesetTables() throws SQLException {
+        logger.info("Truncating changeset tables.");
+
         var sql = "Truncate changesets; truncate changeset_state;"                ;
         try (var conn = dataSource.getConnection();
              var stmt = conn.prepareStatement(sql)) {
