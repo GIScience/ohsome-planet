@@ -29,7 +29,7 @@ public class ChangesetDb implements Changesets {
 
     public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("select changeset_id, created_at, closed_at, tags, hashtags, num_changes from %s where changeset_id = any(?)".formatted(table));
+             var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, hashtags from %s where id = any(?)".formatted(table));
              var array = ClosableSqlArray.createArray(conn, "int", ids)) {
             pstmt.setArray(1, array.array());
             var map = Maps.<Long, T>newHashMapWithExpectedSize(ids.size());
@@ -42,8 +42,7 @@ public class ChangesetDb implements Changesets {
                     var tags = (Map<String, String>) mapper.readValue(rst.getString(4), Map.class);
                     var hashTags = ChangesetHashtags.hashTags(tags);
                     var editor = tags.get("created_by");
-                    var numChanges = rst.getInt(6);
-                    map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor, numChanges));
+                    map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor));
                 }
                 return map;
             }
