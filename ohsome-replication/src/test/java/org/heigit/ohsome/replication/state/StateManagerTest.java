@@ -96,7 +96,7 @@ class StateManagerTest {
     }
 
     @Test
-    void testUpdatedUnclosedChangesets() throws SQLException {
+    void testUpdatedUnclosedChangesets() {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var changesetDB = new ChangesetDB(dbUrl);
         var changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();

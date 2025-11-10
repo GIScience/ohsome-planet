@@ -93,8 +93,14 @@ public abstract class AbstractStateManager<T> {
         return fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
     }
 
-    protected List<T> fetchReplicationBatch(byte[] file) throws Exception {
+    protected List<T> parseGZIP(byte[] file) throws Exception {
         try (var input = new GZIPInputStream(new ByteArrayInputStream(file))) {
+            return parse(input);
+        }
+    }
+
+    protected List<T> parse(byte[] file) throws Exception {
+        try (var input = new ByteArrayInputStream(file)) {
             return parse(input);
         }
     }

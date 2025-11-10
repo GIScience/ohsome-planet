@@ -90,7 +90,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
         for (var changesets : Flux.fromIterable(batch)
                 .map(ReplicationState::sequenceNumberAsPath)
                 .flatMap(path -> fromCallable(() -> getFile(path)).subscribeOn(boundedElastic()), 20)
-                .flatMap(file -> fromCallable(() -> fetchReplicationBatch(file)).subscribeOn(parallel()))
+                .flatMap(file -> fromCallable(() -> parseGZIP(file)).subscribeOn(parallel()))
                 .flatMap(cs -> fromCallable(() -> {
                             changesetDB.upsertChangesets(cs);
                             return cs;
@@ -114,11 +114,11 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .flatMap(partition -> fromCallable(() -> {
                             var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
                                     + partition.stream().map(String::valueOf).collect(Collectors.joining(",", "", ""));
-                            return fetchFile(url);
-                        })
+                            return getFile(create(url).toURL());
+                        }).subscribeOn(boundedElastic()),
+                        20
                 )
-                .flatMap(stream -> fromCallable(() -> parse(stream)))
-                .subscribeOn(parallel())
+                .flatMap(file -> fromCallable(() -> parse(file)).subscribeOn(parallel()))
                 .flatMap(
                         cs -> fromCallable(() -> {
                             changesetDB.upsertChangesets(cs);
@@ -131,10 +131,6 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .blockLast();
     }
 
-
-    private InputStream fetchFile(String url) throws IOException {
-        return getFileStream(create(url).toURL());
-    }
 
     public void initDbWithXML(Path changesetsPath) throws IOException {
         try (var pb = new ProgressBarBuilder()
