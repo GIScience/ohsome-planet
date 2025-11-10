@@ -7,8 +7,7 @@ import org.heigit.ohsome.util.io.Output;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Map;
+import java.util.*;
 
 public class ReplicationEntity {
 
@@ -17,19 +16,6 @@ public class ReplicationEntity {
         serializeEntity(node, output);
         output.writeS64(Math.round(node.lon() * 1_0000000L));
         output.writeS64(Math.round(node.lat() * 1_0000000L));
-    }
-
-    public static OSMEntity.OSMNode  deserializeNode(long id, byte[] bytes) {
-        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
-        var entityInfo = deserializeEntity(input);
-        var lon = input.readS64() / 1_0000000.0;
-        var lat = input.readS64() / 1_0000000.0;
-        return new OSMEntity.OSMNode(id,
-                entityInfo.version(),
-                entityInfo.timestamp(),
-                -1, -1, "", true,
-                entityInfo.tags(),
-                lon, lat);
     }
 
     public static void serialize(OSMEntity.OSMWay way, Output output) {
@@ -42,6 +28,28 @@ public class ReplicationEntity {
             output.writeS64(ref - lastRef);
             lastRef = ref;
         }
+    }
+
+    public static void serialize(Set<Long> set, Output output) {
+        var last = 0L;
+        for (var id : sorted(set)) {
+            output.writeU64(id - last);
+            last = id;
+        }
+    }
+
+
+    public static OSMEntity.OSMNode  deserializeNode(long id, byte[] bytes) {
+        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var lon = input.readS64() / 1_0000000.0;
+        var lat = input.readS64() / 1_0000000.0;
+        return new OSMEntity.OSMNode(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                lon, lat);
     }
 
     public static OSMEntity.OSMWay deserializeWay(long id, byte[] bytes) {
@@ -63,6 +71,24 @@ public class ReplicationEntity {
                 entityInfo.tags(),
                 refs, minorVersion, edits, null, null);
     }
+
+    public static Set<Long> deserializeSet(long id, byte[] bytes) {
+        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
+        var set = new HashSet<Long>();
+        var last = 0L;
+        while (input.hasRemaining()) {
+            var delta = input.readU64();
+            if (delta == 0) {
+                last = 0;
+                continue;
+            }
+            last = last + delta;
+            set.add(last);
+        }
+        return set;
+    }
+
+
 
     private record EntityInfo(Instant timestamp, int version, Map<String, String> tags) {}
 
@@ -91,6 +117,11 @@ public class ReplicationEntity {
         return new EntityInfo(Instant.ofEpochSecond(timestamp), version, tags);
     }
 
-
+    private static SortedSet<Long> sorted(Set<Long> set) {
+        if (set instanceof SortedSet<Long> sortedSet) {
+            return sortedSet;
+        }
+        return new TreeSet<>(set);
+    }
 
 }

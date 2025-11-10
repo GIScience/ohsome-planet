@@ -42,4 +42,9 @@ public class UpdateStoreMap implements UpdateStore {
     public void backRefsNodeWay(Map<Long, Set<Long>> updates) {
         nodeWayBackRefsCache.putAll(updates);
     }
+
+    @Override
+    public void close() throws Exception {
+
+    }
 }

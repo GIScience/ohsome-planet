@@ -24,7 +24,7 @@ import java.util.*;
 
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
-public class ChangesetDB implements Changesets, AutoCloseable {
+public class ChangesetDB implements ChangesetStoreForUpdate {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetDB.class);
     private static final HikariConfig config = new HikariConfig();
     private final HikariDataSource dataSource;
@@ -252,6 +252,7 @@ public class ChangesetDB implements Changesets, AutoCloseable {
         dataSource.close();
     }
 
+    @Override
     public void pendingChangesets(Set<Long> ids) throws SQLException {
         var sql = """
                 INSERT INTO changesets (

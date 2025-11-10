@@ -8,8 +8,10 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReplicationEntityTest {
 
@@ -52,7 +54,23 @@ class ReplicationEntityTest {
 
         assertEntityInfo(encode, decode);
         assertEquals(encode.refs(), decode.refs());
+    }
 
+    @Test
+    void set() {
+        var id = 1234L;
+        var output = new Output(4 << 10);
+        ReplicationEntity.serialize(Set.of(123L, 122L, 124L), output);
+        output.writeU64(0);
+        ReplicationEntity.serialize(Set.of(120L, 140L), output);
+        var set = ReplicationEntity.deserializeSet(id, output.array());
+
+        assertEquals(5, set.size());
+        assertTrue(set.contains(120L));
+        assertTrue(set.contains(122L));
+        assertTrue(set.contains(123L));
+        assertTrue(set.contains(124L));
+        assertTrue(set.contains(140L));
 
     }
 

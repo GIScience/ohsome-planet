@@ -145,11 +145,7 @@ public class TransformerWays extends Transformer {
                     outputBackRefs.reset();
                     var key = RocksUtil.key(entry.getKey());
                     var set = entry.getValue();
-                    var last = 0L;
-                    for (var id : set) {
-                        outputBackRefs.writeU64(id - last);
-                        last = id;
-                    }
+                    ReplicationEntity.serialize(set, outputBackRefs);
                     nodeWayBackRefs.merge(writeOpts, key, 0, key.length, outputBackRefs.array, 0, outputBackRefs.length);
                 }
             }

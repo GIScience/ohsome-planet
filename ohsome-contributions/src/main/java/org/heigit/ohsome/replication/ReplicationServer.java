@@ -20,7 +20,7 @@ public class ReplicationServer {
     public static final DecimalFormat SEQUENCE_FORMAT;
 
     static {
-        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+        var symbols = new DecimalFormatSymbols();
         symbols.setGroupingSeparator('/');
         SEQUENCE_FORMAT = new DecimalFormat("000,000,000", symbols);
     }

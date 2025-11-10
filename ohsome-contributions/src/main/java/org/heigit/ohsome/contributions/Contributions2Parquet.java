@@ -12,7 +12,6 @@ import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
-import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.transformer.Transformer;
@@ -28,6 +27,7 @@ import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.replication.ReplicationServer;
+import org.heigit.ohsome.replication.update.UpdateStore;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.StringAppendOperator;
@@ -52,6 +52,8 @@ import java.util.function.Predicate;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
 import static org.heigit.ohsome.contributions.FileInfo.printInfo;
+import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
+import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -140,17 +142,16 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         RocksDB.loadLibrary();
         var minorNodesPath = temp.resolve("minorNodes");
-        var replicationNodesPath = replication.resolve("nodes");
+        var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
         var summaryNodes = processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
         var minorWaysPath = temp.resolve("minorWays");
-        var replicationWaysPath = replication.resolve("ways");
+        var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
         var summaryWays = Transformer.Summary.EMPTY;
-        try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
-             var minorNodes = RocksDB.open(options, minorNodesPath.toString());
-             var optionsWithMerge = RocksUtil.defaultOptions()
-                     .setCreateIfMissing(true)
+        try (var options = defaultOptions(false);
+             var minorNodes = open(options, minorNodesPath);
+             var optionsWithMerge = defaultOptions(true)
                      .setMergeOperator(new StringAppendOperator((char) 0));
-             var nodeWayBackRefs = RocksDB.open(optionsWithMerge, replication.resolve("backRefsNodeWays").toString())) {
+             var nodeWayBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY))) {
             summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
         }
 
@@ -179,7 +180,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     private Transformer.Summary processRelations(Path pbfPath, Path temp, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
         try (var ch = FileChannel.open(pbfPath, READ);
-             var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
+             var options = defaultOptions(true);
              var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, output.resolve("minorWays").toString());
              var progress = new ProgressBarBuilder()
@@ -220,6 +221,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 if (last.visible()) {
                     replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
                     replicationElementsCount++;
+
                 }
 
                 if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
