@@ -354,14 +354,11 @@
     },
     {
       "name": "countries",
-      "type": [
-        "null",
-        {
-          "type": "array",
-          "items": "string"
-        }
-      ],
-      "default": null,
+      "type": {
+        "type": "array",
+        "items": "string",
+        "default": []
+      },
       "doc": "list of ISO A3 country codes"
     },
     {
