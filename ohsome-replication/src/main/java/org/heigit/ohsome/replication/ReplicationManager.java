@@ -1,11 +1,14 @@
 package org.heigit.ohsome.replication;
 
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,6 +31,16 @@ public class ReplicationManager {
             changesetManager.initDbWithXML(changesetsPath);
             return 0;
         }
+    }
+
+    public static int initChangesets(Path changesetsPath, Path output, boolean overwrite) throws IOException, SQLException {
+        if (overwrite){
+            MoreFiles.deleteRecursively(output, RecursiveDeleteOption.ALLOW_INSECURE);
+            Files.createDirectories(output);
+        }
+
+        ChangesetStateManager.initParquetWithXML(changesetsPath, output);
+        return 0;
     }
 
     public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets) throws Exception {

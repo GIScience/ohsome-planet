@@ -2,8 +2,10 @@ package org.heigit.ohsome.replication.state;
 
 
 import me.tongfei.progressbar.ProgressBarBuilder;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
+import org.heigit.ohsome.parquet.ParquetUtil;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,7 @@ import static java.net.URI.create;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
 import static reactor.core.publisher.Mono.fromCallable;
+import static reactor.core.publisher.Mono.fromRunnable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
@@ -136,6 +139,32 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
                 .blockLast();
     }
 
+
+    public static void initParquetWithXML(Path changesetsPath, Path output) throws IOException {
+        try (var pb = new ProgressBarBuilder()
+                .setTaskName("Parsed Changesets:")
+                .build();
+             var writer = ParquetUtil.openWriter(output.resolve("test.parquet"), OSMChangeset.getClassSchema(), builder -> {
+             })) {
+            PBZ2ChangesetReader.read(changesetsPath)
+                    .flatMap(bytes -> fromCallable(() -> readChangesets(bytes)))
+                    .doOnNext(cs -> pb.stepBy(cs.size()))
+                    .take(5000)
+                    .flatMap(cs -> fromRunnable(() -> writeToParquet(cs, writer)))
+                    .subscribeOn(parallel())
+                    .blockFirst();
+        }
+    }
+
+    private static void writeToParquet(List<OSMChangeset> changesets, ParquetWriter<Object> writer) {
+        for (var changeset : changesets) {
+            try {
+                writer.write(changeset.toGeneric());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
     public void initDbWithXML(Path changesetsPath) throws IOException {
         try (var pb = new ProgressBarBuilder()

@@ -6,6 +6,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -78,14 +82,6 @@ public class OSMChangesets {
         @JsonProperty("max_lat")
         public Double maxLat;
 
-        public String getBBOXasWKT() {
-            if (Objects.isNull(minLat) || Double.isNaN(minLat) || Double.isNaN(minLon) || Double.isNaN(maxLat) || Double.isNaN(maxLon)) {
-                return null;
-            }
-            // todo: what happens at antimeridian? Column is currently Polygon-Only
-            return String.format("SRID=4326;POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
-                    minLon, minLat, maxLon, minLat, maxLon, maxLat, minLon, maxLat, minLon, minLat);
-        }
 
         @JacksonXmlProperty(localName = "tag")
         @JacksonXmlElementWrapper(useWrapping = false)
@@ -150,6 +146,46 @@ public class OSMChangesets {
                 return null;
             }
             return OffsetDateTime.parse(s).toInstant();
+        }
+
+        public String getBBOXasWKT() {
+            if (Objects.isNull(minLat) || Double.isNaN(minLat) || Double.isNaN(minLon) || Double.isNaN(maxLat) || Double.isNaN(maxLon)) {
+                return null;
+            }
+            // todo: what happens at antimeridian? Column is currently Polygon-Only
+            return String.format("SRID=4326;POLYGON((%f %f, %f %f, %f %f, %f %f, %f %f))",
+                    minLon, minLat, maxLon, minLat, maxLon, maxLat, minLon, maxLat, minLon, minLat);
+        }
+
+        public static Schema getClassSchema() {
+            return SchemaBuilder.record("OSMChangeset")
+                    .namespace("org.heigit.ohsome.osm.changesets")
+                    .fields()
+                    .name("id").type().longType().noDefault()
+                    .name("created_at").type().stringType().noDefault()
+                    .name("closed_at").type().unionOf().nullType().and().stringType().endUnion().nullDefault()
+                    .name("open").type().booleanType().noDefault()
+                    .name("user").type().unionOf().nullType().and().stringType().endUnion().nullDefault()
+                    .name("uid").type().intType().noDefault()
+                    .name("geom").type().unionOf().nullType().and().stringType().endUnion().nullDefault()
+                    .name("tags").type().map().values().stringType().noDefault()
+                    .name("hashtags").type().array().items().stringType().noDefault()
+                    .endRecord();
+        }
+
+        public GenericRecord toGeneric() {
+            GenericRecordBuilder builder = new GenericRecordBuilder(getClassSchema());
+
+            builder.set("id", id);
+            builder.set("created_at", createdAt());
+            builder.set("closed_at", closedAt());
+            builder.set("open", isOpen());
+            builder.set("user", user());
+            builder.set("uid", userId());
+            builder.set("geom", getBBOXasWKT());
+            builder.set("hashtags", ChangesetHashtags.hashTags(tags()));
+            builder.set("tags", tags());
+            return builder.build();
         }
 
         public static class Tag {
