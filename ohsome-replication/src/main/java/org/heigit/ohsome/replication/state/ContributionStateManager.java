@@ -4,8 +4,7 @@ import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.parquet.ParquetUtil;
-import org.heigit.ohsome.replication.databases.ChangesetDB;
-import org.heigit.ohsome.replication.databases.ChangesetStoreForUpdate;
+import org.heigit.ohsome.replication.databases.IChangesetDB;
 import org.heigit.ohsome.replication.parser.OscParser;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
 import org.heigit.ohsome.replication.update.UpdateStore;
@@ -23,9 +22,9 @@ import java.util.Properties;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 
-public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
+public class ContributionStateManager extends AbstractStateManager<OSMEntity> implements IContributionStateManager {
 
-    public static ContributionStateManager openManager(String endpoint, Path directory, Path out, UpdateStore updateStore, ChangesetDB changesetDB) throws IOException {
+    public static ContributionStateManager openManager(String endpoint, Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
         var localStatePath = directory.resolve("state.txt");
         var localState = loadLocalState(localStatePath);
         return new ContributionStateManager(endpoint, directory, localState, out, updateStore, changesetDB);
@@ -34,7 +33,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     public static final String PLANET_OSM_MINUTELY = "https://planet.openstreetmap.org/replication/minute/";
     public static final String PLANET_OSM_HOURLY = "https://planet.openstreetmap.org/replication/hour/";
 
-    private final ChangesetStoreForUpdate changesetDB;
+    private final IChangesetDB changesetDB;
     private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
     private final UpdateStore updateStore;
 
@@ -43,7 +42,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> {
     private final Path localStatePath;
     private final Path out;
 
-    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, ChangesetStoreForUpdate changesetDB) throws IOException {
+    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
         super(endpoint + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz", 0);
         this.endpoint = endpoint;
         this.directory = directory;

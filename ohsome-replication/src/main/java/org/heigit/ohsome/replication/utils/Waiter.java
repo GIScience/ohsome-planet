@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.utils;
 
 import org.heigit.ohsome.replication.state.ContributionStateManager;
+import org.heigit.ohsome.replication.state.IContributionStateManager;
 import org.heigit.ohsome.replication.state.ReplicationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Waiter {
     private static final Logger logger = LoggerFactory.getLogger(Waiter.class);
     private final AtomicBoolean shutdownInitiated;
-    private final boolean justChangesets;
 
     private ReplicationState lastChangesetState;
     private ReplicationState lastContributionState;
@@ -22,11 +22,10 @@ public class Waiter {
     private boolean alreadyWaited = false;
     private boolean firstTimeAfterSuccess = true;
 
-    public Waiter(ReplicationState localChangesetState, ReplicationState localContributionState, AtomicBoolean shutdownInitiated, boolean justChangesets) {
+    public Waiter(ReplicationState localChangesetState, ReplicationState localContributionState, AtomicBoolean shutdownInitiated) {
         lastChangesetState = localChangesetState;
         lastContributionState = localContributionState;
         this.shutdownInitiated = shutdownInitiated;
-        this.justChangesets = justChangesets;
     }
 
     public boolean optionallyWaitAndTryAgain(ReplicationState remoteChangesetState) throws InterruptedException {
@@ -83,11 +82,7 @@ public class Waiter {
         }
     }
 
-    public void registerLastContributionState(ContributionStateManager contributionStateManager) throws IOException {
-        if (justChangesets) {
-            return;
-        }
-
+    public void registerLastContributionState(IContributionStateManager contributionStateManager) throws IOException {
         var remoteContributionState = contributionStateManager.fetchRemoteState();
         if (!remoteContributionState.equals(lastContributionState)) {
             lastContributionState = remoteContributionState;

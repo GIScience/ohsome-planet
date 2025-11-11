@@ -24,7 +24,7 @@ import java.util.*;
 
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
-public class ChangesetDB implements ChangesetStoreForUpdate {
+public class ChangesetDB implements IChangesetDB {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetDB.class);
     private static final HikariConfig config = new HikariConfig();
     private final HikariDataSource dataSource;

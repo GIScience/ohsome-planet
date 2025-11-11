@@ -1,15 +1,18 @@
 package org.heigit.ohsome.replication.databases;
 
 import org.heigit.ohsome.osm.changesets.Changesets;
+import org.heigit.ohsome.replication.state.ReplicationState;
 
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-public interface ChangesetStoreForUpdate extends Changesets, AutoCloseable {
+import static java.time.Instant.now;
 
-    ChangesetStoreForUpdate NOOP = new ChangesetStoreForUpdate() {
+public interface IChangesetDB extends Changesets, AutoCloseable {
+
+    IChangesetDB NOOP = new IChangesetDB() {
         @Override
         public void close() throws Exception {
 
@@ -24,13 +27,22 @@ public interface ChangesetStoreForUpdate extends Changesets, AutoCloseable {
         public void pendingChangesets(Set<Long> ids) throws SQLException {
 
         }
+
+        @Override
+        public ReplicationState getLocalState() throws SQLException {
+            return new ReplicationState(now(), 1);
+        }
+
     };
 
-    static ChangesetStoreForUpdate noop() {return NOOP;}
+    static IChangesetDB noop() {return NOOP;}
     public
 
     @Override
     <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception;
 
     void pendingChangesets(Set<Long> ids) throws SQLException;
+
+    ReplicationState getLocalState() throws SQLException;
+
 }
