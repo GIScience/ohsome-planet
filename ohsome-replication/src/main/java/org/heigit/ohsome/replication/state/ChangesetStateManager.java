@@ -26,7 +26,7 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
-public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
+public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> implements IChangesetStateManager {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetStateManager.class);
     public static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
     private static ChangesetDB changesetDB;

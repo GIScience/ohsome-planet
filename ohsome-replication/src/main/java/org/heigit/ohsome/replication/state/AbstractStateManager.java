@@ -128,7 +128,7 @@ public abstract class AbstractStateManager<T> {
 
         while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
             var minutes = Duration.between(targetMinute, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
-            remoteState = getRemoteReplication(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset);
+            remoteState = getRemoteReplication(Math.max(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset, 1));
             logger.debug("Found remote state state {}", remoteState);
 
             if (replicationMap.putIfAbsent(remoteState.getSequenceNumber(), remoteState) != null) {

@@ -1,9 +1,13 @@
 package org.heigit.ohsome.replication;
 
 import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.databases.IChangesetDB;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
+import org.heigit.ohsome.replication.state.IChangesetStateManager;
+import org.heigit.ohsome.replication.state.IContributionStateManager;
+import org.heigit.ohsome.replication.update.UpdateStore;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;
@@ -21,7 +25,7 @@ public class ReplicationManager {
 
     public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean overwrite) throws IOException, SQLException {
         try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
-            if (overwrite){
+            if (overwrite) {
                 changesetDb.truncateChangesetTables();
             }
 
@@ -31,7 +35,8 @@ public class ReplicationManager {
         }
     }
 
-    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets) throws Exception {
+
+    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets, boolean justContributions) throws Exception {
         var lock = new ReentrantLock();
         lock.lock();
         var shutdownInitiated = new AtomicBoolean(false);
@@ -41,10 +46,12 @@ public class ReplicationManager {
         });
         Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-        try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
-             var changesetDb = new ChangesetDB(changesetDbUrl)) {
-            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb);
+        try (
+                var updateStore = !justChangesets ? UpdateStoreRocksDb.open(directory, 10 << 20, true) : UpdateStore.noop();
+                var changesetDb = !justContributions ? new ChangesetDB(changesetDbUrl) : IChangesetDB.noop();
+        ) {
+            var contributionManager = !justChangesets ? ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb) : IContributionStateManager.noop();
+            var changesetManager = !justContributions ? new ChangesetStateManager(replicationChangesetUrl, (ChangesetDB) changesetDb) : IChangesetStateManager.noop();
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
@@ -52,8 +59,7 @@ public class ReplicationManager {
             var waiter = new Waiter(
                     changesetManager.getLocalState(),
                     contributionManager.getLocalState(),
-                    shutdownInitiated,
-                    justChangesets
+                    shutdownInitiated
             );
 
             do {
@@ -66,11 +72,6 @@ public class ReplicationManager {
                 waiter.registerLastContributionState(contributionManager);
 
                 fetchChangesets(changesetManager);
-
-                if (justChangesets) {
-                    continue;
-                }
-
                 contributionManager.updateTowardsRemoteState();
             } while (!shutdownInitiated.get() && continuous);
         } finally {
@@ -79,8 +80,16 @@ public class ReplicationManager {
         return 0;
     }
 
-    private static void fetchChangesets(ChangesetStateManager changesetManager) {
+    private static void fetchChangesets(IChangesetStateManager changesetManager) {
         changesetManager.updateTowardsRemoteState();
         changesetManager.updateUnclosedChangesets();
+    }
+
+    public static int update(Path directory, Path out, String replicationEndpoint, boolean continuous) throws Exception {
+        return update(directory, out, replicationEndpoint, null, null, continuous, false, true);
+    }
+
+    public static int update(String changesetDbUrl, String replicationChangesetsUrl, boolean continuous) throws Exception {
+        return update(null, null, null, changesetDbUrl, replicationChangesetsUrl, continuous, true, false);
     }
 }
