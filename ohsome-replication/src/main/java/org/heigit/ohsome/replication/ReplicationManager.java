@@ -34,7 +34,7 @@ public class ReplicationManager {
         }
     }
 
-    public static int initChangesets(Path changesetsPath, Path output, boolean overwrite) throws IOException, SQLException {
+    public static int initChangesets(Path changesetsPath, Path output, boolean overwrite) throws IOException {
         if (overwrite){
             MoreFiles.deleteRecursively(output, RecursiveDeleteOption.ALLOW_INSECURE);
             Files.createDirectories(output);

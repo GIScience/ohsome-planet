@@ -149,7 +149,6 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> {
             PBZ2ChangesetReader.read(changesetsPath)
                     .flatMap(bytes -> fromCallable(() -> readChangesets(bytes)))
                     .doOnNext(cs -> pb.stepBy(cs.size()))
-                    .take(5000)
                     .flatMap(cs -> fromRunnable(() -> writeToParquet(cs, writer)))
                     .subscribeOn(parallel())
                     .blockFirst();
