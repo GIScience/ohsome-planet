@@ -33,8 +33,10 @@ RUN $JAVA_HOME/bin/jlink \
     --add-modules java.base \
     --add-modules java.logging \
     --add-modules java.management \
+    --add-modules java.naming \
     --add-modules java.sql \
     --add-modules java.xml \
+    --add-modules jdk.crypto.ec \
     --add-modules jdk.unsupported \
     --strip-debug \
     --no-man-pages \
