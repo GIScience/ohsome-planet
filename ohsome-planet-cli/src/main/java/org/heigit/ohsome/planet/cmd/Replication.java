@@ -27,9 +27,9 @@ public class Replication implements Callable<Integer> {
         Path countryFilePath;
         @Option(names = {"--replication"}, defaultValue = "https://planet.openstreetmap.org/replication/minute/", description = "Endpoint for contributions, Default: ${DEFAULT-VALUE}")
         URL replicationElementsUrl;
-        @Option(names = {"--output"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}")
+        @Option(names = {"--output"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}", required = true)
         Path out;
-        @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store")
+        @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
         Path directory;
     }
 
@@ -43,7 +43,7 @@ public class Replication implements Callable<Integer> {
 
 
     private static class ChangesetParameters {
-        @Option(names = {"--changeset-db"}, description = "full jdbc:url to changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+        @Option(names = {"--changeset-db"}, description = "full jdbc:url to changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD", required = true)
         String changesetDbUrl;
 
         @Option(names = {"--replication-changesets"}, defaultValue = "https://planet.openstreetmap.org/replication/changesets", description = "Replication endpoint for changesets, Default: ${DEFAULT-VALUE}")
