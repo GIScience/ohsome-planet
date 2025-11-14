@@ -113,7 +113,7 @@ You can inspect your results easily using [DuckDB](https://duckdb.org/docs/insta
 
 ```sql
 -- list all columns
-DESCRIBE FROM read_parquet('out-karlruhe/*.parquet');
+DESCRIBE FROM read_parquet('out-karlsruhe/*.parquet');
 
 -- result
 ┌───────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬─────────┬─────────┬─────────┬─────────┐
