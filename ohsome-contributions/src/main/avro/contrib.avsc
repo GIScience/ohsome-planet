@@ -86,18 +86,18 @@
       "name": "tags",
       "type": {
         "type": "map",
-        "values": "string",
-        "default": {}
+        "values": "string"
       },
+      "default": {},
       "doc": "tag key values pairs of this OSM element"
     },
     {
       "name": "tags_before",
       "type": {
         "type": "map",
-        "values": "string",
-        "default": {}
+        "values": "string"
       },
+      "default": {},
       "doc": "previous version of the tag key values pairs of this OSM element"
     },
     {
@@ -236,11 +236,13 @@
           {
             "name": "level",
             "type": "int",
+            "default": -1,
             "doc": "resolution, roughly represents extend / size of the OSM elements, very large OSM elements will be grouped into a low level, nodes will always fall in the highest level"
           },
           {
             "name": "code",
             "type": "long",
+            "default": 0,
             "doc": "index value used for sorting"
           }
         ]
@@ -356,9 +358,9 @@
       "name": "countries",
       "type": {
         "type": "array",
-        "items": "string",
-        "default": []
+        "items": "string"
       },
+      "default": [],
       "doc": "list of ISO A3 country codes"
     },
     {
