@@ -2,6 +2,7 @@ package org.heigit.ohsome.contributions;
 
 import com.google.common.collect.Streams;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -12,11 +13,20 @@ import java.util.concurrent.Callable;
 @Command(name = "fileinfo",
         description = "print header for osm pbf file")
 public class FileInfo implements Callable<Integer> {
+
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
+    boolean usageHelpRequested;
+
     @Option(names = {"--pbf"}, required = true)
     private Path path;
 
     @Override
     public Integer call() throws Exception {
+        if (usageHelpRequested) {
+            CommandLine.usage(this, System.out);
+            return 0;
+        }
+
         var pbf = OSMPbf.open(path);
         printInfo(pbf);
         return 0;
