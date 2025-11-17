@@ -2,6 +2,7 @@ package org.heigit.ohsome.replication.databases;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.io.Resources;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.osm.changesets.ChangesetDb;
@@ -17,16 +18,25 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
 
+import static java.lang.System.getenv;
+import static java.util.Optional.ofNullable;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
 
 public class ChangesetDB implements IChangesetDB {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetDB.class);
     private static final HikariConfig config = new HikariConfig();
+
+    public static final String OHSOME_PLANET_DB_USER = "OHSOME_PLANET_DB_USER";
+    public static final String OHSOME_PLANET_DB_PASSWORD = "OHSOME_PLANET_DB_PASSWORD";
+    public static final String OHSOME_PLANET_DB_POOLSIZE = "OHSOME_PLANET_DB_POOLSIZE";
+    public static final String OHSOME_PLANET_DB_SCHEMA = "OHSOME_PLANET_DB_SCHEMA";
+
     private final HikariDataSource dataSource;
 
     @Override
@@ -38,6 +48,12 @@ public class ChangesetDB implements IChangesetDB {
 
     public ChangesetDB(String connectionString) {
         config.setJdbcUrl(connectionString);
+
+        ofNullable(getenv(OHSOME_PLANET_DB_PASSWORD)).ifPresent(config::setPassword);
+        ofNullable(getenv(OHSOME_PLANET_DB_USER)).ifPresent(config::setUsername);
+        ofNullable(getenv(OHSOME_PLANET_DB_POOLSIZE)).map(Integer::parseInt).ifPresent(config::setMaximumPoolSize);
+        ofNullable(getenv(OHSOME_PLANET_DB_SCHEMA)).ifPresent(config::setSchema);
+
         dataSource = new HikariDataSource(config);
         getterDb = new ChangesetDb(dataSource);
     }
@@ -69,7 +85,7 @@ public class ChangesetDB implements IChangesetDB {
     }
 
 
-    public void setInitialState(ReplicationState state) throws  SQLException{
+    public void setInitialState(ReplicationState state) throws SQLException {
         try (
                 var conn = dataSource.getConnection();
                 var pstmt = conn.prepareStatement("""
@@ -280,9 +296,16 @@ public class ChangesetDB implements IChangesetDB {
     public void truncateChangesetTables() throws SQLException {
         logger.info("Truncating changeset tables.");
 
-        var sql = "Truncate changesets; truncate changeset_state;"                ;
+        var sql = "Truncate changesets; truncate changeset_state;";
         try (var conn = dataSource.getConnection();
              var stmt = conn.prepareStatement(sql)) {
+            stmt.execute();
+        }
+    }
+
+    public void createTablesIfNotExists() throws SQLException, IOException {
+        try (var conn = dataSource.getConnection();
+             var stmt = conn.prepareStatement(Resources.toString(Resources.getResource("setupChangesetDB.sql"), StandardCharsets.UTF_8))) {
             stmt.execute();
         }
     }
