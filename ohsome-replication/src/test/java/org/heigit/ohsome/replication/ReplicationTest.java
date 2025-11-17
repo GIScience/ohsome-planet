@@ -35,7 +35,7 @@ class ReplicationTest {
 
     @BeforeAll
     static void setUp() {
-        postgresContainer.withInitScripts("setupDB/setupChangesetDB.sql", "setupDB/initializeDataForReplicationUpdate.sql");
+        postgresContainer.withInitScripts("setupChangesetDB.sql", "setupDB/initializeDataForReplicationUpdate.sql");
         postgresContainer.start();
         dbUrl = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
     }

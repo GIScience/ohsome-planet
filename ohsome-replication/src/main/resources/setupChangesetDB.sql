@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 
-CREATE TABLE changesets
+CREATE TABLE IF NOT EXISTS changesets
 (
     id                 int8 NOT NULL UNIQUE,
     created_at         timestamptz NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE changesets
 );
 
 
-CREATE TABLE changeset_state
+CREATE TABLE IF NOT EXISTS changeset_state
 (
     last_sequence      bigint NOT NULL,
     last_timestamp     timestamptz NOT NULL
