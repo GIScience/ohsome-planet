@@ -305,7 +305,10 @@ public class ChangesetDB implements IChangesetDB {
 
     public void createTablesIfNotExists() throws SQLException, IOException {
         try (var conn = dataSource.getConnection();
-             var stmt = conn.prepareStatement(Resources.toString(Resources.getResource("setupChangesetDB.sql"), StandardCharsets.UTF_8))) {
+             var stmt = conn.prepareStatement(
+                     Resources.toString(Resources.getResource("setupChangesetDB.sql"), StandardCharsets.UTF_8)
+             )
+        ) {
             stmt.execute();
         }
     }
