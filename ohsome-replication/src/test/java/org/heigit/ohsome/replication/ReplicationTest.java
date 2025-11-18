@@ -1,18 +1,22 @@
 package org.heigit.ohsome.replication;
 
 import com.google.common.io.MoreFiles;
+import com.google.common.io.Resources;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.replication.databases.ChangesetDB;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,17 +38,38 @@ class ReplicationTest {
     private static String dbUrl;
 
     @BeforeAll
-    static void setUp() {
-        postgresContainer.withInitScripts("setupChangesetDB.sql", "setupDB/initializeDataForReplicationUpdate.sql");
+    static void setup() {
+        postgresContainer.withInitScripts("setupChangesetDB.sql");
         postgresContainer.start();
         dbUrl = postgresContainer.getJdbcUrl() + "&user=" + postgresContainer.getUsername() + "&password=" + postgresContainer.getPassword();
     }
 
-    @AfterAll
-    static void tearDown() {
-        postgresContainer.stop();
+    @BeforeEach
+    void setUp() throws SQLException, IOException {
+        var config = new HikariConfig();
+        config.setJdbcUrl(dbUrl);
+        try (var datasource = new HikariDataSource(config);
+             var conn = datasource.getConnection();
+             var st = conn.prepareStatement(
+                     Resources.toString(Resources.getResource("setupDB/initializeDataForReplicationUpdate.sql"), StandardCharsets.UTF_8)
+             )
+        ) {
+            st.execute();
+        }
+
     }
 
+    @AfterEach
+    void tearDown() throws SQLException {
+        try (var db = new ChangesetDB(dbUrl)) {
+            db.truncateChangesetTables();
+        }
+    }
+
+    @AfterAll
+    static void teardown() {
+        postgresContainer.stop();
+    }
 
     @Test
     void testUpdateOnlyChangesets() throws Exception {
