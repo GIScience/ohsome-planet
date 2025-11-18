@@ -7,7 +7,7 @@ import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.replication.ReplicationEntity;
-import org.heigit.ohsome.replication.update.UpdateStore;
+import org.heigit.ohsome.replication.UpdateStore;
 import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.*;
 

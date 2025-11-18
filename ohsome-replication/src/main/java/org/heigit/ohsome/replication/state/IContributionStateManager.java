@@ -1,5 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
+import org.heigit.ohsome.replication.ReplicationState;
+
 import java.io.IOException;
 
 import static java.time.Instant.EPOCH;

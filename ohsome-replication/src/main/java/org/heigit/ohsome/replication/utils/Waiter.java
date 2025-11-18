@@ -1,8 +1,7 @@
 package org.heigit.ohsome.replication.utils;
 
-import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.state.IContributionStateManager;
-import org.heigit.ohsome.replication.state.ReplicationState;
+import org.heigit.ohsome.replication.ReplicationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

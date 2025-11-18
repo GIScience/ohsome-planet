@@ -12,6 +12,7 @@ import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.changesets.Changesets;
+import org.heigit.ohsome.replication.UpdateStore;
 import reactor.core.publisher.Flux;
 
 import java.util.*;

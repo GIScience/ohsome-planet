@@ -41,6 +41,8 @@
         <module>osm-types</module>
         <module>osm-xml</module>
         <module>osm-changesets</module>
+        <module>ohsome-changesets</module>
+        <module>ohsome-replication-tbd</module>
     </modules>
 
     <dependencyManagement>

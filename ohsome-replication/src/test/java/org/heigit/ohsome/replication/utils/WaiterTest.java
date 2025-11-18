@@ -1,6 +1,6 @@
 package org.heigit.ohsome.replication.utils;
 
-import org.heigit.ohsome.replication.state.ReplicationState;
+import org.heigit.ohsome.replication.ReplicationState;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 

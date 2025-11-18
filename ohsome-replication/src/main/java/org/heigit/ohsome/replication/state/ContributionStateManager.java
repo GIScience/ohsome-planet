@@ -3,11 +3,12 @@ package org.heigit.ohsome.replication.state;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.heigit.ohsome.parquet.ParquetUtil;
-import org.heigit.ohsome.replication.databases.IChangesetDB;
-import org.heigit.ohsome.replication.parser.OscParser;
+import org.heigit.ohsome.replication.ReplicationState;
+import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
-import org.heigit.ohsome.replication.update.UpdateStore;
+import org.heigit.ohsome.replication.UpdateStore;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;

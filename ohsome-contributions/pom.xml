@@ -20,7 +20,11 @@
             <artifactId>osm-pbf</artifactId>
             <version>${project.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-replication-tbd</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>ohsome-parquet</artifactId>

@@ -1,6 +1,5 @@
 package org.heigit.ohsome.replication;
 
-import com.google.common.collect.Maps;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.util.io.Output;
@@ -39,7 +38,7 @@ public class ReplicationEntity {
     }
 
 
-    public static OSMEntity.OSMNode  deserializeNode(long id, byte[] bytes) {
+    public static OSMEntity.OSMNode deserializeNode(long id, byte[] bytes) {
         var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
         var entityInfo = deserializeEntity(input);
         var lon = input.readS64() / 1_0000000.0;
@@ -61,7 +60,7 @@ public class ReplicationEntity {
         var refs = new ArrayList<Long>(refsSize);
         var lastRef = 0L;
         for (var i = 0; i < refsSize; i++) {
-            lastRef = lastRef  + input.readS64();
+            lastRef = lastRef + input.readS64();
             refs.add(lastRef);
         }
         return new OSMEntity.OSMWay(id,
@@ -89,8 +88,8 @@ public class ReplicationEntity {
     }
 
 
-
-    private record EntityInfo(Instant timestamp, int version, Map<String, String> tags) {}
+    private record EntityInfo(Instant timestamp, int version, Map<String, String> tags) {
+    }
 
     private static void serializeEntity(OSMEntity entity, Output output) {
         output.writeU64(entity.timestamp().getEpochSecond());
@@ -99,7 +98,7 @@ public class ReplicationEntity {
 //        output.writeU32(entity.userId());
 //        output.writeUTF8(entity.user());
         output.writeU32(entity.tags().size());
-        for(var tag : entity.tags().entrySet()) {
+        for (var tag : entity.tags().entrySet()) {
             output.writeUTF8(tag.getKey());
             output.writeUTF8(tag.getValue());
         }
@@ -110,7 +109,7 @@ public class ReplicationEntity {
 //        var changeset = input.readU64();
         var version = input.readU32();
         var tagsSize = input.readU32();
-        var tags = Maps.<String, String>newHashMapWithExpectedSize(tagsSize);
+        var tags = new HashMap<String, String>();
         for (var i = 0; i < tagsSize; i++) {
             tags.put(input.readUTF8(), input.readUTF8());
         }

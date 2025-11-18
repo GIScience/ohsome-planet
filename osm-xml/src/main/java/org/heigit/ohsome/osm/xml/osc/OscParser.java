@@ -1,7 +1,6 @@
-package org.heigit.ohsome.replication.parser;
+package org.heigit.ohsome.osm.xml.osc;
 
 
-import org.heigit.ohsome.oshdb.osm.OSMCoordinates;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
@@ -29,7 +28,8 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
     private static final XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
 
     private final XMLStreamReader reader;
-
+    private final List<OSMMember> members = new ArrayList<>();
+    private final Map<String, String> tags = new HashMap<>();
     private long id = -1;
     private int version = -1;
     private Instant timestamp = EPOCH;
@@ -37,9 +37,6 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
     private int uid = -1;
     private String user = "";
     private boolean visible = false;
-    private final List<OSMMember> members = new ArrayList<>();
-    private final Map<String, String> tags = new HashMap<>();
-
     private Exception exception = null;
     private OSMEntity next = null;
     private double lon;
@@ -59,11 +56,9 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         openChangeContainer();
     }
 
-
-    private int lonLatConversion(double d) {
-        return (int) (d * OSMCoordinates.GEOM_PRECISION_TO_LONG);
+    private static void unknownAttribute(String attrName) throws XMLParseException {
+        throw new XMLParseException(format("unknown attribute: %s", attrName));
     }
-
 
     private boolean openChangeContainer() throws XMLParseException, XMLStreamException {
         int eventType = nextEvent(reader);
@@ -132,10 +127,6 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
             throw new XMLParseException(format("missing key(%s) or value(%s)", key, value));
         }
         tags.put(key, value);
-    }
-
-    private static void unknownAttribute(String attrName) throws XMLParseException {
-        throw new XMLParseException(format("unknown attribute: %s", attrName));
     }
 
     private void parseWayMember() throws XMLParseException {
@@ -318,12 +309,12 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         };
     }
 
-    private record Event(int event, boolean skip) {
-    }
-
     @Override
     public void close() throws Exception {
         reader.close();
+    }
+
+    private record Event(int event, boolean skip) {
     }
 }
 

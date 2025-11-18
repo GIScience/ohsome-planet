@@ -1,6 +1,4 @@
-package org.heigit.ohsome.replication.state;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
+package org.heigit.ohsome.replication;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -40,7 +38,7 @@ public class ReplicationState {
         this.endpoint = props.getProperty("endpoint");
     }
 
-    public ReplicationState(@JsonProperty("timestamp") Instant timestamp, @JsonProperty("sequenceNumber") int sequenceNumber) {
+    public ReplicationState(Instant timestamp, int sequenceNumber) {
         this.timestamp = timestamp;
         this.sequenceNumber = sequenceNumber;
     }

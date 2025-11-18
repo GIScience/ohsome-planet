@@ -1,4 +1,4 @@
-package org.heigit.ohsome.replication.databases;
+package org.heigit.ohsome.changesets;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +8,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.osm.changesets.ChangesetDb;
 import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
 import org.heigit.ohsome.osm.changesets.Changesets;
-import org.heigit.ohsome.replication.state.ReplicationState;
+import org.heigit.ohsome.replication.ReplicationState;
 import org.postgresql.PGConnection;
 import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
@@ -304,6 +304,8 @@ public class ChangesetDB implements IChangesetDB {
     }
 
     public void createTablesIfNotExists() throws SQLException, IOException {
+        logger.trace("Creating changeset tables if not exists.");
+
         try (var conn = dataSource.getConnection();
              var stmt = conn.prepareStatement(
                      Resources.toString(Resources.getResource("setupChangesetDB.sql"), StandardCharsets.UTF_8)

@@ -1,7 +1,8 @@
 package org.heigit.ohsome.replication.state;
 
 
-import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.ReplicationState;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

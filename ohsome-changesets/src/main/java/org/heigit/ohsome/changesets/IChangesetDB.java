@@ -1,7 +1,7 @@
-package org.heigit.ohsome.replication.databases;
+package org.heigit.ohsome.changesets;
 
 import org.heigit.ohsome.osm.changesets.Changesets;
-import org.heigit.ohsome.replication.state.ReplicationState;
+import org.heigit.ohsome.replication.ReplicationState;
 
 import java.sql.SQLException;
 import java.util.HashMap;
