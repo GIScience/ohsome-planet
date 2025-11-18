@@ -11,6 +11,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import org.heigit.ohsome.osm.OSMEntity;
 
+// todo: unused?
 public class OSMXmlIterator implements Iterator<OSMEntity>, AutoCloseable {
 
   private static final XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();

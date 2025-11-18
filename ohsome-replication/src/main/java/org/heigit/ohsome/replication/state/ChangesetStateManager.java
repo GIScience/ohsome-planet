@@ -4,7 +4,8 @@ package org.heigit.ohsome.replication.state;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.osm.changesets.OSMChangesets;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
-import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.replication.ReplicationState;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -77,6 +78,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
         return OSMChangesets.readChangesets(input).iterator();
     }
 
+    // todo: both implement this, but without any overlap in code
     public void updateTowardsRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
         var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;

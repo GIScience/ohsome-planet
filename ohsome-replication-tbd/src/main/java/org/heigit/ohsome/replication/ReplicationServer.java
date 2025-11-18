@@ -51,6 +51,7 @@ public class ReplicationServer {
         this.endpoint = endpoint.toString();
     }
 
+    // todo: decide on this vs whats in estimateLocalReplicationState
     public int tryFindStartSequenceByTimestamp(Instant timestamp) throws IOException {
         var latestState = state();
         var latestTimestamp = timestamp(latestState);

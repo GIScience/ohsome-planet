@@ -1,5 +1,6 @@
 package org.heigit.ohsome.replication.state;
 
+import org.heigit.ohsome.replication.ReplicationState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,6 +90,8 @@ public abstract class AbstractStateManager<T> {
         return new GZIPInputStream(getFileStream(create(this.targetUrl + replicationPath + this.replicationFileName).toURL()));
     }
 
+
+    // todo: only used in contributions - changesets uses combination of getFile and parse
     protected List<T> fetchReplicationBatch(ReplicationState state) throws Exception {
         return fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(state.getSequenceNumber()));
     }

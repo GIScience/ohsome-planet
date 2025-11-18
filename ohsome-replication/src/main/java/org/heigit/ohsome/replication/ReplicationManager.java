@@ -1,13 +1,12 @@
 package org.heigit.ohsome.replication;
 
-import org.heigit.ohsome.replication.databases.ChangesetDB;
-import org.heigit.ohsome.replication.databases.IChangesetDB;
+import org.heigit.ohsome.changesets.ChangesetDB;
+import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.state.IChangesetStateManager;
 import org.heigit.ohsome.replication.state.IContributionStateManager;
-import org.heigit.ohsome.replication.update.UpdateStore;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.io.IOException;

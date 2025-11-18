@@ -18,6 +18,7 @@ import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
 
+// todo: only used in OSMXmlIterator
 public class OSMXmlEntityReader {
 
   private long id = -1;

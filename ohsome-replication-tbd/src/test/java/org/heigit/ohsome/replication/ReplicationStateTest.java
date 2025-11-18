@@ -1,4 +1,4 @@
-package org.heigit.ohsome.replication.state;
+package org.heigit.ohsome.replication;
 
 import org.junit.jupiter.api.Test;
 

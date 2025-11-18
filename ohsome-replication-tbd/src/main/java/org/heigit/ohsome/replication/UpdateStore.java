@@ -1,4 +1,4 @@
-package org.heigit.ohsome.replication.update;
+package org.heigit.ohsome.replication;
 
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;

@@ -27,7 +27,7 @@ import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.replication.ReplicationServer;
-import org.heigit.ohsome.replication.update.UpdateStore;
+import org.heigit.ohsome.replication.UpdateStore;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.StringAppendOperator;

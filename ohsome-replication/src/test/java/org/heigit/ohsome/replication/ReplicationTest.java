@@ -4,7 +4,7 @@ import com.google.common.io.MoreFiles;
 import com.google.common.io.Resources;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.heigit.ohsome.replication.databases.ChangesetDB;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.junit.jupiter.api.*;
 import org.testcontainers.containers.PostgreSQLContainer;

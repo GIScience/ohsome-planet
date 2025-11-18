@@ -12,6 +12,7 @@ import java.util.stream.Stream;
 
 import static org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner.readCSV;
 
+// todo: unused?
 public class SpatialIndexJoiner implements SpatialJoiner {
 
     public static SpatialJoiner fromCSV(Path path) {

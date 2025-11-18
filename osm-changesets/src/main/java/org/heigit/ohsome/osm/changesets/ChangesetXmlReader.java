@@ -13,6 +13,8 @@ import java.util.NoSuchElementException;
 
 import static javax.xml.stream.XMLStreamConstants.*;
 
+
+@Deprecated
 public class ChangesetXmlReader<T> implements Iterator<T> {
     public interface Factory<T> {
         T apply(long id, Instant created, Instant closed, String user, int userId, double minLon, double minLat, double maxLon, double maxLat, int numChanges, int commentsCount, Map<String, String> tags);
