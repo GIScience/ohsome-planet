@@ -197,7 +197,7 @@ public abstract class Transformer {
     protected Summary process(Processor processor, Progress progress, Parquet writer) throws Exception {
         var minorSSTPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
         var replicationSSTPath = replicationSstDirectory.resolve("%03d.sst".formatted(processor.id()));
-        try ( var option = RocksUtil.defaultOptions().setCreateIfMissing(true);
+        try ( var option = RocksUtil.defaultOptions(true);
               var minorSSTWriter = new SstWriter(minorSSTPath, option);
               var replicationSSTWriter = new SstWriter(replicationSSTPath, option)) {
             return process(processor, progress, writer, minorSSTWriter, replicationSSTWriter);

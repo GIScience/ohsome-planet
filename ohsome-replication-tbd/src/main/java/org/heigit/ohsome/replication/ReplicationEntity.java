@@ -10,7 +10,6 @@ import java.util.*;
 
 public class ReplicationEntity {
 
-
     public static void serialize(OSMEntity.OSMNode node, Output output) {
         serializeEntity(node, output);
         output.writeS64(Math.round(node.lon() * 1_0000000L));
@@ -28,6 +27,21 @@ public class ReplicationEntity {
             lastRef = ref;
         }
     }
+
+    public static void serialize(OSMEntity.OSMRelation relation, Output output) {
+        serializeEntity(relation, output);
+        output.writeU32(relation.minorVersion());
+        output.writeU32(relation.edits());
+        output.writeU32(relation.members().size());
+        var lastId = 0L;
+        for (var member : relation.members()) {
+            output.writeU32(member.type().id());
+            output.writeS64(member.id() - lastId);
+            output.writeUTF8(member.role());
+            lastId = member.id();
+        }
+    }
+
 
     public static void serialize(Set<Long> set, Output output) {
         var last = 0L;

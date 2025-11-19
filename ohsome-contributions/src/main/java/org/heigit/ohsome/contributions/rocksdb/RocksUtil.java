@@ -107,10 +107,13 @@ public class RocksUtil {
         return writeOptions;
     }
 
-    public static byte[] key(long key) {
-        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(key).array();
-    }
 
+    public static byte[] key(long key) {
+        return keyBuffer(key).array();
+    }
+    public static ByteBuffer keyBuffer(long key) {
+        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(key);
+    }
     public static RocksDB open(Options options, Path path) throws IOException, RocksDBException {
         return RocksDB.open(options, path.toString());
     }
