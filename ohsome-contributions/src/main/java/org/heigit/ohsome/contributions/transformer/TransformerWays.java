@@ -19,6 +19,7 @@ import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 
 import java.io.IOException;
@@ -140,14 +141,16 @@ public class TransformerWays extends Transformer {
                 batch.add(osh);
             }
 
-            try (var writeOpts = new WriteOptions()) {
+            try (var writeOpts = new WriteOptions();
+                 var writeBatch = new WriteBatch()) {
                 for (var entry : backRefsNodeWays.entrySet()) {
                     outputBackRefs.reset();
                     var key = RocksUtil.key(entry.getKey());
                     var set = entry.getValue();
                     ReplicationEntity.serialize(set, outputBackRefs);
-                    nodeWayBackRefs.merge(writeOpts, key, 0, key.length, outputBackRefs.array, 0, outputBackRefs.length);
+                    writeBatch.merge(key, outputBackRefs.array());
                 }
+                nodeWayBackRefs.write(writeOpts, writeBatch);
             }
 
 

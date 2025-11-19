@@ -12,6 +12,8 @@ import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
+import org.heigit.ohsome.contributions.minor.SstWriter;
+import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.transformer.Transformer;
@@ -26,11 +28,14 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.replication.ReplicationServer;
 import org.heigit.ohsome.replication.UpdateStore;
+import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.StringAppendOperator;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
 import picocli.CommandLine;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
@@ -54,6 +59,7 @@ import static java.nio.file.StandardOpenOption.READ;
 import static org.heigit.ohsome.contributions.FileInfo.printInfo;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
+import static org.heigit.ohsome.contributions.transformer.Transformer.moveSstToRocksDb;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -155,7 +161,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
         }
 
-        var summaryRelations = processRelations(pbfPath, temp, out, parallel, blobTypes, keyFilter, changesetDb);
+        var summaryRelations = processRelations(pbfPath, temp, out, replication, parallel, blobTypes, keyFilter, changesetDb);
 
         System.out.println("summaryNodes = " + summaryNodes);
         System.out.println("summaryWays = " + summaryWays);
@@ -178,11 +184,22 @@ public class Contributions2Parquet implements Callable<Integer> {
         return CommandLine.ExitCode.OK;
     }
 
-    private Transformer.Summary processRelations(Path pbfPath, Path temp, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
+    private Transformer.Summary processRelations(Path pbfPath, Path temp, Path output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws Exception {
+        var replicationPath = UpdateStore.updatePath(replication, RELATION);
+        Files.createDirectories(replicationPath);
+
+        var replicationIngestPath = replicationPath.resolve("ingest");
+
         try (var ch = FileChannel.open(pbfPath, READ);
              var options = defaultOptions(true);
-             var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
-             var minorWaysDb = RocksDB.open(options, output.resolve("minorWays").toString());
+             var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
+             var minorWaysDb = RocksDB.open(options, temp.resolve("minorWays").toString());
+
+             var optionsWithMerge = defaultOptions(true)
+                     .setMergeOperator(new StringAppendOperator((char) 0));
+             var nodeRelationBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_RELATION));
+             var wayRelationBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.WAY_RELATION));
+
              var progress = new ProgressBarBuilder()
                      .setTaskName("process %8s".formatted(RELATION))
                      .setInitialMax(blobTypes.get(RELATION).size())
@@ -212,33 +229,81 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var replicationLatestTimestamp = 0L;
             var replicationElementsCount = 0L;
+            var backRefsNodeRelation = new HashMap<Long, Set<Long>>();
+            var backRefsWayRelation = new HashMap<Long, Set<Long>>();
+            var outputBackRefs = new Output(4 << 10);
 
             var canceled = new AtomicBoolean(false);
             while (entities.hasNext() && !canceled.get()) {
-                var osh = getNextOSH(entities);
+                var batchNumber = 0;
+                try (var replicationSSTWriter = new SstWriter(replicationIngestPath.resolve("%03d.sst".formatted(batchNumber++)), options);) {
+                    var batchCounter = 0;
+                    while (entities.hasNext() && !canceled.get() && batchCounter++ < 100_000) {
+                        var osh = getNextOSH(entities);
 
-                var last = osh.getLast();
-                if (last.visible()) {
-                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
-                    replicationElementsCount++;
+                        var last = (OSMRelation) osh.getLast();
+                        if (last.visible()) {
+                            replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                            replicationElementsCount++;
 
-                }
+                            replicationSSTWriter.write(last.id(), o -> ReplicationEntity.serialize(last, o));
 
-                if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
-                    continue;
-                }
+                            backRefsNodeRelation.clear();
+                            backRefsWayRelation.clear();
 
-                var writer = writers.take();
-                contribWorkers.execute(() -> {
-                    try {
-                        processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
-                    } catch (Exception e) {
-                        canceled.set(true);
-                        System.err.println(e.getMessage());
-                    } finally {
-                        writers.add(writer);
+                            for (var member : last.members()) {
+                                switch (member.type()) {
+                                    case NODE ->
+                                            backRefsNodeRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                    case WAY ->
+                                            backRefsWayRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                    default -> {
+                                    }
+                                }
+                            }
+
+                            try (var writeOpts = new WriteOptions()) {
+                                try (var writeBatch = new WriteBatch()) {
+                                    for (var entry : backRefsNodeRelation.entrySet()) {
+                                        outputBackRefs.reset();
+                                        var key = RocksUtil.key(entry.getKey());
+                                        var set = entry.getValue();
+                                        ReplicationEntity.serialize(set, outputBackRefs);
+                                        writeBatch.merge(key, outputBackRefs.array());
+                                    }
+                                    nodeRelationBackRefs.write(writeOpts, writeBatch);
+                                }
+
+                                try (var writeBatch = new WriteBatch()) {
+                                    for (var entry : backRefsWayRelation.entrySet()) {
+                                        outputBackRefs.reset();
+                                        var key = RocksUtil.key(entry.getKey());
+                                        var set = entry.getValue();
+                                        ReplicationEntity.serialize(set, outputBackRefs);
+                                        writeBatch.merge(key, outputBackRefs.array());
+                                    }
+                                    wayRelationBackRefs.write(writeOpts, writeBatch);
+                                }
+                            }
+                        }
+
+                        if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
+                            continue;
+                        }
+
+                        var writer = writers.take();
+                        contribWorkers.execute(() -> {
+                            try {
+                                processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
+                            } catch (Exception e) {
+                                canceled.set(true);
+                                System.err.println(e.getMessage());
+                            } finally {
+                                writers.add(writer);
+                            }
+                        });
                     }
-                });
+                }
             }
 
             if (canceled.get()) {
@@ -248,6 +313,9 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var writer = writers.take();
                 writer.close(canceled.get());
             }
+
+            moveSstToRocksDb(replicationPath);
+
             return new Transformer.Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
         }
     }
