@@ -1,10 +1,8 @@
 package org.heigit.ohsome.replication.state;
 
 
-import org.heigit.ohsome.changesets.IChangesetDB;
-import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.changesets.ChangesetDB;
-import org.heigit.ohsome.replication.UpdateStore;
+import org.heigit.ohsome.replication.ReplicationState;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -13,19 +11,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 
-import static org.heigit.ohsome.replication.ReplicationServer.tryToFindStartFromTimestamp;
 import static org.junit.jupiter.api.Assertions.*;
 
 

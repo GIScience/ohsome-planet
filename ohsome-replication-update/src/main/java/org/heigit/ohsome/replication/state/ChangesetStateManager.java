@@ -50,7 +50,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
             logger.info("No local state detected for changesets, trying to estimate starting replication state");
             var maxChangesetDBTimestamp = changesetDB.getMaxLocalTimestamp();
             setInitialState(
-                    server.estimateLocalReplicationState(
+                    server.findStartStateByTimestamp(
                             maxChangesetDBTimestamp, fetchRemoteState()
                     )
             );
