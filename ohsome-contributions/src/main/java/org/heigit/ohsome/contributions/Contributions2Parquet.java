@@ -28,9 +28,7 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
-import org.heigit.ohsome.replication.ReplicationEntity;
-import org.heigit.ohsome.replication.ReplicationServer;
-import org.heigit.ohsome.replication.UpdateStore;
+import org.heigit.ohsome.replication.*;
 import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
 import org.rocksdb.StringAppendOperator;
@@ -82,6 +80,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final Path replication;
     private final String includeTags;
     private final boolean debug;
+    private final Server<OSMEntity> server;
 
 
     private URL replicationEndpoint;
@@ -98,6 +97,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
         this.debug = debug;
+        this.server = Server.osmEntityServer(replicationEndpoint.toString());
     }
 
     @Override
@@ -110,10 +110,12 @@ public class Contributions2Parquet implements Callable<Integer> {
         if (replicationEndpoint == null && pbf.header().replicationBaseUrl() != null) {
             replicationEndpoint = URI.create(pbf.header().replicationBaseUrl()).toURL();
         }
+
+        var latestState = (ReplicationState) null;
         if (replicationEndpoint != null) {
             try {
-                var state = ReplicationServer.state(replicationEndpoint);
-                System.out.println("latest replication state: " + state);
+                latestState = server.getLatestRemoteState();
+                System.out.println("latest replication state: " + latestState);
             } catch (IOException e) {
                 System.err.println(e.getMessage());
                 System.err.println("could not retrieve latest state for replication. " + replicationEndpoint);
@@ -173,7 +175,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 summaryRelations.replicationTimestamp().getEpochSecond());
         System.out.println("replicationTimestamp = " + replicationTimestamp);
 
-        var replicationState = ReplicationServer.tryToFindStartFromTimestamp(replicationEndpoint, Instant.ofEpochSecond(replicationTimestamp));
+        var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
         System.out.println("replicationState = " + replicationState);
 
         try (var output = Files.newOutputStream(replication.resolve("state.txt"))) {

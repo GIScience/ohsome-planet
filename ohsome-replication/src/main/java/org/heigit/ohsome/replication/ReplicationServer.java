@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Properties;
 
+@Deprecated
 public class ReplicationServer {
     public static Properties state(URL replicationEndpoint) throws IOException {
         var rs = new ReplicationServer(replicationEndpoint);
@@ -70,7 +71,6 @@ public class ReplicationServer {
                 var state = state(lowerSeq);
                 lowerTimestamp = timestamp(state);
                 lowerSeq = sequence(state);
-
                 if (lowerTimestamp.getEpochSecond() >= timestamp.getEpochSecond()) {
                     if (lowerSeq == 0) {
                         return 0;
@@ -83,9 +83,7 @@ public class ReplicationServer {
                     lowerTimestamp = null;
                     lowerSeq = 0;
                 }
-
             } catch (IOException e) {
-//                System.out.println("miss " + lowerSeq);
                 lowerSeq = (upperSeq + lowerSeq) / 2;
             }
         }
@@ -107,6 +105,8 @@ public class ReplicationServer {
             try {
 //                System.out.println("baseSplitId = " + baseSplitId);
                 split = state(baseSplitSeq);
+                System.out.println(split);
+
             } catch (IOException e) {
                 // todo missing state files!
                 throw e;

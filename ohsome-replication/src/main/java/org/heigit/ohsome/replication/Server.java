@@ -1,5 +1,6 @@
 package org.heigit.ohsome.replication;
 
+import com.nimbusds.jose.util.Pair;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.slf4j.Logger;
@@ -13,8 +14,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.zip.GZIPInputStream;
 
@@ -152,51 +155,93 @@ public class Server<T> {
         return list;
     }
 
-    public List<T> getListElements(int sequenceNumber) throws Exception {
-        var list = new ArrayList<T>();
-        getElements(sequenceNumber).forEachRemaining(list::add);
-        return list;
-    }
-
-    public int getReplicationOffset(){
+    public int getReplicationOffset() {
         return replicationOffset;
     }
 
-    public ReplicationState estimateLocalReplicationState(Instant lastTimestampChangeset, ReplicationState remoteState)
-            throws IOException {
-        var replicationMap = new HashMap<Integer, ReplicationState>();
-        var targetMinute = lastTimestampChangeset.truncatedTo(ChronoUnit.MINUTES);
-        logger.debug("Trying to estimate Replication ID for {}", lastTimestampChangeset);
 
-        while (!remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES).equals(targetMinute)) {
-            var minutes = Duration.between(targetMinute, remoteState.getTimestamp().truncatedTo(ChronoUnit.MINUTES)).toMinutes();
-            remoteState = getRemoteState(Math.max(remoteState.getSequenceNumber() - Math.toIntExact(minutes) + replicationOffset, 1));
-            logger.debug("Found remote state state {}", remoteState);
+    // Logic from https://github.com/osmcode/pyosmium/blob/b73e223b909cb82486ec09d4cee91215595beb96/src/osmium/replication/server.py#L324
+    // # Copyright (C) 2025 Sarah Hoffmann <lonvia@denofr.de> and others.
+    public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException {
+        // todo: returns one state before the actual one, right?
+        var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
-            if (replicationMap.putIfAbsent(remoteState.getSequenceNumber(), remoteState) != null) {
-                logger.debug("Loop detected, trying to brute force replication date");
-                return getRemoteStateInCaseOfLoop(lastTimestampChangeset, replicationMap);
+        var lower = surroundingStates.getLeft();
+        var upper = surroundingStates.getRight();
+
+        if (lower.getTimestamp() == targetTimestamp) {
+            return lower;
+        }
+
+        while (true) {
+            var estimate = getRemoteState(estimateSeq(targetTimestamp, lower, upper));
+            logger.debug("Next estimate for targetTimestamp {}: {}", targetTimestamp, estimate);
+
+            if (estimate.getTimestamp().getEpochSecond() < targetTimestamp.getEpochSecond()) {
+                lower = estimate;
+            } else if (estimate.getTimestamp().getEpochSecond() == targetTimestamp.getEpochSecond()) {
+                return estimate;
+            } else {
+                upper = estimate;
+            }
+
+            if (lower.getSequenceNumber() + 1 >= upper.getSequenceNumber()) {
+                return lower;
             }
         }
-        return lastTimestampChangeset.isBefore(remoteState.getTimestamp())
-                ? remoteState
-                : getRemoteState(remoteState.getSequenceNumber() + 1 + replicationOffset);
     }
 
-    private ReplicationState getRemoteStateInCaseOfLoop(Instant targetTimestamp, Map<Integer, ReplicationState> replicationMap)
-            throws IOException {
-        var closestReplicationState = replicationMap.values().stream()
-                .filter(rs -> rs.getTimestamp().isBefore(targetTimestamp))
-                .max(Comparator.comparing(ReplicationState::getTimestamp))
-                .orElseThrow(); // can not happen since we cannot loop if we are never below timestamp
-        logger.debug("Starting brute force at {}", closestReplicationState);
-        ReplicationState previous;
-        do {
-            previous = closestReplicationState;
-            closestReplicationState = getRemoteState(previous.getSequenceNumber() + 1 + replicationOffset);
-            logger.debug("Then comes {}", closestReplicationState);
-        } while (closestReplicationState.getTimestamp().isBefore(targetTimestamp));
-        return previous;
+
+    private Pair<ReplicationState, ReplicationState> getReplicationStatesAroundTargetTimestamp(
+            ReplicationState upperReplication,
+            Instant targetTimestamp
+    ) {
+        var lowerReplication = estimateLowerReplicationState(upperReplication);
+        logger.trace("Available replication: {}", lowerReplication);
+
+        if (lowerReplication.getTimestamp().isBefore(targetTimestamp)) {
+            logger.debug("Lower bound found: {}", lowerReplication);
+            return Pair.of(lowerReplication, upperReplication);
+        } else {
+            if (lowerReplication.getSequenceNumber() == 0) {
+                logger.warn("Server Replication {}, starts after given timestamp", targetUrl);
+                return Pair.of(lowerReplication, upperReplication);
+            }
+            if (lowerReplication.getSequenceNumber() + 1 >= upperReplication.getSequenceNumber()) {
+                logger.debug("Perfect fit found already!");
+                return Pair.of(lowerReplication, upperReplication);
+            }
+            return getReplicationStatesAroundTargetTimestamp(lowerReplication, targetTimestamp);
+        }
     }
 
+    private ReplicationState estimateLowerReplicationState(ReplicationState upperReplication) {
+        var lowerReplication = new ReplicationState(null, 0);
+
+        while (lowerReplication.getTimestamp() == null) {
+            try {
+                lowerReplication = getRemoteState(lowerReplication.getSequenceNumber() + replicationOffset);
+            } catch (IOException e) {
+                var seqNumberCloserToUpperSeq = getNextProbingPoint(upperReplication, lowerReplication);
+                lowerReplication = new ReplicationState(null, seqNumberCloserToUpperSeq);
+            }
+        }
+        return lowerReplication;
+    }
+
+    private static int getNextProbingPoint(ReplicationState upperReplication, ReplicationState lowerReplication) {
+        return (upperReplication.getSequenceNumber() + lowerReplication.getSequenceNumber()) / 2;
+    }
+
+    private int estimateSeq(Instant targetTimestamp, ReplicationState lower, ReplicationState upper) {
+        var secsToTarget = Duration.between(lower.getTimestamp(), targetTimestamp).toSeconds();
+
+        var secsBetweenSurrounding = Duration.between(lower.getTimestamp(), upper.getTimestamp()).toSeconds();
+        var numsBetweenSurrounding = upper.getSequenceNumber() - lower.getSequenceNumber();
+
+        var baseSplitSeq = lower.getSequenceNumber()
+                + (int) Math.ceil((double) (secsToTarget * numsBetweenSurrounding) / secsBetweenSurrounding);
+
+        return Math.min(baseSplitSeq, upper.getSequenceNumber() - 1) + replicationOffset;
+    }
 }
