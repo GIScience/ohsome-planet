@@ -2,22 +2,21 @@ package org.heigit.ohsome.replication.state;
 
 
 import me.tongfei.progressbar.ProgressBarBuilder;
-import org.heigit.ohsome.osm.changesets.OSMChangesets;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.ReplicationState;
-import org.heigit.ohsome.changesets.ChangesetDB;
+import org.heigit.ohsome.replication.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.net.URI.create;
@@ -27,26 +26,23 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
 
-public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> implements IChangesetStateManager {
+public class ChangesetStateManager implements IChangesetStateManager {
     private static final Logger logger = LoggerFactory.getLogger(ChangesetStateManager.class);
-    public static final String CHANGESET_ENDPOINT = "https://planet.osm.org/replication/changesets/";
     private static ChangesetDB changesetDB;
+    private static Server<OSMChangeset> server;
+    private ReplicationState localState;
+    private ReplicationState remoteState;
 
     public ChangesetStateManager(ChangesetDB changesetDB) {
-        this(CHANGESET_ENDPOINT, changesetDB);
+        this.changesetDB = changesetDB;
+        server = Server.OSM_CHANGESET_SERVER;
     }
 
     public ChangesetStateManager(String endpoint, ChangesetDB changesetDB) {
-        super(endpoint + "/", "state.yaml", "sequence", "last_run", ".osm.gz", 1);
         this.changesetDB = changesetDB;
+        server = Server.osmChangesetServer(endpoint);
     }
 
-    @Override
-    public Instant timestampParser(String timestamp) {
-        return OffsetDateTime.parse(timestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX")).toInstant();
-    }
-
-    @Override
     public void initializeLocalState() throws Exception {
         try {
             localState = changesetDB.getLocalState();
@@ -54,7 +50,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
             logger.info("No local state detected for changesets, trying to estimate starting replication state");
             var maxChangesetDBTimestamp = changesetDB.getMaxLocalTimestamp();
             setInitialState(
-                    estimateLocalReplicationState(
+                    server.estimateLocalReplicationState(
                             maxChangesetDBTimestamp, fetchRemoteState()
                     )
             );
@@ -62,26 +58,30 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
         }
     }
 
+    @Override
+    public ReplicationState fetchRemoteState() throws IOException {
+        remoteState = server.getLatestRemoteState();
+        return remoteState;
+    }
+
+    @Override
+    public ReplicationState getLocalState() {
+        return localState;
+    }
+
     protected void setInitialState(ReplicationState state) throws SQLException {
         changesetDB.setInitialState(state);
         localState = state;
     }
 
-    @Override
     protected void updateLocalState(ReplicationState state) throws SQLException {
         changesetDB.updateState(state);
         localState = state;
     }
 
-    @Override
-    protected Iterator<OSMChangeset> getParser(InputStream input) throws IOException {
-        return OSMChangesets.readChangesets(input).iterator();
-    }
-
-    // todo: both implement this, but without any overlap in code
     public void updateTowardsRemoteState() {
-        var nextReplication = localState.getSequenceNumber() + 1 + replicationOffset;
-        var steps = (remoteState.getSequenceNumber() + replicationOffset + 1) - nextReplication;
+        var nextReplication = localState.getSequenceNumber() + 1 + server.getReplicationOffset();
+        var steps = remoteState.getSequenceNumber() - localState.getSequenceNumber();
 
         logger.debug("Trying to update from replication state {} to {}", nextReplication, nextReplication + steps);
 
@@ -95,9 +95,8 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
     private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException {
         var closed = new HashSet<Long>();
         for (var changesets : Flux.fromIterable(batch)
-                .map(ReplicationState::sequenceNumberAsPath)
-                .flatMap(path -> fromCallable(() -> getFile(path)).subscribeOn(boundedElastic()), 20)
-                .flatMap(file -> fromCallable(() -> parseGZIP(file)).subscribeOn(parallel()))
+                .flatMap(path -> fromCallable(() -> server.getReplicationFile(path)).subscribeOn(boundedElastic()), 20)
+                .flatMap(file -> fromCallable(() -> server.parseToList(file)).subscribeOn(parallel()))
                 .flatMap(cs -> fromCallable(() -> {
                             changesetDB.upsertChangesets(cs);
                             return cs;
@@ -108,7 +107,7 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
             changesets.stream().filter(OSMChangeset::isClosed).map(OSMChangeset::id).forEach(closed::add);
         }
 
-        var lastReplication = getRemoteReplication(batch.getLast());
+        var lastReplication = server.getRemoteState(batch.getLast());
         updateLocalState(lastReplication);
         logger.info("Updated state up to {}", lastReplication);
         return closed;
@@ -121,11 +120,11 @@ public class ChangesetStateManager extends AbstractStateManager<OSMChangeset> im
                 .flatMap(partition -> fromCallable(() -> {
                             var url = "https://www.openstreetmap.org/api/0.6/changesets?closed=true&changesets="
                                     + partition.stream().map(String::valueOf).collect(Collectors.joining(",", "", ""));
-                            return getFile(create(url).toURL());
+                            return Server.getFile(create(url).toURL());
                         }).subscribeOn(boundedElastic()),
                         20
                 )
-                .flatMap(file -> fromCallable(() -> parse(file)).subscribeOn(parallel()))
+                .flatMap(file -> fromCallable(() -> server.parseToList(file)).subscribeOn(parallel()))
                 .flatMap(
                         cs -> fromCallable(() -> {
                             changesetDB.upsertChangesets(cs);

@@ -36,7 +36,6 @@ public interface IChangesetDB extends Changesets, AutoCloseable {
     };
 
     static IChangesetDB noop() {return NOOP;}
-    public
 
     @Override
     <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception;

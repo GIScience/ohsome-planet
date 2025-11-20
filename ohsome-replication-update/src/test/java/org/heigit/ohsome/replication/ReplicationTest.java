@@ -84,7 +84,6 @@ class ReplicationTest {
 
     @Test
     void testUpdateOnlyContributions() throws Exception {
-
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
         var out = RESOURCE_PATH.resolve("out");
         var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();

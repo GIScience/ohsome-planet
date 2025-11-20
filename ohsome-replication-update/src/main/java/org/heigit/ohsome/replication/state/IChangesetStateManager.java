@@ -36,7 +36,6 @@ public interface IChangesetStateManager {
         return NOOP;
     }
 
-
     void updateTowardsRemoteState();
 
     void updateUnclosedChangesets();

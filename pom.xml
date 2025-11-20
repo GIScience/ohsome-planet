@@ -35,14 +35,14 @@
         <module>ohsome-planet-cli</module>
         <module>ohsome-parquet</module>
         <module>ohsome-contributions</module>
-        <module>ohsome-replication</module>
+        <module>ohsome-replication-update</module>
         <module>osm-geometry</module>
         <module>osm-pbf</module>
         <module>osm-types</module>
         <module>osm-xml</module>
         <module>osm-changesets</module>
         <module>ohsome-changesets</module>
-        <module>ohsome-replication-tbd</module>
+        <module>ohsome-replication</module>
     </modules>
 
     <dependencyManagement>
