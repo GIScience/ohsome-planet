@@ -1,29 +1,27 @@
 package org.heigit.ohsome.replication.state;
 
+import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
-import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.heigit.ohsome.parquet.ParquetUtil;
 import org.heigit.ohsome.replication.ReplicationState;
-import org.heigit.ohsome.changesets.IChangesetDB;
-import org.heigit.ohsome.replication.update.ContributionUpdater;
+import org.heigit.ohsome.replication.Server;
 import org.heigit.ohsome.replication.UpdateStore;
+import org.heigit.ohsome.replication.update.ContributionUpdater;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Properties;
 
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 
-public class ContributionStateManager extends AbstractStateManager<OSMEntity> implements IContributionStateManager {
+public class ContributionStateManager implements IContributionStateManager {
 
     public static ContributionStateManager openManager(String endpoint, Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
         var localStatePath = directory.resolve("state.txt");
@@ -38,13 +36,16 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
     private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
     private final UpdateStore updateStore;
 
-    private final String endpoint;
-    private final Path directory;
     private final Path localStatePath;
     private final Path out;
+    ReplicationState localState;
+    ReplicationState remoteState;
+    Server<OSMEntity> server;
+    String endpoint;
+    Path directory;
 
     public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
-        super(endpoint + "/", "state.txt", "sequenceNumber", "timestamp", ".osc.gz", 0);
+        server = Server.osmEntityServer(endpoint);
         this.endpoint = endpoint;
         this.directory = directory;
         this.out = out;
@@ -57,12 +58,6 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
         this.localState = localState;
     }
 
-    @Override
-    protected Instant timestampParser(String timestamp) {
-        return Instant.parse(timestamp);
-    }
-
-    @Override
     public void initializeLocalState() throws Exception {
         if (Files.exists(localStatePath)) {
             var props = new Properties();
@@ -73,6 +68,15 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
         }
     }
 
+    public ReplicationState getLocalState() {
+        return localState;
+    }
+
+    public ReplicationState fetchRemoteState() throws IOException {
+        remoteState = server.getLatestRemoteState();
+        return remoteState;
+    }
+
     public static ReplicationState loadLocalState(Path localStatePath) throws IOException {
         if (Files.exists(localStatePath)) {
             return ReplicationState.read(localStatePath);
@@ -80,7 +84,6 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
         return null;
     }
 
-    @Override
     protected void updateLocalState(ReplicationState state) throws IOException {
         var props = new Properties();
         props.put("timestamp", state.getTimestamp().toString());
@@ -98,7 +101,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
         var statesUpdated = Flux.range(local + 1, steps)
-                .flatMapSequential(next -> fromCallable(() -> getRemoteReplication(next)).subscribeOn(boundedElastic()), 8)
+                .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
                 .concatMap(state -> fromCallable(() -> process(state)))
                 .count()
                 .blockOptional()
@@ -109,7 +112,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
     private int process(ReplicationState state) throws Exception {
         var path = state.getSequenceNumberPath(out);
         path = path.getParent().resolve(path.getFileName() + ".parquet");
-        var osc = fetchReplicationBatch(state);
+        var osc = server.getElements(state);
         var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner);
         var unclosedChangesets = new HashSet<Long>();
         try (var writer = ParquetUtil.openWriter(path, Contrib.getClassSchema(), builder -> {
@@ -118,7 +121,7 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
                 writer.write(contrib);
                 var changeset = contrib.getChangeset();
                 if (changeset.getClosedAt() == null &&
-                    changeset.getId() > 0) {
+                        changeset.getId() > 0) {
                     // store pending
                     unclosedChangesets.add(changeset.getId());
                 }
@@ -128,10 +131,5 @@ public class ContributionStateManager extends AbstractStateManager<OSMEntity> im
         updater.updateStore();
         updateLocalState(state);
         return state.getSequenceNumber();
-    }
-
-    @Override
-    protected Iterator<OSMEntity> getParser(InputStream input) throws Exception {
-        return new OscParser(input);
     }
 }

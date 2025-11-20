@@ -99,14 +99,14 @@ public class ReplicationServer {
             }
             var duration = Duration.between(lowerTimestamp, upperTimestamp).toSeconds();
             var seqs = upperSeq - lowerSeq;
-            var baseSplitId = lowerSeq + (int) Math.ceil((double) (goal * seqs) / duration);
-            if (baseSplitId >= upperSeq) {
-                baseSplitId = upperSeq - 1;
+            var baseSplitSeq = lowerSeq + (int) Math.ceil((double) (goal * seqs) / duration);
+            if (baseSplitSeq >= upperSeq) {
+                baseSplitSeq = upperSeq - 1;
             }
             var split = (Properties) null;
             try {
 //                System.out.println("baseSplitId = " + baseSplitId);
-                split = state(baseSplitId);
+                split = state(baseSplitSeq);
             } catch (IOException e) {
                 // todo missing state files!
                 throw e;
@@ -159,5 +159,4 @@ public class ReplicationServer {
         connection.setConnectTimeout(10 * 60 * 1000); // timeout 10 minutes
         return connection.getInputStream();
     }
-
 }

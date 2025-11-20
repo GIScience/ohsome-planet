@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
-            <artifactId>ohsome-replication-tbd</artifactId>
+            <artifactId>ohsome-replication</artifactId>
             <version>${project.version}</version>
         </dependency>
 

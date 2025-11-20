@@ -1,8 +1,10 @@
 package org.heigit.ohsome.replication.state;
 
 
+import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.changesets.ChangesetDB;
+import org.heigit.ohsome.replication.UpdateStore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -19,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static org.heigit.ohsome.replication.ReplicationServer.tryToFindStartFromTimestamp;
 import static org.junit.jupiter.api.Assertions.*;
 
 
@@ -105,28 +112,5 @@ class StateManagerTest {
         changesetStateManager.updateUnclosedChangesets();
         changesets = changesetDB.getOpenChangesetsOlderThanTwoHours();
         assertTrue(changesets.isEmpty());
-    }
-
-    @Test
-    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException {
-        var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS XXX");
-        var instant = OffsetDateTime.parse("2025-08-14 11:51:33.163329000 +00:00", formatter).toInstant();
-
-        var changesetManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
-
-        for (var time : List.of(
-                "2025-08-04T00:00:00Z",
-                "2025-08-04T00:10:12Z")) {
-            var maxChangesetDbTimetsamp = Instant.parse(time);
-            var replication = new ReplicationState(instant, 6642804);
-            var oldReplication = changesetManager.estimateLocalReplicationState(
-                    maxChangesetDbTimetsamp,
-                    replication
-            );
-            System.out.println("oldReplication = " + oldReplication);
-            assertTrue(maxChangesetDbTimetsamp.isBefore(oldReplication.getTimestamp()));
-            var secondsBetween = Duration.between(maxChangesetDbTimetsamp, oldReplication.getTimestamp()).toSeconds();
-            assertTrue(secondsBetween < 80);
-        }
     }
 }

@@ -22,7 +22,7 @@
         </dependency>
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
-            <artifactId>ohsome-replication</artifactId>
+            <artifactId>ohsome-replication-update</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
