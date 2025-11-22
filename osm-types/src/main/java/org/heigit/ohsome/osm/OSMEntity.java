@@ -54,10 +54,6 @@ public sealed interface OSMEntity {
             return version;
         }
 
-        public OSMNode withChangeset(long changeset) {
-            return new OSMNode(id, version, timestamp, changeset, userId, user, visible, tags, lon, lat);
-        }
-
         @Override
         public List<OSMMember> members() {
             return Collections.emptyList();
@@ -78,10 +74,6 @@ public sealed interface OSMEntity {
         @Override
         public OSMType type() {
             return OSMType.WAY;
-        }
-
-        public OSMWay withChangeset(long changeset) {
-            return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags, refs, minorVersion, edits, lons, lats);
         }
 
         public OSMWay withMinorAndEdits(int minorVersion, int edits) {
@@ -108,6 +100,11 @@ public sealed interface OSMEntity {
         public OSMType type() {
             return OSMType.RELATION;
         }
+
+        public OSMRelation withMinorAndEdits(int minorVersion, int edits) {
+            return new OSMRelation(id, version, timestamp, changeset, userId, user, visible, tags, members, minorVersion, edits);
+        }
+
     }
 
 }
