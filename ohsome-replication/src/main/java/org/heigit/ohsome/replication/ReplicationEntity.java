@@ -1,22 +1,43 @@
 package org.heigit.ohsome.replication;
 
 import org.heigit.ohsome.osm.OSMEntity;
+import org.heigit.ohsome.osm.OSMEntity.OSMNode;
+import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
+import org.heigit.ohsome.osm.OSMEntity.OSMWay;
+import org.heigit.ohsome.osm.OSMMember;
+import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.util.io.Output;
 
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.*;
 
+import static java.nio.ByteBuffer.*;
+import static org.heigit.ohsome.util.io.Input.fromBuffer;
+
 public class ReplicationEntity {
 
-    public static void serialize(OSMEntity.OSMNode node, Output output) {
+    public static void serialize(OSMNode node, Output output) {
         serializeEntity(node, output);
         output.writeS64(Math.round(node.lon() * 1_0000000L));
         output.writeS64(Math.round(node.lat() * 1_0000000L));
     }
 
-    public static void serialize(OSMEntity.OSMWay way, Output output) {
+    public static OSMNode deserializeNode(long id, byte[] bytes) {
+        var input = fromBuffer(wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var lon = input.readS64() / 1_0000000.0;
+        var lat = input.readS64() / 1_0000000.0;
+        return new OSMNode(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                lon, lat);
+    }
+
+
+    public static void serialize(OSMWay way, Output output) {
         serializeEntity(way, output);
         output.writeU32(way.minorVersion());
         output.writeU32(way.edits());
@@ -28,7 +49,28 @@ public class ReplicationEntity {
         }
     }
 
-    public static void serialize(OSMEntity.OSMRelation relation, Output output) {
+    public static OSMWay deserializeWay(long id, byte[] bytes) {
+        var input = fromBuffer(wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var minorVersion = input.readU32();
+        var edits = input.readU32();
+        var refsSize = input.readU32();
+        var refs = new ArrayList<Long>(refsSize);
+        var refId = 0L;
+        for (var i = 0; i < refsSize; i++) {
+            refId = refId + input.readS64();
+            refs.add(refId);
+        }
+        return new OSMWay(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                refs,
+                minorVersion, edits, null, null);
+    }
+
+    public static void serialize(OSMRelation relation, Output output) {
         serializeEntity(relation, output);
         output.writeU32(relation.minorVersion());
         output.writeU32(relation.edits());
@@ -42,6 +84,30 @@ public class ReplicationEntity {
         }
     }
 
+    public static OSMRelation deserializeRelation(long id, byte[] bytes) {
+        var input = fromBuffer(wrap(bytes));
+        var entityInfo = deserializeEntity(input);
+        var minorVersion = input.readU32();
+        var edits = input.readU32();
+        var memberSize =  input.readU32();
+        var members = new ArrayList<OSMMember>(memberSize);
+        var memId = 0L;
+        for (var i = 0; i < memberSize; i++) {
+            var typeId =  input.readU32();
+            memId += input.readS64();
+            var role = input.readUTF8();
+            members.add(new OSMMember(OSMType.parseType(typeId), memId, role));
+        }
+
+        return new OSMRelation(id,
+                entityInfo.version(),
+                entityInfo.timestamp(),
+                -1, -1, "", true,
+                entityInfo.tags(),
+                members,
+                minorVersion, edits);
+    }
+
 
     public static void serialize(Set<Long> set, Output output) {
         var last = 0L;
@@ -52,41 +118,12 @@ public class ReplicationEntity {
     }
 
 
-    public static OSMEntity.OSMNode deserializeNode(long id, byte[] bytes) {
-        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
-        var entityInfo = deserializeEntity(input);
-        var lon = input.readS64() / 1_0000000.0;
-        var lat = input.readS64() / 1_0000000.0;
-        return new OSMEntity.OSMNode(id,
-                entityInfo.version(),
-                entityInfo.timestamp(),
-                -1, -1, "", true,
-                entityInfo.tags(),
-                lon, lat);
-    }
 
-    public static OSMEntity.OSMWay deserializeWay(long id, byte[] bytes) {
-        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
-        var entityInfo = deserializeEntity(input);
-        var minorVersion = input.readU32();
-        var edits = input.readU32();
-        var refsSize = input.readU32();
-        var refs = new ArrayList<Long>(refsSize);
-        var lastRef = 0L;
-        for (var i = 0; i < refsSize; i++) {
-            lastRef = lastRef + input.readS64();
-            refs.add(lastRef);
-        }
-        return new OSMEntity.OSMWay(id,
-                entityInfo.version(),
-                entityInfo.timestamp(),
-                -1, -1, "", true,
-                entityInfo.tags(),
-                refs, minorVersion, edits, null, null);
-    }
+
+
 
     public static Set<Long> deserializeSet(long id, byte[] bytes) {
-        var input = Input.fromBuffer(ByteBuffer.wrap(bytes));
+        var input = fromBuffer(wrap(bytes));
         var set = new HashSet<Long>();
         var last = 0L;
         while (input.hasRemaining()) {
