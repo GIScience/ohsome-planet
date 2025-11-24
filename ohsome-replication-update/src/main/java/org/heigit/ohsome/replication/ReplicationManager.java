@@ -49,7 +49,7 @@ public class ReplicationManager {
 
         try (
                 var updateStore = !justChangesets ? UpdateStoreRocksDb.open(directory, 10 << 20, true) : UpdateStore.noop();
-                var changesetDb = !justContributions ? new ChangesetDB(changesetDbUrl) : IChangesetDB.noop();
+                var changesetDb = !justContributions ? new ChangesetDB(changesetDbUrl) : IChangesetDB.noop()
         ) {
             var contributionManager = !justChangesets ? ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb) : IContributionStateManager.noop();
             var changesetManager = !justContributions ? new ChangesetStateManager(replicationChangesetUrl, (ChangesetDB) changesetDb) : IChangesetStateManager.noop();

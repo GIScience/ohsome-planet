@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.util.List;
 
 public class SstWriter implements AutoCloseable {
-    private final Options options;
     private final EnvOptions envOptions;
     private final SstFileWriter writer;
     private final Output output = new Output(4 << 10);
@@ -25,19 +24,11 @@ public class SstWriter implements AutoCloseable {
     private ByteBuffer valBuffer = ByteBuffer.allocateDirect(4 << 10); // 4kb
     private long counter = 0;
 
-    public SstWriter(Path path, SstFileWriter writer) throws IOException, RocksDBException {
-        this(path, writer, null, null);
-    }
-    public SstWriter(Path path, SstFileWriter writer, Options options, EnvOptions envOptions) throws IOException, RocksDBException {
+    private SstWriter(Path path, SstFileWriter writer, Options options, EnvOptions envOptions) throws IOException, RocksDBException {
         this.writer = writer != null ? writer: new SstFileWriter(envOptions, options);
-        this.options = options;
         this.envOptions = envOptions;
         Files.createDirectories(path.getParent());
         this.writer.open(path.toString());
-    }
-
-    public SstWriter(Path path, EnvOptions env, Options options) throws RocksDBException, IOException {
-        this(path, null , options, env);
     }
 
     public SstWriter(Path path, Options options) throws RocksDBException, IOException {
@@ -53,12 +44,7 @@ public class SstWriter implements AutoCloseable {
         } finally {
             writer.close();
         }
-        if (envOptions != null) {
-            envOptions.close();
-        }
-        if (options != null) {
-            options.close();
-        }
+        envOptions.close();
     }
 
     public void writeMinorNode(List<OSMNode> osh) throws RocksDBException, IOException {

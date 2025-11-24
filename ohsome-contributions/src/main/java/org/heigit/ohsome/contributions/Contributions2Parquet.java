@@ -12,7 +12,6 @@ import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
-import org.heigit.ohsome.contributions.minor.SstWriter;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
@@ -28,7 +27,10 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
-import org.heigit.ohsome.replication.*;
+import org.heigit.ohsome.replication.ReplicationEntity;
+import org.heigit.ohsome.replication.ReplicationState;
+import org.heigit.ohsome.replication.Server;
+import org.heigit.ohsome.replication.UpdateStore;
 import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
 import org.rocksdb.StringAppendOperator;
@@ -57,7 +59,6 @@ import static java.nio.file.StandardOpenOption.READ;
 import static org.heigit.ohsome.contributions.FileInfo.printInfo;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
-import static org.heigit.ohsome.contributions.transformer.Transformer.moveSstToRocksDb;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -97,7 +98,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
         this.debug = debug;
-        this.server = Server.osmEntityServer(replicationEndpoint.toString());
+        this.server = Server.osmEntityServer(replicationEndpoint.toString() + "/");
     }
 
     @Override
@@ -179,7 +180,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         System.out.println("replicationState = " + replicationState);
 
         try (var output = Files.newOutputStream(replication.resolve("state.txt"))) {
-            replicationState.store(output, null);
+            replicationState.store(output, server.endpoint());
         }
 
         System.out.println("done in " + total);
@@ -190,8 +191,6 @@ public class Contributions2Parquet implements Callable<Integer> {
         var replicationPath = UpdateStore.updatePath(replication, RELATION);
         Files.createDirectories(replicationPath);
 
-        var replicationIngestPath = replicationPath.resolve("ingest");
-
         try (var ch = FileChannel.open(pbfPath, READ);
              var options = defaultOptions(true);
              var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
@@ -199,6 +198,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
              var optionsWithMerge = defaultOptions(true)
                      .setMergeOperator(new StringAppendOperator((char) 0));
+             var replicationDb = RocksDB.open(options, replicationPath.toString());
              var nodeRelationBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_RELATION));
              var wayRelationBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.WAY_RELATION));
 
@@ -236,75 +236,89 @@ public class Contributions2Parquet implements Callable<Integer> {
             var outputBackRefs = new Output(4 << 10);
 
             var canceled = new AtomicBoolean(false);
+            var batch = new ArrayList<List<OSMEntity>>(1_000);
+            var replicationOutput =  new Output(4 << 10);
+
             while (entities.hasNext() && !canceled.get()) {
-                var batchNumber = 0;
-                try (var replicationSSTWriter = new SstWriter(replicationIngestPath.resolve("%03d.sst".formatted(batchNumber++)), options);) {
-                    var batchCounter = 0;
-                    while (entities.hasNext() && !canceled.get() && batchCounter++ < 100_000) {
-                        var osh = getNextOSH(entities);
-
-                        var last = (OSMRelation) osh.getLast();
-                        if (last.visible()) {
-                            replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
-                            replicationElementsCount++;
-
-                            replicationSSTWriter.write(last.id(), o -> ReplicationEntity.serialize(last, o));
-
-                            backRefsNodeRelation.clear();
-                            backRefsWayRelation.clear();
-
-                            for (var member : last.members()) {
-                                switch (member.type()) {
-                                    case NODE ->
-                                            backRefsNodeRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
-                                    case WAY ->
-                                            backRefsWayRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
-                                    default -> {
-                                    }
-                                }
-                            }
-
-                            try (var writeOpts = new WriteOptions()) {
-                                try (var writeBatch = new WriteBatch()) {
-                                    for (var entry : backRefsNodeRelation.entrySet()) {
-                                        outputBackRefs.reset();
-                                        var key = RocksUtil.key(entry.getKey());
-                                        var set = entry.getValue();
-                                        ReplicationEntity.serialize(set, outputBackRefs);
-                                        writeBatch.merge(key, outputBackRefs.array());
-                                    }
-                                    nodeRelationBackRefs.write(writeOpts, writeBatch);
-                                }
-
-                                try (var writeBatch = new WriteBatch()) {
-                                    for (var entry : backRefsWayRelation.entrySet()) {
-                                        outputBackRefs.reset();
-                                        var key = RocksUtil.key(entry.getKey());
-                                        var set = entry.getValue();
-                                        ReplicationEntity.serialize(set, outputBackRefs);
-                                        writeBatch.merge(key, outputBackRefs.array());
-                                    }
-                                    wayRelationBackRefs.write(writeOpts, writeBatch);
-                                }
-                            }
-                        }
-
-                        if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
-                            continue;
-                        }
-
-                        var writer = writers.take();
-                        contribWorkers.execute(() -> {
-                            try {
-                                processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
-                            } catch (Exception e) {
-                                canceled.set(true);
-                                System.err.println(e.getMessage());
-                            } finally {
-                                writers.add(writer);
-                            }
-                        });
+                batch.clear();
+                backRefsNodeRelation.clear();
+                backRefsWayRelation.clear();
+                while (entities.hasNext() && !canceled.get() && batch.size() < 1_000) {
+                    var osh = getNextOSH(entities);
+                    batch.add(osh);
+                    var last = (OSMRelation) osh.getLast();
+                    if (!last.visible()) {
+                        continue;
                     }
+                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
+
+                    for (var member : last.members()) {
+                        switch (member.type()) {
+                            case NODE ->
+                                    backRefsNodeRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                            case WAY ->
+                                    backRefsWayRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                            default -> {
+                            }
+                        }
+                    }
+                }
+
+                try (var writeOpts = new WriteOptions()) {
+                    try (var writeBatch = new WriteBatch()) {
+                        for (var entry : backRefsNodeRelation.entrySet()) {
+                            outputBackRefs.reset();
+                            var key = RocksUtil.key(entry.getKey());
+                            var set = entry.getValue();
+                            ReplicationEntity.serialize(set, outputBackRefs);
+                            writeBatch.merge(key, outputBackRefs.array());
+                        }
+                        nodeRelationBackRefs.write(writeOpts, writeBatch);
+                    }
+
+                    try (var writeBatch = new WriteBatch()) {
+                        for (var entry : backRefsWayRelation.entrySet()) {
+                            outputBackRefs.reset();
+                            var key = RocksUtil.key(entry.getKey());
+                            var set = entry.getValue();
+                            ReplicationEntity.serialize(set, outputBackRefs);
+                            writeBatch.merge(key, outputBackRefs.array());
+                        }
+                        wayRelationBackRefs.write(writeOpts, writeBatch);
+                    }
+
+                    try (var writeBatch = new WriteBatch()) {
+                        for(var osh : batch) {
+                            var last = (OSMRelation) osh.getLast();
+                            if (!last.visible()) {
+                                continue;
+                            }
+                            replicationOutput.reset();
+                            ReplicationEntity.serialize(last, replicationOutput);
+                            var key = RocksUtil.key(last.id());
+                            writeBatch.put(key, replicationOutput.array());
+                        }
+                        replicationDb.write(writeOpts, writeBatch);
+                    }
+                }
+
+                for(var osh : batch) {
+                    if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
+                        continue;
+                    }
+
+                    var writer = writers.take();
+                    contribWorkers.execute(() -> {
+                        try {
+                            processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
+                        } catch (Exception e) {
+                            canceled.set(true);
+                            System.err.println(e.getMessage());
+                        } finally {
+                            writers.add(writer);
+                        }
+                    });
                 }
             }
 
@@ -315,8 +329,6 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var writer = writers.take();
                 writer.close(canceled.get());
             }
-
-            moveSstToRocksDb(replicationPath);
 
             return new Transformer.Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
         }

@@ -4,6 +4,7 @@ import com.google.common.collect.Maps;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
+import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.replication.ReplicationEntity;
@@ -55,7 +56,7 @@ public class UpdateStoreRocksDb implements UpdateStore {
     private final Map<BackRefs, RocksDB> backRefs;
 
 
-    private UpdateStoreRocksDb(Cache cache, Map<OSMType, RocksDB> entities, Map<BackRefs, RocksDB> backRefs) throws RocksDBException {
+    private UpdateStoreRocksDb(Cache cache, Map<OSMType, RocksDB> entities, Map<BackRefs, RocksDB> backRefs) {
         this.cache = cache;
         this.entities = entities;
         this.backRefs = backRefs;
@@ -72,27 +73,18 @@ public class UpdateStoreRocksDb implements UpdateStore {
     }
 
     @Override
-    public Map<Long, OSMWay> ways(Set<Long> ids) {
-        try {
-            return query(entities.get(WAY), ids, ReplicationEntity::deserializeWay);
-        } catch (RocksDBException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public Map<Long, Set<Long>> backRefsNodeWay(Set<Long> ids) {
-        try {
-            return query(backRefs.get(BackRefs.NODE_WAY), ids, ReplicationEntity::deserializeSet);
-        } catch (RocksDBException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
     public void nodes(Map<Long, OSMNode> updates) {
         try {
             updateEntity(entities.get(NODE), updates, ReplicationEntity::serialize);
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public Map<Long, OSMWay> ways(Set<Long> ids) {
+        try {
+            return query(entities.get(WAY), ids, ReplicationEntity::deserializeWay);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
@@ -108,9 +100,37 @@ public class UpdateStoreRocksDb implements UpdateStore {
     }
 
     @Override
-    public void backRefsNodeWay(Map<Long, Set<Long>> updates) {
+    public Map<Long, OSMRelation> relations(Set<Long> ids) {
         try {
-            updateBackRefs(backRefs.get(BackRefs.NODE_WAY), updates);
+            return query(entities.get(RELATION), ids, ReplicationEntity::deserializeRelation);
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void relations(Map<Long, OSMRelation> updates) {
+        try {
+            updateEntity(entities.get(RELATION), updates, ReplicationEntity::serialize);
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    @Override
+    public Map<Long, Set<Long>> backRefs(BackRefs type, Set<Long> ids) {
+        try {
+            return query(backRefs.get(type), ids, ReplicationEntity::deserializeSet);
+        } catch (RocksDBException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void backRefs(BackRefs type, Map<Long, Set<Long>> updates) {
+        try {
+            updateBackRefs(backRefs.get(type), updates);
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
