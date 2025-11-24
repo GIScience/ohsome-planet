@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
+import static org.heigit.ohsome.replication.UpdateStore.BackRefs.NODE_WAY;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UpdateStoreRocksDbTest {
@@ -19,7 +20,7 @@ class UpdateStoreRocksDbTest {
 
         try (var store = UpdateStoreRocksDb.open(path, 1 << 20, true)) {
             store.nodes(Map.of(1024L, node(1024, true)));
-            store.backRefsNodeWay(Map.of(1024L, Set.of(1L, 2L, 3L)));
+            store.backRefs(NODE_WAY, Map.of(1024L, Set.of(1L, 2L, 3L)));
         }
 
         try (var store = UpdateStoreRocksDb.open(path, 1 << 20, false)) {
@@ -28,7 +29,7 @@ class UpdateStoreRocksDbTest {
             var node = nodes.get(1024L);
             assertNotNull(node);
 
-            var backRefs = store.backRefsNodeWay(Set.of(1024L));
+            var backRefs = store.backRefs(NODE_WAY, Set.of(1024L));
             assertEquals(1, backRefs.size());
             assertEquals(Set.of(1L, 2L, 3L), backRefs.get(1024L));
 

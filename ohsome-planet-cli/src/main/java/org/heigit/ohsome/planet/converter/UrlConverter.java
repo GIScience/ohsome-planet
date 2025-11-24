@@ -11,6 +11,9 @@ public class UrlConverter implements CommandLine.ITypeConverter<URL> {
     @Override
     public URL convert(String value) {
         try {
+            if (value.endsWith("/")) {
+                value = value.substring(0, value.length() - 1);
+            }
             var uri = new URI(value);
             return uri.toURL();
         } catch(IllegalArgumentException | URISyntaxException | MalformedURLException e) {

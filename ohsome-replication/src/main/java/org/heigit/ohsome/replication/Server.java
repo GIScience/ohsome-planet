@@ -98,6 +98,10 @@ public class Server<T> {
         this.parser = parser;
     }
 
+    public String endpoint() {
+        return targetUrl;
+    }
+
     public static InputStream getFileStream(URL url) throws IOException {
         var connection = url.openConnection();
         connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes
