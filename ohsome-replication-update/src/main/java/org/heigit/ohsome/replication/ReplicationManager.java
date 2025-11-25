@@ -22,9 +22,11 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean overwrite) throws IOException, SQLException {
+    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean overwrite, boolean createSchema) throws IOException, SQLException {
         try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
-            changesetDb.createTablesIfNotExists();
+            if (createSchema) {
+                changesetDb.createTablesIfNotExists();
+            }
 
             if (overwrite) {
                 changesetDb.truncateChangesetTables();
