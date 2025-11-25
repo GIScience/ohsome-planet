@@ -10,7 +10,6 @@
 
 
     <dependencies>
-
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>osm-types</artifactId>

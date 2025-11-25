@@ -167,9 +167,10 @@ public class Server<T> {
     // Logic from https://github.com/osmcode/pyosmium/blob/b73e223b909cb82486ec09d4cee91215595beb96/src/osmium/replication/server.py#L324
     // # Copyright (C) 2025 Sarah Hoffmann <lonvia@denofr.de> and others.
     public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException {
-        // todo: returns one state before the actual one, right?
         var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
+        logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.getLeft(), surroundingStates.getRight());
+        
         var lower = surroundingStates.getLeft();
         var upper = surroundingStates.getRight();
 
