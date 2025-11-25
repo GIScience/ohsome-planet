@@ -22,6 +22,8 @@ import java.util.function.BiFunction;
 
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
 import static org.heigit.ohsome.osm.OSMType.*;
+import static org.heigit.ohsome.replication.UpdateStore.BackRefs.*;
+import static org.heigit.ohsome.replication.UpdateStore.updatePath;
 
 public class UpdateStoreRocksDb implements UpdateStore {
 
@@ -45,7 +47,9 @@ public class UpdateStoreRocksDb implements UpdateStore {
         var optionsWithMerge = defaultOptions(true)
                 .setMergeOperator(new StringAppendOperator((char) 0));
         var backRefs = new EnumMap<BackRefs, RocksDB>(BackRefs.class);
-        backRefs.put(BackRefs.NODE_WAY, RocksDB.open(optionsWithMerge, path.resolve("node_ways").toString()));
+        backRefs.put(NODE_WAY, RocksDB.open(optionsWithMerge, updatePath(path, NODE_WAY).toString()));
+        backRefs.put(BackRefs.NODE_RELATION, RocksDB.open(optionsWithMerge, updatePath(path, NODE_RELATION).toString()));
+        backRefs.put(BackRefs.WAY_RELATION, RocksDB.open(optionsWithMerge, updatePath(path, WAY_RELATION).toString()));
 
         return new UpdateStoreRocksDb(cache, entities, backRefs);
     }
@@ -137,7 +141,7 @@ public class UpdateStoreRocksDb implements UpdateStore {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         for (var db : entities.values()) {
             db.close();
         }
