@@ -15,9 +15,9 @@ import java.util.concurrent.Callable;
         description = "initial database for updates"
 )
 public class Changesets implements Callable<Integer> {
-    @Option(paramLabel = "path_to_changeset.xml", names = {"--changesets"}, description = "initial changeset.osm.bz2 from planet. https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2")
+    @Option(paramLabel = "path_to_changeset.xml", names = {"--changesets"}, required = true, description = "initial changeset.osm.bz2 from planet. You can e.g. download it from from https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2")
     Path changesetsPath;
-    @Option(paramLabel = "conn_url", names = {"--changeset-db"}, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+    @Option(paramLabel = "conn_url", names = {"--changeset-db"}, required = true, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
     String changesetDbUrl;
     @Option(paramLabel = "overwrite", names = {"--overwrite"}, description = "If set, truncate changeset and changeset_state tables before refilling.")
     boolean overwrite;
