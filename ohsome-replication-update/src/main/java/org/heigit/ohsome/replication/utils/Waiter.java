@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Waiter {
     private static final Logger logger = LoggerFactory.getLogger(Waiter.class);
     private final AtomicBoolean shutdownInitiated;
+    private static final int WAIT_TIME = 70;
 
     private ReplicationState lastChangesetState;
     private ReplicationState lastContributionState;
@@ -36,13 +37,13 @@ public class Waiter {
         }
 
         var now = Instant.now();
-        if (remoteChangesetState.getTimestamp().plusSeconds(80).isAfter(now)) {
+        if (remoteChangesetState.getTimestamp().plusSeconds(WAIT_TIME).isAfter(now)) {
             logger.info("--Waiter: Waiting for new remote changeset state!");
             waitForReplicationFile(now, remoteChangesetState.getTimestamp());
             return true;
         }
 
-        if (lastContributionState.getTimestamp().plusSeconds(80).isAfter(now)) {
+        if (lastContributionState.getTimestamp().plusSeconds(WAIT_TIME).isAfter(now)) {
             logger.info("--Waiter: Waiting for new remote contribution state!");
             waitForReplicationFile(now, lastContributionState.getTimestamp());
             return true;
@@ -54,8 +55,8 @@ public class Waiter {
             firstTimeAfterSuccess = false;
             return false;
         }
-        logger.info("--Waiter: Waiting 60 seconds until trying again.");
-        waitXSeconds(70);
+        logger.info("--Waiter: Waiting {} seconds until trying again.", WAIT_TIME);
+        waitXSeconds(WAIT_TIME);
         alreadyWaited = true;
         return true;
     }
@@ -67,7 +68,7 @@ public class Waiter {
 
 
     private void waitForReplicationFile(Instant now, Instant lastReplicationTimestamp) throws InterruptedException {
-        var secondsToWait = 80 - ChronoUnit.SECONDS.between(lastReplicationTimestamp, now);
+        var secondsToWait = WAIT_TIME - ChronoUnit.SECONDS.between(lastReplicationTimestamp, now);
         waitXSeconds(secondsToWait);
     }
 
