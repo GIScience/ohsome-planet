@@ -69,6 +69,7 @@ public class Waiter {
 
     private void waitForReplicationFile(Instant now, Instant lastReplicationTimestamp) throws InterruptedException {
         var secondsToWait = WAIT_TIME - ChronoUnit.SECONDS.between(lastReplicationTimestamp, now);
+        logger.debug("--Waiter: Waiting {} seconds until trying again.", secondsToWait);
         waitXSeconds(secondsToWait);
     }
 
