@@ -170,7 +170,7 @@ public class Server<T> {
         var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
         logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.getLeft(), surroundingStates.getRight());
-        
+
         var lower = surroundingStates.getLeft();
         var upper = surroundingStates.getRight();
 
@@ -182,7 +182,7 @@ public class Server<T> {
             var estimate = getRemoteState(estimateSeq(targetTimestamp, lower, upper));
             logger.debug("Next estimate for targetTimestamp {}: {}", targetTimestamp, estimate);
 
-            if (estimate.getTimestamp().getEpochSecond() < targetTimestamp.getEpochSecond()) {
+            if (estimate.getTimestamp().isBefore(targetTimestamp)) {
                 lower = estimate;
             } else if (estimate.getTimestamp().getEpochSecond() == targetTimestamp.getEpochSecond()) {
                 return estimate;
@@ -247,6 +247,6 @@ public class Server<T> {
         var baseSplitSeq = lower.getSequenceNumber()
                 + (int) Math.ceil((double) (secsToTarget * numsBetweenSurrounding) / secsBetweenSurrounding);
 
-        return Math.min(baseSplitSeq, upper.getSequenceNumber() - 1) + replicationOffset;
+        return Math.min(Math.max(baseSplitSeq, lower.getSequenceNumber() + 1), upper.getSequenceNumber() - 1) + replicationOffset;
     }
 }
