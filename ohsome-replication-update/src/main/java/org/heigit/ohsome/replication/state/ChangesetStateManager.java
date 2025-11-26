@@ -87,7 +87,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
             return;
         }
 
-        logger.debug("Trying to update from replication state {} to {}", nextReplication, nextReplication + steps);
+        logger.debug("Trying to update from replication state {} to {}", localState.getSequenceNumber(), localState.getSequenceNumber() + steps);
 
         Flux.range(nextReplication, steps)
                 .buffer(500)
