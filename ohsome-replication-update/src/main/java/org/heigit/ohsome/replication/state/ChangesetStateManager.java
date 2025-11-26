@@ -83,6 +83,10 @@ public class ChangesetStateManager implements IChangesetStateManager {
         var nextReplication = localState.getSequenceNumber() + 1 + server.getReplicationOffset();
         var steps = remoteState.getSequenceNumber() - localState.getSequenceNumber();
 
+        if (steps == 0) {
+            return;
+        }
+
         logger.debug("Trying to update from replication state {} to {}", nextReplication, nextReplication + steps);
 
         Flux.range(nextReplication, steps)

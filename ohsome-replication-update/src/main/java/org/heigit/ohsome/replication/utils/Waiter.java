@@ -55,7 +55,7 @@ public class Waiter {
             return false;
         }
         logger.info("--Waiter: Waiting 60 seconds until trying again.");
-        waitXSeconds(60);
+        waitXSeconds(70);
         alreadyWaited = true;
         return true;
     }
