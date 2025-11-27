@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Waiter {
     private static final Logger logger = LoggerFactory.getLogger(Waiter.class);
     private final AtomicBoolean shutdownInitiated;
-    private static final int WAIT_TIME = 70;
+    private static final int WAIT_TIME = 90;
 
     private ReplicationState lastChangesetState;
     private ReplicationState lastContributionState;
