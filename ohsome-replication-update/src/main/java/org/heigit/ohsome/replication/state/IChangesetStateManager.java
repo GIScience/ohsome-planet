@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication.state;
 import org.heigit.ohsome.replication.ReplicationState;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import static java.time.Instant.EPOCH;
 
@@ -10,7 +11,7 @@ public interface IChangesetStateManager {
 
     IChangesetStateManager NOOP = new IChangesetStateManager() {
         @Override
-        public void updateTowardsRemoteState() {
+        public void updateToRemoteState() {
         }
 
         @Override
@@ -36,13 +37,13 @@ public interface IChangesetStateManager {
         return NOOP;
     }
 
-    void updateTowardsRemoteState();
+    void updateToRemoteState();
 
     void updateUnclosedChangesets();
 
     void initializeLocalState() throws Exception;
 
-    ReplicationState fetchRemoteState() throws IOException;
+    ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException;
 
     ReplicationState getLocalState();
 }

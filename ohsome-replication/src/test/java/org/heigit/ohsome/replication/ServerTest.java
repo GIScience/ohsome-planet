@@ -18,12 +18,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ServerTest {
     @Test
     @Disabled
-    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException {
+    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException, InterruptedException, URISyntaxException {
         var server = Server.OSM_CHANGESET_SERVER;
 
         for (var time : List.of(
                 "2025-08-04T00:00:00Z",
-                "2025-08-04T00:10:12Z")) {
+                "2025-08-04T00:10:12Z",
+                "2025-11-03T00:59:59Z")) {
             var maxChangesetDbTimestamp = Instant.parse(time);
             var replication = server.getLatestRemoteState();
             var oldReplication = server.findStartStateByTimestamp(
@@ -40,7 +41,7 @@ class ServerTest {
 
     @Test
     @Disabled
-    void testGettingOldSequenceNumberFromOldTimestampContributions() throws IOException {
+    void testGettingOldSequenceNumberFromOldTimestampContributions() throws IOException, InterruptedException, URISyntaxException {
         var server = Server.osmEntityServer("https://planet.openstreetmap.org/replication/minute/");
 
         for (var time : List.of(

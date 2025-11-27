@@ -12,6 +12,7 @@ import org.heigit.ohsome.replication.update.ContributionUpdater;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -28,9 +29,6 @@ public class ContributionStateManager implements IContributionStateManager {
         var localState = loadLocalState(localStatePath);
         return new ContributionStateManager(endpoint, directory, localState, out, updateStore, changesetDB);
     }
-
-    public static final String PLANET_OSM_MINUTELY = "https://planet.openstreetmap.org/replication/minute/";
-    public static final String PLANET_OSM_HOURLY = "https://planet.openstreetmap.org/replication/hour/";
 
     private final IChangesetDB changesetDB;
     private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
@@ -72,7 +70,7 @@ public class ContributionStateManager implements IContributionStateManager {
         return localState;
     }
 
-    public ReplicationState fetchRemoteState() throws IOException {
+    public ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException {
         remoteState = server.getLatestRemoteState();
         return remoteState;
     }
@@ -96,7 +94,7 @@ public class ContributionStateManager implements IContributionStateManager {
         localState = state;
     }
 
-    public void updateTowardsRemoteState() {
+    public void updateToRemoteState() {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
@@ -106,7 +104,6 @@ public class ContributionStateManager implements IContributionStateManager {
                 .count()
                 .blockOptional()
                 .orElseThrow();
-        // var entities = fetchReplicationBatch(ReplicationState.sequenceNumberAsPath(nextSequenceNumber));
     }
 
     private int process(ReplicationState state) throws Exception {

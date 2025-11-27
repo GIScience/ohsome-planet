@@ -75,7 +75,7 @@ public class ReplicationManager {
                 waiter.registerLastContributionState(contributionManager);
 
                 fetchChangesets(changesetManager);
-                contributionManager.updateTowardsRemoteState();
+                contributionManager.updateToRemoteState();
             } while (!shutdownInitiated.get() && continuous);
         } finally {
             lock.unlock();
@@ -84,7 +84,7 @@ public class ReplicationManager {
     }
 
     private static void fetchChangesets(IChangesetStateManager changesetManager) {
-        changesetManager.updateTowardsRemoteState();
+        changesetManager.updateToRemoteState();
         changesetManager.updateUnclosedChangesets();
     }
 

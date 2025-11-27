@@ -163,8 +163,6 @@ public class ChangesetDB implements IChangesetDB {
                     pstmt.setTimestamp(4, Timestamp.from(changeset.getClosedAt()));
                 }
                 pstmt.setBoolean(5, changeset.isOpen());
-
-
                 pstmt.setString(6, changeset.user());
 
                 var tags = changeset.tags();

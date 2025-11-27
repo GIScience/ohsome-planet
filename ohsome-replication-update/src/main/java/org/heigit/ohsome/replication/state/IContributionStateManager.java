@@ -3,6 +3,7 @@ package org.heigit.ohsome.replication.state;
 import org.heigit.ohsome.replication.ReplicationState;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 import static java.time.Instant.EPOCH;
 
@@ -23,7 +24,7 @@ public interface IContributionStateManager {
         }
 
         @Override
-        public void updateTowardsRemoteState() {
+        public void updateToRemoteState() {
         }
     };
 
@@ -35,7 +36,7 @@ public interface IContributionStateManager {
 
     ReplicationState getLocalState();
 
-    ReplicationState fetchRemoteState() throws IOException;
+    ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException;
 
-    void updateTowardsRemoteState();
+    void updateToRemoteState();
 }
