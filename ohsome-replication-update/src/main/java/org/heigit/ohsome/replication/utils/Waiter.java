@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
@@ -83,7 +84,7 @@ public class Waiter {
         }
     }
 
-    public void registerLastContributionState(IContributionStateManager contributionStateManager) throws IOException {
+    public void registerLastContributionState(IContributionStateManager contributionStateManager) throws IOException, URISyntaxException, InterruptedException {
         var remoteContributionState = contributionStateManager.fetchRemoteState();
         if (!remoteContributionState.equals(lastContributionState)) {
             lastContributionState = remoteContributionState;

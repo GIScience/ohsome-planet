@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -59,7 +60,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
     }
 
     @Override
-    public ReplicationState fetchRemoteState() throws IOException {
+    public ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException {
         remoteState = server.getLatestRemoteState();
         return remoteState;
     }
@@ -79,7 +80,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
         localState = state;
     }
 
-    public void updateTowardsRemoteState() {
+    public void updateToRemoteState() {
         var nextReplication = localState.getSequenceNumber() + 1 + server.getReplicationOffset();
         var steps = remoteState.getSequenceNumber() - localState.getSequenceNumber();
 
@@ -96,7 +97,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
     }
 
 
-    private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException {
+    private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException, URISyntaxException, InterruptedException {
         var closed = new HashSet<Long>();
         for (var changesets : Flux.fromIterable(batch)
                 .flatMap(path -> fromCallable(() -> server.getReplicationFile(path)).subscribeOn(boundedElastic()), 20)

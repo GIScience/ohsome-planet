@@ -11,6 +11,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -80,12 +81,12 @@ class StateManagerTest {
 
 
     @Test
-    void testUpdateToRemoteState() throws IOException, SQLException {
+    void testUpdateToRemoteState() throws IOException, SQLException, URISyntaxException, InterruptedException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var remoteState = changesetStateManager.fetchRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
 
-        changesetStateManager.updateTowardsRemoteState();
+        changesetStateManager.updateToRemoteState();
         assertEquals(changesetStateManager.getLocalState(), remoteState);
 
         // todo: add similar for contributions
