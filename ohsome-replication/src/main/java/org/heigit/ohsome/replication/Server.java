@@ -10,11 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -128,13 +124,8 @@ public class Server<T> {
         }
     }
 
-    public static InputStream getFileStream(URL url) throws IOException, InterruptedException, URISyntaxException {
-        try (var client = HttpClient.newBuilder().build()) {
-            var request = HttpRequest.newBuilder()
-                    .uri(url.toURI())
-                    .GET();
-            return getResponse(client, request.build(), 4, 2);
-        }
+    public static InputStream getFileStream(URL url) throws IOException, InterruptedException {
+        return getResponse(url, 4, 2);
     }
 
     public static byte[] getFile(URL url) throws IOException, InterruptedException {
