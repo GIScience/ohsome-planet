@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ServerTest {
     @Test
     @Disabled
-    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException, InterruptedException, URISyntaxException {
+    void testGettingOldSequenceNumberFromOldTimestamp() throws IOException, InterruptedException {
         var server = Server.OSM_CHANGESET_SERVER;
 
         for (var time : List.of(

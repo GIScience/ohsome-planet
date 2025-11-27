@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -107,15 +108,20 @@ public class Server<T> {
         return targetUrl;
     }
 
-    private static InputStream getResponse(HttpClient client, HttpRequest request, int retries, int backoff) throws InterruptedException, IOException {
+    private static InputStream getResponse(URL url, int retries, int backoff) throws InterruptedException, IOException {
         while (true) {
             try {
-                return client.send(request, HttpResponse.BodyHandlers.ofInputStream()).body();
+                var connection = url.openConnection();
+                connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes
+                connection.setConnectTimeout(10 * 60 * 1000); // timeout 10 minutes
+                return connection.getInputStream();
+            } catch (FileNotFoundException e) {
+                throw e;
             } catch (Exception e) {
                 if (retries-- <= 0) {
                     throw e;
                 }
-                logger.debug("Retrieval of {} failed, retries left: {}, waiting {} seconds before trying again", request.uri(), retries, backoff);
+                logger.debug("Retrieval of {} failed, retries left: {}, waiting {} seconds before trying again", url, retries, backoff);
                 TimeUnit.SECONDS.sleep(backoff);
                 backoff *= 2;
             }
@@ -131,33 +137,33 @@ public class Server<T> {
         }
     }
 
-    public static byte[] getFile(URL url) throws IOException, InterruptedException, URISyntaxException {
+    public static byte[] getFile(URL url) throws IOException, InterruptedException {
         return getFileStream(url).readAllBytes();
     }
 
-    protected byte[] getFile(String replicationPath) throws IOException, InterruptedException, URISyntaxException {
+    protected byte[] getFile(String replicationPath) throws IOException, InterruptedException {
         return getFile(create(this.targetUrl + replicationPath + this.replicationFileName).toURL());
     }
 
 
-    public ReplicationState getLatestRemoteState() throws IOException, InterruptedException, URISyntaxException {
+    public ReplicationState getLatestRemoteState() throws IOException, InterruptedException {
         return getRemoteState(create(this.targetUrl + topLevelFile).toURL());
     }
 
 
-    public ReplicationState getRemoteState(int sequenceNumber) throws IOException, InterruptedException, URISyntaxException {
+    public ReplicationState getRemoteState(int sequenceNumber) throws IOException, InterruptedException {
         var url = create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL();
         return getRemoteState(url);
     }
 
-    public ReplicationState getRemoteState(URL url) throws IOException, InterruptedException, URISyntaxException {
+    public ReplicationState getRemoteState(URL url) throws IOException, InterruptedException {
         var input = getFileStream(url);
         var props = new Properties();
         props.load(input);
         return new ReplicationState(props, sequenceKey, timestampKey, timestampParser);
     }
 
-    public byte[] getReplicationFile(int sequenceNumber) throws IOException, InterruptedException, URISyntaxException {
+    public byte[] getReplicationFile(int sequenceNumber) throws IOException, InterruptedException {
         return new GZIPInputStream(getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + this.replicationFileName).toURL())).readAllBytes();
     }
 
@@ -187,7 +193,7 @@ public class Server<T> {
 
     // Logic from https://github.com/osmcode/pyosmium/blob/b73e223b909cb82486ec09d4cee91215595beb96/src/osmium/replication/server.py#L324
     // # Copyright (C) 2025 Sarah Hoffmann <lonvia@denofr.de> and others.
-    public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException, InterruptedException, URISyntaxException {
+    public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException, InterruptedException {
         var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
         logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.getLeft(), surroundingStates.getRight());
@@ -221,7 +227,7 @@ public class Server<T> {
     private Pair<ReplicationState, ReplicationState> getReplicationStatesAroundTargetTimestamp(
             ReplicationState upperReplication,
             Instant targetTimestamp
-    ) throws InterruptedException, URISyntaxException {
+    ) throws InterruptedException {
         var lowerReplication = estimateLowerReplicationState(upperReplication);
         logger.trace("Available replication: {}", lowerReplication);
 
@@ -241,7 +247,7 @@ public class Server<T> {
         }
     }
 
-    private ReplicationState estimateLowerReplicationState(ReplicationState upperReplication) throws InterruptedException, URISyntaxException {
+    private ReplicationState estimateLowerReplicationState(ReplicationState upperReplication) throws InterruptedException {
         var lowerReplication = new ReplicationState(null, 0);
 
         while (lowerReplication.getTimestamp() == null) {
