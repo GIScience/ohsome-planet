@@ -10,6 +10,7 @@ import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMMember;
+import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.UpdateStore;
 import reactor.core.publisher.Flux;
@@ -22,8 +23,9 @@ import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
 import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
-import static org.heigit.ohsome.replication.UpdateStore.BackRefs.NODE_RELATION;
-import static org.heigit.ohsome.replication.UpdateStore.BackRefs.NODE_WAY;
+import static org.heigit.ohsome.osm.OSMType.NODE;
+import static org.heigit.ohsome.osm.OSMType.WAY;
+import static org.heigit.ohsome.replication.UpdateStore.BackRefs.*;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
@@ -38,8 +40,6 @@ public class ContributionUpdater {
             osh.addAll(newVersions);
             return osh;
         }
-
-
     }
 
     private final Changesets changesetDb;
@@ -83,6 +83,7 @@ public class ContributionUpdater {
         store.relations(updatedRelations);
 
         updateNodeWayBackRefs();
+        updateTypeRelationBackRefs();
     }
 
     private record BackRefsUpdate(Set<Long> exist, Set<Long> toRemove) {
@@ -120,20 +121,46 @@ public class ContributionUpdater {
         store.backRefs(NODE_WAY, nodeWayBackRefs);
     }
 
-    private void updateXRelationBackRefs() {
-        var nodeRelationBackRefsUpdate = new HashMap<Long, BackRefsUpdate>();
-        var wayRelationBackRefsUpdate = new HashMap<Long, BackRefsUpdate>();
+    private void updateTypeRelationBackRefs() {
+        var backRefsUpdate = Map.of(
+                NODE, new HashMap<Long, BackRefsUpdate>(),
+                WAY, new HashMap<Long, BackRefsUpdate>());
 
         newRelations.entrySet().stream()
                 .filter(not(entry -> entry.getValue().newVersions().isEmpty()))
                 .forEach(entry -> {
+                    var relId = entry.getKey();
                     var last = entry.getValue().newVersions().getLast();
                     var before = Optional.ofNullable(entry.getValue().before());
+                    var memberRefs = Map.of(
+                            NODE, new HashSet<Long>(),
+                            WAY, new HashSet<Long>());
+                    last.members().stream()
+                            .filter(not(member -> member.type().equals(OSMType.RELATION)))
+                            .forEach(member -> memberRefs.get(member.type()).add(member.id()));
 
-                })
+                    before.map(OSMRelation::members).ifPresent(beforeMembers -> beforeMembers.stream()
+                            .filter(not(member -> member.type().equals(OSMType.RELATION)))
+                            .filter(not(member -> memberRefs.get(member.type()).contains(member.id())))
+                            .forEach(memberToRemove -> backRefsUpdate.get(memberToRemove.type()).computeIfAbsent(memberToRemove.id(), x -> new BackRefsUpdate()).toRemove().add(relId))
+                    );
+                    memberRefs.forEach((type, refs) -> refs.forEach(refId -> backRefsUpdate.get(type).computeIfAbsent(refId, x -> new BackRefsUpdate()).exist().add(relId)));
+                });
 
+        var nodeRelationBackRefs = new HashMap<>(store.backRefs(NODE_RELATION, backRefsUpdate.get(NODE).keySet()));
+        updateTypeBackRefs(backRefsUpdate.get(NODE), nodeRelationBackRefs);
+        store.backRefs(NODE_RELATION, nodeRelationBackRefs);
 
-                ;
+        var wayRelationBackRefs = new HashMap<>(store.backRefs(WAY_RELATION, backRefsUpdate.get(WAY).keySet()));
+        updateTypeBackRefs(backRefsUpdate.get(WAY), wayRelationBackRefs);
+    }
+
+    private void updateTypeBackRefs(Map<Long, BackRefsUpdate> refIdBackRefUpdates, Map<Long, Set<Long>> typeRelationBackRefs) {
+        refIdBackRefUpdates.forEach((refId, update) -> {
+            var backRefs = typeRelationBackRefs.computeIfAbsent(refId, x -> new HashSet<>());
+            backRefs.addAll(update.exist());
+            backRefs.removeAll(update.toRemove());
+        });
     }
 
     public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {

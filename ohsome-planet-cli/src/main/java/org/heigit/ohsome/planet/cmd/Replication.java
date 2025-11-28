@@ -22,7 +22,7 @@ public class Replication implements Callable<Integer> {
         return CommandLine.ExitCode.OK;
     }
 
-    private static class ContributionParameters {
+    static class ContributionParameters {
         @Option(names = {"--country-file"})
         Path countryFilePath;
         @Option(names = {"--replication"}, defaultValue = "https://planet.openstreetmap.org/replication/minute/", description = "Endpoint for contributions, Default: ${DEFAULT-VALUE}")
@@ -57,6 +57,18 @@ public class Replication implements Callable<Integer> {
 
         @Option(names = {"--jcb", "--just-contributions"}, description = "Do not process contributions, just changesets")
         boolean justContributions;
+    }
+
+    @Command
+    public int init(
+            @CommandLine.ArgGroup(multiplicity = "1")
+            ContributionParameters contributionParameters,
+
+            @CommandLine.Option(names = {"--pbf"}, required = true)
+            Path pbfPath) {
+
+        return 0;
+
     }
 
     @Command
