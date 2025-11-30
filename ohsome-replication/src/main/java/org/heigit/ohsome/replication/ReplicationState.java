@@ -26,6 +26,10 @@ public class ReplicationState {
         return new ReplicationState(props, "sequenceNumber", "timestamp", Instant::parse);
     }
 
+    public static ReplicationState state(Instant timestamp, int sequenceNumber, String endpoint) {
+        return new ReplicationState(timestamp, sequenceNumber, endpoint);
+    }
+
 
 
     private final Instant timestamp;
@@ -41,6 +45,12 @@ public class ReplicationState {
     public ReplicationState(Instant timestamp, int sequenceNumber) {
         this.timestamp = timestamp;
         this.sequenceNumber = sequenceNumber;
+    }
+
+    public ReplicationState(Instant timestamp, int sequenceNumber, String endpoint) {
+        this.timestamp = timestamp;
+        this.sequenceNumber = sequenceNumber;
+        this.endpoint = endpoint;
     }
 
     public static String sequenceNumberAsPath(int sequenceNumber) {

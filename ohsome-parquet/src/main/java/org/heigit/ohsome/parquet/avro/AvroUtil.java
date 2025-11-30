@@ -5,6 +5,7 @@ import org.apache.avro.generic.GenericData;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.avro.AvroWriteSupport;
+import org.apache.parquet.conf.ParquetConfiguration;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.api.WriteSupport;
 import org.apache.parquet.io.LocalInputFile;
@@ -90,17 +91,23 @@ public class AvroUtil {
         }
 
         @Override
-        protected WriteSupport<T> getWriteSupport(Configuration conf) {
+        protected WriteSupport<T> getWriteSupport(ParquetConfiguration conf) {
             messageType = messageType == null ? new AvroSchemaConverter(conf).convert(schema) : null;
             return new AvroWriteSupport<>(messageType, schema, model) {
+
                 @Override
-                public WriteContext init(Configuration configuration) {
+                public WriteContext init(ParquetConfiguration configuration) {
                     var wc = super.init(configuration);
                     var extraMetaData = new HashMap<>(wc.getExtraMetaData());
                     extraMetaData.putAll(additionalMetadata);
                     return new WriteContext(wc.getSchema(), extraMetaData);
                 }
             };
+        }
+
+        @Override
+        protected WriteSupport<T> getWriteSupport(Configuration conf) {
+            throw new UnsupportedOperationException();
         }
     }
 
