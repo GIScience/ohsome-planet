@@ -153,6 +153,7 @@ public class ContributionUpdater {
 
         var wayRelationBackRefs = new HashMap<>(store.backRefs(WAY_RELATION, backRefsUpdate.get(WAY).keySet()));
         updateTypeBackRefs(backRefsUpdate.get(WAY), wayRelationBackRefs);
+        store.backRefs(WAY_RELATION, wayRelationBackRefs);
     }
 
     private void updateTypeBackRefs(Map<Long, BackRefsUpdate> refIdBackRefUpdates, Map<Long, Set<Long>> typeRelationBackRefs) {
@@ -244,13 +245,18 @@ public class ContributionUpdater {
                     }
                 });
 
-        var nodes = store.nodes(nodeIds).values().stream()
-                .collect(Collectors.toMap(OSMEntity::id, List::of));
+
         var ways = store.ways(wayIds).values().stream()
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
-
-        updateMembers(nodeIds, nodes, newNodes);
         updateMembers(wayIds, ways, newWays);
+
+        ways.values().stream().<OSMWay>mapMulti(Iterable::forEach)
+                .map(OSMWay::refs)
+                .forEach(nodeIds::addAll);
+
+        var nodes = store.nodes(nodeIds).values().stream()
+                .collect(Collectors.toMap(OSMEntity::id, List::of));
+        updateMembers(nodeIds, nodes, newNodes);
 
 
         var changesetIds = new HashSet<Long>();
@@ -371,6 +377,9 @@ public class ContributionUpdater {
         var newVersions = getByType(osc, OSMRelation.class);
         var nodeRelsBackRefs = store.backRefs(NODE_RELATION, newNodes.keySet());
         nodeRelsBackRefs.forEach((nodeId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
+
+        var wayRelsBackRefs = store.backRefs(WAY_RELATION, newWays.keySet());
+        wayRelsBackRefs.forEach((wayId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
 
         var versionBefore = new HashMap<>(store.relations(newVersions.keySet()));
         return filter(newVersions, versionBefore);
