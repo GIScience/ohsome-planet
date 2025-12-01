@@ -5,13 +5,13 @@ import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -81,7 +81,9 @@ class StateManagerTest {
 
 
     @Test
-    void testUpdateToRemoteState() throws IOException, SQLException, URISyntaxException, InterruptedException {
+    @Disabled
+        // todo: uses actual api
+    void testUpdateToRemoteState() throws IOException, SQLException, InterruptedException {
         var changesetStateManager = new ChangesetStateManager(new ChangesetDB(dbUrl));
         var remoteState = changesetStateManager.fetchRemoteState();
         changesetStateManager.updateLocalState(new ReplicationState(Instant.EPOCH, remoteState.getSequenceNumber() - 40));
