@@ -94,9 +94,8 @@ public class Replication implements Callable<Integer> {
             throw new InvalidParameterException("Either just-contributions or just-changesets can be specified");
         }
 
-
         if (optionalChangesets.justContributions) {
-            return ReplicationManager.update(
+            return ReplicationManager.updateContributions(
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
                     optionalContributions.contributionParameters.replicationElementsUrl.toString(),
@@ -105,13 +104,12 @@ public class Replication implements Callable<Integer> {
         }
 
         if (optionalContributions.justChangesets) {
-            return ReplicationManager.update(
+            return ReplicationManager.updateChangesets(
                     optionalChangesets.changesetParameters.changesetDbUrl,
                     optionalChangesets.changesetParameters.replicationChangesetsUrl,
                     continuous
             );
         }
-
 
         return ReplicationManager.update(
                 optionalContributions.contributionParameters.directory,
@@ -119,9 +117,7 @@ public class Replication implements Callable<Integer> {
                 optionalContributions.contributionParameters.replicationElementsUrl.toString(),
                 optionalChangesets.changesetParameters.changesetDbUrl,
                 optionalChangesets.changesetParameters.replicationChangesetsUrl,
-                continuous,
-                false,
-                false
+                continuous
         );
     }
 }

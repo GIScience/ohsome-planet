@@ -2,77 +2,51 @@ package org.heigit.ohsome.replication.utils;
 
 import org.heigit.ohsome.replication.ReplicationState;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.spy;
 
 class WaiterTest {
 
     @Test
-    void returnsFalseWhenChangesetReplicationIsNew() throws InterruptedException {
-        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false));
-
-        assertFalse(waiter.optionallyWaitAndTryAgain(new ReplicationState(Instant.now(), 100000)));
-    }
-
-    @Test
-    void returnsTrueWhenLastChangesetReplicationFileIsRecent() throws InterruptedException {
-        var changesetState = new ReplicationState(Instant.now().minusSeconds(20), 100000);
-
-        var mockWaiter = spy(new Waiter(changesetState, new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false)));
-        Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
-
-        assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-    }
-
-    @Test
-    void returnsTrueWhenLastContributionReplicationFileIsRecent() throws InterruptedException {
-        var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
-        var contributionState = new ReplicationState(Instant.now().minusSeconds(20), 98765);
-
-        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
-        Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
-
-        assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-    }
-
-    @Test
-    void returnsFalseWhenLastContributionAndChangesetFilesAreOld() throws InterruptedException {
-        var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
-        var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
-
-        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
-        Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
-
-        assertFalse(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-    }
-
-    @Test
-    void returnsAlternatingTrueFalseWhenLastContributionAndChangesetFilesAreOldAndItIsCalledRepeatedly() throws InterruptedException {
-        var changesetState = new ReplicationState(Instant.now().minusSeconds(500), 100000);
-        var contributionState = new ReplicationState(Instant.now().minusSeconds(500), 98765);
-
-        var mockWaiter = spy(new Waiter(changesetState, contributionState, new AtomicBoolean(false)));
-        Mockito.doNothing().when(mockWaiter).waitXSeconds(anyLong());
-
-        assertFalse(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-        assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-        assertFalse(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-        assertTrue(mockWaiter.optionallyWaitAndTryAgain(changesetState));
-    }
-
-    @Test
     void waitXSecondsActuallyWaitsXSeconds() throws InterruptedException {
-        var waiter = new Waiter(new ReplicationState(Instant.EPOCH, 1000), new ReplicationState(Instant.EPOCH, 1000), new AtomicBoolean(false));
+        var waiter = new Waiter(new AtomicBoolean(false));
         var now = Instant.now();
-        waiter.waitXSeconds(1);
+        waiter.sleep(1);
         var nowNow = Instant.now();
         assertTrue(now.plusSeconds(1).isBefore(nowNow));
+    }
+
+    @Test
+    void notWaitingForChangesetsReturnsTrueIfContributionsStateIsOlderThanChangesetState() {
+        assertTrue(
+                Waiter.notWaitingForChangesets(
+                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T09:56:00Z"), 1000)
+                )
+        );
+    }
+
+    @Test
+    void notWaitingForChangesetsReturnsFalseIfContributionsStateUpToTwoMinutesOlderThanChangesetState() {
+        assertFalse(
+                Waiter.notWaitingForChangesets(
+                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T09:58:00Z"), 1000)
+                )
+        );
+    }
+
+    @Test
+    void notWaitingForChangesetsReturnsTrueIfContributionsStateIsMoreThanTwoMinutesOlderThanChangesetState() {
+        assertTrue(
+                Waiter.notWaitingForChangesets(
+                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T09:59:30Z"), 1000)
+                )
+        );
     }
 }

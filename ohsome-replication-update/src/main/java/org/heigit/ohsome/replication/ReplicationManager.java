@@ -5,15 +5,13 @@ import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
-import org.heigit.ohsome.replication.state.IChangesetStateManager;
-import org.heigit.ohsome.replication.state.IContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
 
-import java.io.IOException;
 import java.nio.file.Path;
-import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static java.time.Instant.now;
 
 
 public class ReplicationManager {
@@ -22,45 +20,42 @@ public class ReplicationManager {
         // utility class
     }
 
+    private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets, boolean justContributions) throws Exception {
+    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
-        lock.lock();
         var shutdownInitiated = new AtomicBoolean(false);
-        var shutdownHook = new Thread(() -> {
-            shutdownInitiated.set(true);
-            lock.lock();
-        });
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
+        initializeShutdownHook(lock, shutdownInitiated);
 
         try (
-                var updateStore = !justChangesets ? UpdateStoreRocksDb.open(directory, 10 << 20, true) : UpdateStore.noop();
-                var changesetDb = !justContributions ? new ChangesetDB(changesetDbUrl) : IChangesetDB.noop()
+                var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
+                var changesetDb = new ChangesetDB(changesetDbUrl)
         ) {
-            var contributionManager = !justChangesets ? ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb) : IContributionStateManager.noop();
-            var changesetManager = !justContributions ? new ChangesetStateManager(replicationChangesetUrl, (ChangesetDB) changesetDb) : IChangesetStateManager.noop();
+            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb);
+            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
-
-            var waiter = new Waiter(
-                    changesetManager.getLocalState(),
-                    contributionManager.getLocalState(),
-                    shutdownInitiated
-            );
+            var waiter = new Waiter(shutdownInitiated);
 
             do {
                 var remoteChangesetState = changesetManager.fetchRemoteState();
+                var remoteContributionState = contributionManager.fetchRemoteState();
 
-                if (waiter.optionallyWaitAndTryAgain(remoteChangesetState)) {
-                    continue;
+                if (remoteChangesetState != changesetManager.getLocalState()) {
+                    changesetManager.updateToRemoteState();
+                    changesetManager.updateUnclosedChangesets();
+                    waiter.resetRetry();
                 }
 
-                waiter.registerLastContributionState(contributionManager);
+                if (remoteChangesetState != contributionManager.getLocalState()
+                        && Waiter.notWaitingForChangesets(remoteContributionState, remoteChangesetState)) {
+                    contributionManager.updateToRemoteState();
+                    waiter.resetRetry();
+                }
 
-                fetchChangesets(changesetManager);
-                contributionManager.updateToRemoteState();
+                waitForReplication(remoteChangesetState, remoteContributionState, waiter);
             } while (!shutdownInitiated.get() && continuous);
         } finally {
             lock.unlock();
@@ -68,16 +63,86 @@ public class ReplicationManager {
         return 0;
     }
 
-    private static void fetchChangesets(IChangesetStateManager changesetManager) {
-        changesetManager.updateToRemoteState();
-        changesetManager.updateUnclosedChangesets();
+    private static void waitForReplication(ReplicationState remoteChangesetState, ReplicationState remoteContributionState, Waiter waiter) throws InterruptedException {
+        var timeSinceLastChangesetState = now().getEpochSecond() - remoteChangesetState.getTimestamp().getEpochSecond();
+        var timeSinceLastContributionState = now().getEpochSecond() - remoteContributionState.getTimestamp().getEpochSecond();
+
+        if (timeSinceLastChangesetState < WAIT_TIME) {
+            waiter.sleep(WAIT_TIME - timeSinceLastChangesetState);
+        } else if (timeSinceLastContributionState < WAIT_TIME) {
+            waiter.sleep(WAIT_TIME - timeSinceLastContributionState);
+        } else {
+            waiter.waitForRetry();
+        }
     }
 
-    public static int update(Path directory, Path out, String replicationEndpoint, boolean continuous) throws Exception {
-        return update(directory, out, replicationEndpoint, null, null, continuous, false, true);
+    public static int updateContributions(Path directory, Path out, String replicationEndpoint, boolean continuous) throws Exception {
+        var lock = new ReentrantLock();
+        var shutdownInitiated = new AtomicBoolean(false);
+        initializeShutdownHook(lock, shutdownInitiated);
+
+        try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
+            var waiter = new Waiter(shutdownInitiated);
+            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, IChangesetDB.noop());
+            contributionManager.initializeLocalState();
+
+            do {
+                var remoteState = contributionManager.fetchRemoteState();
+                if (remoteState != contributionManager.getLocalState()) {
+                    contributionManager.updateToRemoteState();
+                    waiter.resetRetry();
+
+                    var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
+                    if (timeSinceLastReplication < WAIT_TIME) {
+                        waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                    }
+                } else {
+                    waiter.waitForRetry();
+                }
+            } while (!shutdownInitiated.get() && continuous);
+        } finally {
+            lock.unlock();
+        }
+        return 0;
     }
 
-    public static int update(String changesetDbUrl, String replicationChangesetsUrl, boolean continuous) throws Exception {
-        return update(null, null, null, changesetDbUrl, replicationChangesetsUrl, continuous, true, false);
+    public static int updateChangesets(String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+        var lock = new ReentrantLock();
+        var shutdownInitiated = new AtomicBoolean(false);
+        initializeShutdownHook(lock, shutdownInitiated);
+
+        try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
+            var waiter = new Waiter(shutdownInitiated);
+            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
+            changesetManager.initializeLocalState();
+
+            do {
+                var remoteState = changesetManager.fetchRemoteState();
+                if (remoteState != changesetManager.getLocalState()) {
+                    changesetManager.updateToRemoteState();
+                    changesetManager.updateUnclosedChangesets();
+                    waiter.resetRetry();
+
+                    var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
+                    if (timeSinceLastReplication < WAIT_TIME) {
+                        waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                    }
+                } else {
+                    waiter.waitForRetry();
+                }
+            } while (!shutdownInitiated.get() && continuous);
+        } finally {
+            lock.unlock();
+        }
+        return 0;
+    }
+
+    private static void initializeShutdownHook(ReentrantLock lock, AtomicBoolean shutdownInitiated) {
+        lock.lock();
+        var shutdownHook = new Thread(() -> {
+            shutdownInitiated.set(true);
+            lock.lock();
+        });
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
 }
