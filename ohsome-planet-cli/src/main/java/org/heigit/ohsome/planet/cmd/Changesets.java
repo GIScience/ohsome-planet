@@ -1,7 +1,7 @@
 package org.heigit.ohsome.planet.cmd;
 
+import org.heigit.ohsome.changesets.Changesets2DB;
 import org.heigit.ohsome.planet.utils.CliUtils;
-import org.heigit.ohsome.replication.ReplicationManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -23,13 +23,13 @@ public class Changesets implements Callable<Integer> {
     boolean overwrite;
     @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
-    @Option(names={"--schema"}, description = "Set this flag if you do not have configured the changeset table schema yet.")
+    @Option(names = {"--schema"}, description = "Set this flag if you do not have configured the changeset table schema yet.")
     boolean createSchema;
 
     @Override
     public Integer call() throws IOException, SQLException {
         CliUtils.setVerbosity(verbosity);
 
-        return ReplicationManager.initChangesets(changesetsPath, changesetDbUrl, overwrite, createSchema);
+        return Changesets2DB.initChangesets(changesetsPath, changesetDbUrl, overwrite, createSchema);
     }
 }

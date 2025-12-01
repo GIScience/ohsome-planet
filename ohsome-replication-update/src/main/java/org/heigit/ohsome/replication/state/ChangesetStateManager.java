@@ -1,9 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
 
-import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.changesets.ChangesetDB;
-import org.heigit.ohsome.osm.changesets.PBZ2ChangesetReader;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
 import org.slf4j.Logger;
@@ -11,8 +9,6 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
@@ -22,7 +18,6 @@ import java.util.stream.Collectors;
 
 import static java.net.URI.create;
 import static org.heigit.ohsome.osm.changesets.OSMChangesets.OSMChangeset;
-import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.parallel;
@@ -140,26 +135,5 @@ public class ChangesetStateManager implements IChangesetStateManager {
                 )
                 .doOnNext(cs -> logger.info("Upserted {} previously unclosed changesets", cs.size()))
                 .blockLast();
-    }
-
-
-    public void initDbWithXML(Path changesetsPath) throws IOException {
-        try (var pb = new ProgressBarBuilder()
-                .setTaskName("Parsed Changesets:")
-                .build()) {
-            PBZ2ChangesetReader.read(changesetsPath)
-                    .flatMap(bytes -> fromCallable(() -> readChangesets(bytes)).subscribeOn(parallel()))
-                    .doOnNext(cs -> pb.stepBy(cs.size()))
-                    .flatMap(cs -> fromCallable(() -> changesetDB.changesets2CSV(cs)).subscribeOn(parallel()))
-                    .flatMap(
-                            changesets -> fromCallable(() -> {
-                                changesetDB.bulkInsertChangesets(changesets);
-                                return changesets;
-                            }).subscribeOn(boundedElastic()),
-                            changesetDB.getMaxConnections()
-                    )
-                    .doOnComplete(pb::close)
-                    .blockLast();
-        }
     }
 }

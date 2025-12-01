@@ -22,21 +22,6 @@ public class ReplicationManager {
         // utility class
     }
 
-    public static int initChangesets(Path changesetsPath, String changesetDbUrl, boolean overwrite, boolean createSchema) throws IOException, SQLException {
-        try (var changesetDb = new ChangesetDB(changesetDbUrl)) {
-            if (createSchema) {
-                changesetDb.createTablesIfNotExists();
-            }
-
-            if (overwrite) {
-                changesetDb.truncateChangesetTables();
-            }
-
-            var changesetManager = new ChangesetStateManager(changesetDb);
-            changesetManager.initDbWithXML(changesetsPath);
-            return 0;
-        }
-    }
 
 
     public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous, boolean justChangesets, boolean justContributions) throws Exception {
