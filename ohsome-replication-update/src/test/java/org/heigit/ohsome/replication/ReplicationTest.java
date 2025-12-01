@@ -48,7 +48,7 @@ class ReplicationTest {
     void setUp() throws SQLException, IOException {
         var config = new HikariConfig();
         config.setJdbcUrl(dbUrl);
-        for (var script : new String[]{"setupDB/initializeDataForChangesetTests.sql"}){
+        for (var script : new String[]{"setupDB/initializeDataForReplication.sql"}){
             try (var datasource = new HikariDataSource(config);
                  var conn = datasource.getConnection();
                  var st = conn.prepareStatement(
@@ -73,10 +73,9 @@ class ReplicationTest {
     }
 
     @Test
-    @Disabled // todo: setup db currently breaks the changeset startreplication finder
     void testUpdateOnlyChangesets() throws Exception {
         var replicationChangesetUrl = RESOURCE_PATH.resolve("replication/changesets").toUri().toURL().toString();
-        ReplicationManager.updateChangesets(dbUrl, replicationChangesetUrl, false);
+        ReplicationManager.updateChangesets(dbUrl, replicationChangesetUrl, true);
 
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             var localStateAfterUpdate = changesetDb.getLocalState();
@@ -102,8 +101,7 @@ class ReplicationTest {
     }
 
     @Test
-    @Disabled // todo: setup db currently breaks the changeset startreplication finder
-    // todo: needs the update changesets, but here we would also need contribution thingy, they are probably exclusive tho
+    @Disabled
     void testUpdateBothContributionsAndChangesets() throws Exception {
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
         var out = RESOURCE_PATH.resolve("out");

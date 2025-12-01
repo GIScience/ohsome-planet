@@ -24,7 +24,7 @@ class WaiterTest {
     void notWaitingForChangesetsReturnsTrueIfContributionsStateIsOlderThanChangesetState() {
         assertTrue(
                 Waiter.notWaitingForChangesets(
-                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T09:54:00Z"), 1000),
                         new ReplicationState(Instant.parse("2025-12-01T09:56:00Z"), 1000)
                 )
         );
@@ -34,7 +34,7 @@ class WaiterTest {
     void notWaitingForChangesetsReturnsFalseIfContributionsStateUpToTwoMinutesOlderThanChangesetState() {
         assertFalse(
                 Waiter.notWaitingForChangesets(
-                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T09:59:00Z"), 1000),
                         new ReplicationState(Instant.parse("2025-12-01T09:58:00Z"), 1000)
                 )
         );
@@ -44,7 +44,7 @@ class WaiterTest {
     void notWaitingForChangesetsReturnsTrueIfContributionsStateIsMoreThanTwoMinutesOlderThanChangesetState() {
         assertTrue(
                 Waiter.notWaitingForChangesets(
-                        new ReplicationState(Instant.parse("2025-12-01T09:57:00Z"), 1000),
+                        new ReplicationState(Instant.parse("2025-12-01T10:57:00Z"), 1000),
                         new ReplicationState(Instant.parse("2025-12-01T09:59:30Z"), 1000)
                 )
         );

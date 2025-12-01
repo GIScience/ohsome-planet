@@ -33,7 +33,7 @@ public class Waiter {
 
     public static boolean notWaitingForChangesets(ReplicationState lastContributionState, ReplicationState lastChangesetState) {
         return lastContributionState.getTimestamp().isBefore(lastChangesetState.getTimestamp())
-                || Duration.between(lastContributionState.getTimestamp(), lastChangesetState.getTimestamp()).toSeconds() > 120;
+                || Duration.between(lastChangesetState.getTimestamp(), lastContributionState.getTimestamp()).toSeconds() > 120;
     }
 
     public void waitForRetry() throws InterruptedException {
