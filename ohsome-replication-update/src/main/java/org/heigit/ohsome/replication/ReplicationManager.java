@@ -43,13 +43,13 @@ public class ReplicationManager {
                 var remoteChangesetState = changesetManager.fetchRemoteState();
                 var remoteContributionState = contributionManager.fetchRemoteState();
 
-                if (remoteChangesetState != changesetManager.getLocalState()) {
+                if (!remoteChangesetState.equals(changesetManager.getLocalState())) {
                     changesetManager.updateToRemoteState();
                     changesetManager.updateUnclosedChangesets();
                     waiter.resetRetry();
                 }
 
-                if (remoteChangesetState != contributionManager.getLocalState()
+                if (!remoteChangesetState.equals(contributionManager.getLocalState())
                         && Waiter.notWaitingForChangesets(remoteContributionState, remoteChangesetState)) {
                     contributionManager.updateToRemoteState();
                     waiter.resetRetry();
@@ -88,7 +88,7 @@ public class ReplicationManager {
 
             do {
                 var remoteState = contributionManager.fetchRemoteState();
-                if (remoteState != contributionManager.getLocalState()) {
+                if (!remoteState.equals(contributionManager.getLocalState())) {
                     contributionManager.updateToRemoteState();
                     waiter.resetRetry();
 
@@ -118,7 +118,8 @@ public class ReplicationManager {
 
             do {
                 var remoteState = changesetManager.fetchRemoteState();
-                if (remoteState != changesetManager.getLocalState()) {
+
+                if (!remoteState.equals(changesetManager.getLocalState())) {
                     changesetManager.updateToRemoteState();
                     changesetManager.updateUnclosedChangesets();
                     waiter.resetRetry();
