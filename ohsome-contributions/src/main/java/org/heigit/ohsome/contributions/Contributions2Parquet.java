@@ -237,7 +237,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var canceled = new AtomicBoolean(false);
             var batch = new ArrayList<List<OSMEntity>>(1_000);
-            var replicationOutput =  new Output(4 << 10);
+
 
             while (entities.hasNext() && !canceled.get()) {
                 batch.clear();
@@ -287,20 +287,6 @@ public class Contributions2Parquet implements Callable<Integer> {
                         }
                         wayRelationBackRefs.write(writeOpts, writeBatch);
                     }
-
-                    try (var writeBatch = new WriteBatch()) {
-                        for(var osh : batch) {
-                            var last = (OSMRelation) osh.getLast();
-                            if (!last.visible()) {
-                                continue;
-                            }
-                            replicationOutput.reset();
-                            ReplicationEntity.serialize(last, replicationOutput);
-                            var key = RocksUtil.key(last.id());
-                            writeBatch.put(key, replicationOutput.array());
-                        }
-                        replicationDb.write(writeOpts, writeBatch);
-                    }
                 }
 
                 for(var osh : batch) {
@@ -311,7 +297,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     var writer = writers.take();
                     contribWorkers.execute(() -> {
                         try {
-                            processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
+                            processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
                         } catch (Exception e) {
                             canceled.set(true);
                             System.err.println(e.getMessage());
@@ -356,7 +342,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, boolean debug) throws Exception {
+    private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var id = entities.getFirst().id();
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
@@ -393,17 +379,24 @@ public class Contributions2Parquet implements Callable<Integer> {
         var time = System.nanoTime();
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
         var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
-        var versions = 0;
+        var lastContrib = (Contrib) null;
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
-                writer.write(contrib.get());
-                versions++;
+                lastContrib = contrib.get();
+                writer.write(lastContrib);
             }
         }
 
-        if (debug) {
-            writer.log("%s,%s,%s".formatted(id, versions, System.nanoTime() - time));
+        if (lastContrib != null && osh.getLast().visible()) {
+            var last = osh.getLast();
+            var minorVersions = lastContrib.getOsmMinorVersion();
+            var edits = lastContrib.getOsmEdits();
+            var replicationOutput =  new Output(4 << 10);
+            replicationOutput.reset();
+            ReplicationEntity.serialize(last.withMinorAndEdits(minorVersions, edits), replicationOutput);
+            var key = RocksUtil.key(last.id());
+            replicationDb.put(key, replicationOutput.array());
         }
     }
 

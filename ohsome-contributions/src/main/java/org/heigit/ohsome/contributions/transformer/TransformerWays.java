@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions.transformer;
 
+import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
@@ -125,11 +126,6 @@ public class TransformerWays extends Transformer {
 
                 var last = osh.getLast();
                 if (last.visible()) {
-                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
-                    replicationElementsCount++;
-
-                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
-
                     for (var ref : last.refs()) {
                         backRefsNodeWays.computeIfAbsent(ref, x -> new TreeSet<>()).add(last.id());
                     }
@@ -167,12 +163,23 @@ public class TransformerWays extends Transformer {
                 var contributions = new ContributionsWay(osh, minorNodes);
                 var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 
+                var lastContrib = (Contrib) null;
                 while (converter.hasNext()) {
                     var contrib = converter.next();
                     if (contrib.isPresent()) {
-                        writer.write(processor.id(), contrib.get());
+                        lastContrib = contrib.get();
+                        writer.write(processor.id(), lastContrib);
                     }
                 }
+                if (lastContrib != null && osh.getLast().visible()) {
+                    var last = osh.getLast();
+                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
+                    var minorVersion = lastContrib.getOsmMinorVersion();
+                    var edits = lastContrib.getOsmEdits();
+                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last.withMinorAndEdits(minorVersion, edits), output));
+                }
+
             }
         }
         return new Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);

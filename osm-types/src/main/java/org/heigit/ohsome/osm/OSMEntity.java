@@ -35,6 +35,7 @@ public sealed interface OSMEntity {
 
     List<OSMMember> members();
 
+
     record OSMNode(long id, int version, Instant timestamp, long changeset, int userId, String user,
                    boolean visible,
                    Map<String, String> tags, double lon, double lat) implements OSMEntity {

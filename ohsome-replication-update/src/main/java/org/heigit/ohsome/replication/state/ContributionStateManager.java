@@ -70,7 +70,7 @@ public class ContributionStateManager implements IContributionStateManager {
         return localState;
     }
 
-    public ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException {
+    public ReplicationState fetchRemoteState() throws IOException, InterruptedException {
         remoteState = server.getLatestRemoteState();
         return remoteState;
     }
@@ -117,8 +117,7 @@ public class ContributionStateManager implements IContributionStateManager {
             for (var contrib : updater.update(osc).toIterable()) {
                 writer.write(contrib);
                 var changeset = contrib.getChangeset();
-                if (changeset.getClosedAt() == null &&
-                        changeset.getId() > 0) {
+                if (changeset.getClosedAt() == null && changeset.getId() > 0) {
                     // store pending
                     unclosedChangesets.add(changeset.getId());
                 }
@@ -127,6 +126,8 @@ public class ContributionStateManager implements IContributionStateManager {
         changesetDB.pendingChangesets(unclosedChangesets);
         updater.updateStore();
         updateLocalState(state);
+
+
         return state.getSequenceNumber();
     }
 }
