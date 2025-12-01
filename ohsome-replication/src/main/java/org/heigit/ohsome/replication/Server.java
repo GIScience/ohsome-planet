@@ -104,7 +104,7 @@ public class Server<T> {
         return targetUrl;
     }
 
-    private static InputStream getResponse(URL url, int retries, int backoff) throws InterruptedException, IOException {
+    private static InputStream getResponse(URL url, int backoff) throws InterruptedException, IOException {
         while (true) {
             try {
                 var connection = url.openConnection();
@@ -114,18 +114,15 @@ public class Server<T> {
             } catch (FileNotFoundException e) {
                 throw e;
             } catch (Exception e) {
-                if (retries-- <= 0) {
-                    throw e;
-                }
-                logger.debug("Retrieval of {} failed, retries left: {}, waiting {} seconds before trying again", url, retries, backoff);
+                logger.debug("Retrieval of {} failed, waiting {} seconds before trying again", url, backoff);
                 TimeUnit.SECONDS.sleep(backoff);
-                backoff *= 2;
+                backoff = Math.min(backoff * 2, 60);
             }
         }
     }
 
     public static InputStream getFileStream(URL url) throws IOException, InterruptedException {
-        return getResponse(url, 4, 2);
+        return getResponse(url, 2);
     }
 
     public static byte[] getFile(URL url) throws IOException, InterruptedException {
