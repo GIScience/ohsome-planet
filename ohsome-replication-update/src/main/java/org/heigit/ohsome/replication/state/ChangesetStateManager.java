@@ -55,7 +55,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
     }
 
     @Override
-    public ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException {
+    public ReplicationState fetchRemoteState() throws IOException, InterruptedException {
         remoteState = server.getLatestRemoteState();
         return remoteState;
     }
@@ -92,7 +92,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
     }
 
 
-    private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException, URISyntaxException, InterruptedException {
+    private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException, InterruptedException {
         var closed = new HashSet<Long>();
         for (var changesets : Flux.fromIterable(batch)
                 .flatMap(path -> fromCallable(() -> server.getReplicationFile(path)).subscribeOn(boundedElastic()), 20)

@@ -256,6 +256,7 @@ public class ChangesetDB implements IChangesetDB {
             }
             logger.info("Got {} unclosed changesets older than 2 hours from database", ids.size());
             return ids;
+            // todo: get rid of that
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

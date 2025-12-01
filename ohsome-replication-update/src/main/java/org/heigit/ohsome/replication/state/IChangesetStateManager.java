@@ -19,11 +19,11 @@ public interface IChangesetStateManager {
         }
 
         @Override
-        public void initializeLocalState() throws Exception {
+        public void initializeLocalState() {
         }
 
         @Override
-        public ReplicationState fetchRemoteState() throws IOException {
+        public ReplicationState fetchRemoteState() {
             return getLocalState();
         }
 
