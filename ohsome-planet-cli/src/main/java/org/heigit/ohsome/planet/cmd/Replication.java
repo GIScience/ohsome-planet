@@ -93,6 +93,7 @@ public class Replication implements Callable<Integer> {
 
         if (optionalChangesets.justContributions) {
             return ReplicationManager.updateContributions(
+                    optionalContributions.contributionParameters.countryFilePath,
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
                     continuous
@@ -108,6 +109,7 @@ public class Replication implements Callable<Integer> {
         }
 
         return ReplicationManager.update(
+                optionalContributions.contributionParameters.countryFilePath,
                 optionalContributions.contributionParameters.directory,
                 optionalContributions.contributionParameters.out,
                 optionalChangesets.changesetParameters.changesetDbUrl,

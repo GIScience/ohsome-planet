@@ -30,14 +30,14 @@ public class ContributionStateManager implements IContributionStateManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ContributionStateManager.class);
 
-    public static ContributionStateManager openManager(Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
+    public static ContributionStateManager openManager(Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB, SpatialJoiner countryJoiner) throws IOException {
         var localStatePath = directory.resolve("state.txt");
         var localState = loadLocalState(localStatePath);
-        return new ContributionStateManager(localState.getEndpoint(), directory, localState, out, updateStore, changesetDB);
+        return new ContributionStateManager(localState.getEndpoint(), directory, localState, out, updateStore, changesetDB,  countryJoiner);
     }
 
     private final IChangesetDB changesetDB;
-    private final SpatialJoiner countryJoiner = SpatialJoiner.NOOP;
+    private final SpatialJoiner countryJoiner;
     private final UpdateStore updateStore;
 
     private final Path localStatePath;
@@ -48,13 +48,14 @@ public class ContributionStateManager implements IContributionStateManager {
     String endpoint;
     Path directory;
 
-    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
+    public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, IChangesetDB changesetDB, SpatialJoiner countryJoiner) throws IOException {
         server = Server.osmEntityServer(endpoint);
         this.endpoint = endpoint;
         this.directory = directory;
         this.out = out;
         this.updateStore = updateStore;
         this.changesetDB = changesetDB;
+        this.countryJoiner = countryJoiner;
 
         Files.createDirectories(directory);
         Files.createDirectories(out);

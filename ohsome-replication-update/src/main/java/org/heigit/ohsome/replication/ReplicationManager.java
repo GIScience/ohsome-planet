@@ -2,6 +2,8 @@ package org.heigit.ohsome.replication;
 
 import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.changesets.IChangesetDB;
+import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
+import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
@@ -9,6 +11,7 @@ import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -26,16 +29,20 @@ public class ReplicationManager {
     private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path directory, Path out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path countryFilePath, Path directory, Path out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
+
+        var countryJoiner = Optional.ofNullable(countryFilePath)
+                .map(SpatialGridJoiner::fromCSVGrid)
+                .orElseGet(SpatialJoiner::noop);
 
         try (
                 var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
                 var changesetDb = new ChangesetDB(changesetDbUrl)
         ) {
-            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, changesetDb);
+            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, changesetDb, countryJoiner);
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
             changesetManager.initializeLocalState();
@@ -87,14 +94,18 @@ public class ReplicationManager {
         }
     }
 
-    public static int updateContributions(Path directory, Path out, boolean continuous) throws Exception {
+    public static int updateContributions(Path countryFilePath, Path directory, Path out, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
 
+        var countryJoiner = Optional.ofNullable(countryFilePath)
+                .map(SpatialGridJoiner::fromCSVGrid)
+                .orElseGet(SpatialJoiner::noop);
+
         try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
             var waiter = new Waiter(shutdownInitiated);
-            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, IChangesetDB.noop());
+            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, IChangesetDB.noop(), countryJoiner);
             contributionManager.initializeLocalState();
 
             do {
