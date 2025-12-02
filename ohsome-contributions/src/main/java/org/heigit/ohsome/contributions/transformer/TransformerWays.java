@@ -130,10 +130,6 @@ public class TransformerWays extends Transformer {
                         backRefsNodeWays.computeIfAbsent(ref, x -> new TreeSet<>()).add(last.id());
                     }
                 }
-
-                if (hasNoTags(osh)) {
-                    continue;
-                }
                 batch.add(osh);
             }
 
@@ -154,7 +150,6 @@ public class TransformerWays extends Transformer {
             var changesetIds = new HashSet<Long>();
 
             for (var osh : batch) {
-
                 var contributions = new ContributionsWay(osh, minorNodes);
                 var edits = 0;
                 var minorVersion = 0;
@@ -180,9 +175,14 @@ public class TransformerWays extends Transformer {
                 }
             }
 
+
             if (WRITE_PARQUET) {
                 var changesets = fetchChangesets(changesetIds, changesetDb);
                 for (var osh : batch) {
+                    if (hasNoTags(osh)) {
+                        continue;
+                    }
+
                     var contributions = new ContributionsWay(osh, minorNodes);
                     var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 

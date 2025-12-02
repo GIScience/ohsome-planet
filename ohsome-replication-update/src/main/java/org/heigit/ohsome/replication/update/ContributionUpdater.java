@@ -367,7 +367,11 @@ public class ContributionUpdater {
     public Map<Long, Entity<OSMWay>> newWays(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMWay.class);
         var nodeWaysBackRefs = store.backRefs(NODE_WAY, newNodes.keySet());
-        nodeWaysBackRefs.forEach((nodeId, ways) -> ways.forEach(wayId -> newVersions.computeIfAbsent(wayId, x -> List.of())));
+        nodeWaysBackRefs.forEach((nodeId, ways) -> {
+            for (var wayId : ways) {
+                newVersions.computeIfAbsent(wayId, x -> List.of());
+            }
+        });
 
         var versionBefore = new HashMap<>(store.ways(newVersions.keySet()));
         return filter(newVersions, versionBefore);

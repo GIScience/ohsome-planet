@@ -1,5 +1,6 @@
 package org.heigit.ohsome.replication.state;
 
+import com.google.common.base.Stopwatch;
 import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
@@ -9,13 +10,15 @@ import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
 import org.heigit.ohsome.replication.UpdateStore;
 import org.heigit.ohsome.replication.update.ContributionUpdater;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Properties;
 
@@ -24,10 +27,12 @@ import static reactor.core.scheduler.Schedulers.boundedElastic;
 
 public class ContributionStateManager implements IContributionStateManager {
 
-    public static ContributionStateManager openManager(String endpoint, Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
+    private static final Logger logger = LoggerFactory.getLogger(ContributionStateManager.class);
+
+    public static ContributionStateManager openManager(Path directory, Path out, UpdateStore updateStore, IChangesetDB changesetDB) throws IOException {
         var localStatePath = directory.resolve("state.txt");
         var localState = loadLocalState(localStatePath);
-        return new ContributionStateManager(endpoint, directory, localState, out, updateStore, changesetDB);
+        return new ContributionStateManager(localState.getEndpoint(), directory, localState, out, updateStore, changesetDB);
     }
 
     private final IChangesetDB changesetDB;
@@ -90,7 +95,7 @@ public class ContributionStateManager implements IContributionStateManager {
         try (var out = Files.newOutputStream(localStatePath)) {
             props.store(out, null);
         }
-        System.out.println("update local state : " + state);
+        logger.debug("Updated local state {}", localStatePath);
         localState = state;
     }
 
@@ -98,24 +103,40 @@ public class ContributionStateManager implements IContributionStateManager {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
+        logger.info("updating to remote state {} from {} ({})", remote, local, steps);
+        var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
                 .concatMap(state -> fromCallable(() -> process(state)))
                 .count()
                 .blockOptional()
                 .orElseThrow();
+        logger.info("updating to remote state {} done. {} in {}", remote, statesUpdated, timer);
     }
 
     private int process(ReplicationState state) throws Exception {
-        var path = state.getSequenceNumberPath(out);
-        path = path.getParent().resolve(path.getFileName() + ".parquet");
-        var osc = server.getElements(state);
+        var stateData = state.toBytes(null);
+
+        var tmpParquetFile = out.resolve("tmp").resolve("%d.opc.parquet".formatted(state.getSequenceNumber()));
+        var tmpStateFile = out.resolve("tmp").resolve("%d.state.txt".formatted(state.getSequenceNumber()));
+        Files.createDirectories(tmpParquetFile.getParent());
+
+        Files.write(tmpStateFile, stateData);
+        var timer =  Stopwatch.createStarted();
+        var osc = new ArrayList<OSMEntity>();
+        server.getElements(state).forEachRemaining(osc::add);
+        logger.info("updating {}  with {} major changes ...", state.getSequenceNumber(), osc.size());
         var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner);
         var unclosedChangesets = new HashSet<Long>();
-        try (var writer = ParquetUtil.openWriter(path, Contrib.getClassSchema(), builder -> {
+        var counter = 0;
+        try (var writer = ParquetUtil.openWriter(tmpParquetFile, Contrib.getClassSchema(), builder -> {
+            builder.withAdditionalMetadata("replication_base_url", state.getEndpoint());
+            builder.withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()));
+            builder.withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString());
         })) {
             for (var contrib : updater.update(osc).toIterable()) {
                 writer.write(contrib);
+                counter++;
                 var changeset = contrib.getChangeset();
                 if (changeset.getClosedAt() == null && changeset.getId() > 0) {
                     // store pending
@@ -127,6 +148,14 @@ public class ContributionStateManager implements IContributionStateManager {
         updater.updateStore();
         updateLocalState(state);
 
+        var path = state.getSequenceNumberPath(out);
+        Files.createDirectories(path.getParent());
+
+        Files.move(tmpParquetFile, Path.of(path + ".opc.parquet"));
+        Files.move(tmpStateFile, Path.of(path + ".state.txt"));
+        Files.write(out.resolve("state.txt"), stateData);
+
+        logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
 
         return state.getSequenceNumber();
     }

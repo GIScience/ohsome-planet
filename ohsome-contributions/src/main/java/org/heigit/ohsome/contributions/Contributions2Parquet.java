@@ -72,7 +72,6 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     public static final boolean WRITE_PARQUET = true;
 
-
     private final Path pbfPath;
     private final Path temp;
     private final Path out;
@@ -291,10 +290,6 @@ public class Contributions2Parquet implements Callable<Integer> {
                 }
 
                 for(var osh : batch) {
-                    if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
-                        continue;
-                    }
-
                     if (osh.getLast().visible()) {
                         replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
                         replicationElementsCount++;
@@ -303,7 +298,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     var writer = writers.take();
                     contribWorkers.execute(() -> {
                         try {
-                            processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
+                            processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
                         } catch (Exception e) {
                             canceled.set(true);
                             System.err.println(e.getMessage());
@@ -348,7 +343,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
+    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
@@ -403,15 +398,17 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         }
         if (WRITE_PARQUET) {
+            if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
+                return;
+            }
+
             var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
             var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
             var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
-            var lastContrib = (Contrib) null;
             while (converter.hasNext()) {
                 var contrib = converter.next();
                 if (contrib.isPresent()) {
-                    lastContrib = contrib.get();
-                    writer.write(lastContrib);
+                    writer.write(contrib.get());
                 }
             }
         }

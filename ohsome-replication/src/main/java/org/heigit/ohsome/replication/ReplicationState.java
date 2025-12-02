@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -98,7 +99,16 @@ public class ReplicationState {
         var props = new Properties();
         props.setProperty("sequenceNumber", Integer.toString(sequenceNumber));
         props.setProperty("timestamp", timestamp.toString());
-        props.setProperty("endpoint", endpoint);
+        if (endpoint != null) {
+            props.setProperty("endpoint", endpoint);
+        }
         props.store(out, null);
+    }
+
+    public byte[] toBytes(String endpoint) throws IOException {
+        try(var out = new ByteArrayOutputStream()) {
+             store(out, endpoint);
+             return out.toByteArray();
+        }
     }
 }

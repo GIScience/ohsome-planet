@@ -23,7 +23,7 @@ public class ReplicationManager {
     private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path directory, Path out, String replicationEndpoint, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path directory, Path out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
@@ -32,7 +32,7 @@ public class ReplicationManager {
                 var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
                 var changesetDb = new ChangesetDB(changesetDbUrl)
         ) {
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, changesetDb);
+            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, changesetDb);
             var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
             changesetManager.initializeLocalState();
@@ -76,14 +76,14 @@ public class ReplicationManager {
         }
     }
 
-    public static int updateContributions(Path directory, Path out, String replicationEndpoint, boolean continuous) throws Exception {
+    public static int updateContributions(Path directory, Path out, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
 
         try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
             var waiter = new Waiter(shutdownInitiated);
-            var contributionManager = ContributionStateManager.openManager(replicationEndpoint, directory, out, updateStore, IChangesetDB.noop());
+            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, IChangesetDB.noop());
             contributionManager.initializeLocalState();
 
             do {

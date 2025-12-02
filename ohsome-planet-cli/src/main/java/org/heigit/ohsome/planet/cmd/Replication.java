@@ -6,7 +6,6 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.net.URL;
 import java.nio.file.Path;
 import java.security.InvalidParameterException;
 import java.util.concurrent.Callable;
@@ -25,8 +24,6 @@ public class Replication implements Callable<Integer> {
     static class ContributionParameters {
         @Option(names = {"--country-file"})
         Path countryFilePath;
-        @Option(names = {"--replication"}, defaultValue = "https://planet.openstreetmap.org/replication/minute/", description = "Endpoint for contributions, Default: ${DEFAULT-VALUE}")
-        URL replicationElementsUrl;
         @Option(names = {"--output"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}", required = true)
         Path out;
         @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
@@ -98,7 +95,6 @@ public class Replication implements Callable<Integer> {
             return ReplicationManager.updateContributions(
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
-                    optionalContributions.contributionParameters.replicationElementsUrl.toString(),
                     continuous
             );
         }
@@ -114,7 +110,6 @@ public class Replication implements Callable<Integer> {
         return ReplicationManager.update(
                 optionalContributions.contributionParameters.directory,
                 optionalContributions.contributionParameters.out,
-                optionalContributions.contributionParameters.replicationElementsUrl.toString(),
                 optionalChangesets.changesetParameters.changesetDbUrl,
                 optionalChangesets.changesetParameters.replicationChangesetsUrl,
                 continuous
