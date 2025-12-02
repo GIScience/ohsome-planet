@@ -72,6 +72,37 @@ public class ContributionUpdater {
                 Flux.just(itr).concatMap(this::updateRelations));
     }
 
+    public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {
+        newNodes = newNodes(osc);
+        return Flux.fromIterable(newNodes.values())
+                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity)).subscribeOn(parallel()))
+                .flatMapIterable(identity());
+    }
+
+    private List<Contrib> updateNode(Entity<OSMNode> entity) throws Exception {
+        var osh = entity.osh();
+        var changesetIds = osh.stream().map(OSMEntity::changeset).collect(Collectors.toSet());
+        var changesets = fetchChangesets(changesetIds, changesetDb);
+        var contributions = new ContributionsNode(osh);
+        return getContribs(contributions, entity.before(), changesets);
+    }
+
+    public Flux<Contrib> updateWays(Iterator<OSMEntity> osc) {
+        newWays = newWays(osc);
+        return Flux.fromIterable(newWays.values())
+                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity)).subscribeOn(parallel()))
+                .flatMapIterable(identity());
+    }
+
+    public Flux<Contrib> updateRelations(Iterator<OSMEntity> osc) {
+        newRelations = newRelations(osc);
+        return Flux.fromIterable(newRelations.values())
+                .flatMapSequential(entity -> fromCallable(() -> updateRelation(entity)).subscribeOn(parallel()))
+                .flatMapIterable(identity());
+    }
+
+
+
 
     public void updateStore() {
         store.nodes(newNodes.values().stream()
@@ -164,40 +195,30 @@ public class ContributionUpdater {
         });
     }
 
-    public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {
-        newNodes = newNodes(osc);
-        return Flux.fromIterable(newNodes.entrySet())
-                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity.getKey(), entity.getValue().newVersions(), entity.getValue().before())).subscribeOn(parallel()))
-                .flatMapIterable(identity());
+
+
+
+
+
+
+
+
+
+
+    private Map<Long, OSMNode> nodes(Set<Long> ids) {
+        return store.nodes(ids);
     }
 
-    public Flux<Contrib> updateWays(Iterator<OSMEntity> osc) {
-        newWays = newWays(osc);
-        return Flux.fromIterable(newWays.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity)).subscribeOn(parallel()))
-                .flatMapIterable(identity());
+    private Map<Long, OSMWay> ways(Set<Long> ids) {
+        return store.ways(ids);
     }
 
-    public Flux<Contrib> updateRelations(Iterator<OSMEntity> osc) {
-        newRelations = newRelations(osc);
-        return Flux.fromIterable(newRelations.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateRelation(entity)).subscribeOn(parallel()))
-                .flatMapIterable(identity());
+    private Map<Long, OSMRelation> relations(Set<Long> ids) {
+        return store.relations(ids);
     }
 
-
-    private List<Contrib> updateNode(long nodeId,List<OSMNode> newVersions, OSMNode before) throws Exception {
-        var osh = new ArrayList<OSMNode>(newVersions.size() + 1);
-        if (before != null) {
-            osh.add(before);
-        }
-        osh.addAll(newVersions);
-
-        var changesetIds = osh.stream().map(OSMEntity::changeset).collect(Collectors.toSet());
-        var changesets = fetchChangesets(changesetIds, changesetDb);
-
-        var contributions = new ContributionsNode(osh);
-        return getContribs(contributions, before, changesets);
+    private Map<Long, Set<Long>> backRefs(UpdateStore.BackRefs type, Set<Long> ids) {
+        return store.backRefs(type, ids);
     }
 
     private List<Contrib> updateWay(Entity<OSMWay> entity) throws Exception {
@@ -206,7 +227,7 @@ public class ContributionUpdater {
         var refIds = new HashSet<Long>();
         osh.forEach(osm -> refIds.addAll(osm.refs()));
 
-        var nodes = store.nodes(refIds).values().stream()
+        var nodes = nodes(refIds).values().stream()
                 .collect(Collectors.toMap(OSMNode::id, List::of));
 
         updateMembers(refIds, nodes, newNodes);
@@ -246,7 +267,7 @@ public class ContributionUpdater {
                 });
 
 
-        var ways = store.ways(wayIds).values().stream()
+        var ways = ways(wayIds).values().stream()
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
         updateMembers(wayIds, ways, newWays);
 
@@ -254,7 +275,7 @@ public class ContributionUpdater {
                 .map(OSMWay::refs)
                 .forEach(nodeIds::addAll);
 
-        var nodes = store.nodes(nodeIds).values().stream()
+        var nodes = nodes(nodeIds).values().stream()
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
         updateMembers(nodeIds, nodes, newNodes);
 
@@ -340,14 +361,15 @@ public class ContributionUpdater {
         newVersions.forEach((id, osh) -> {
             var before = versionBefore.get(id);
             if (osh.isEmpty()) {
+                if (before == null) {
+                    throw new RuntimeException("No before found for id " + id);
+                }
                 // minor edits
                 filtered.put(id, new Entity<>(id, osh, before));
                 return;
             }
             if (before != null) {
                 osh.removeIf(version -> version.version() <= before.version());
-            } else {
-                osh.removeIf(not(OSMEntity::visible));
             }
 
             if (!osh.isEmpty()) {
@@ -359,33 +381,32 @@ public class ContributionUpdater {
 
     public Map<Long, Entity<OSMNode>> newNodes(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMNode.class);
-
         var versionBefore = new HashMap<>(store.nodes(newVersions.keySet()));
         return filter(newVersions, versionBefore);
     }
 
     public Map<Long, Entity<OSMWay>> newWays(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMWay.class);
-        var nodeWaysBackRefs = store.backRefs(NODE_WAY, newNodes.keySet());
+        var nodeWaysBackRefs = backRefs(NODE_WAY, newNodes.keySet());
         nodeWaysBackRefs.forEach((nodeId, ways) -> {
             for (var wayId : ways) {
                 newVersions.computeIfAbsent(wayId, x -> List.of());
             }
         });
 
-        var versionBefore = new HashMap<>(store.ways(newVersions.keySet()));
+        var versionBefore = new HashMap<>(ways(newVersions.keySet()));
         return filter(newVersions, versionBefore);
     }
 
     public Map<Long, Entity<OSMRelation>> newRelations(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMRelation.class);
-        var nodeRelsBackRefs = store.backRefs(NODE_RELATION, newNodes.keySet());
+        var nodeRelsBackRefs = backRefs(NODE_RELATION, newNodes.keySet());
         nodeRelsBackRefs.forEach((nodeId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
 
-        var wayRelsBackRefs = store.backRefs(WAY_RELATION, newWays.keySet());
+        var wayRelsBackRefs = backRefs(WAY_RELATION, newWays.keySet());
         wayRelsBackRefs.forEach((wayId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
 
-        var versionBefore = new HashMap<>(store.relations(newVersions.keySet()));
+        var versionBefore = new HashMap<>(relations(newVersions.keySet()));
         return filter(newVersions, versionBefore);
     }
 
