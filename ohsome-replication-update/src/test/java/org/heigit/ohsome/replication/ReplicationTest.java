@@ -89,12 +89,14 @@ class ReplicationTest {
         var out = RESOURCE_PATH.resolve("out");
         var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();
 
-        Files.copy(ohsomePlanetPath.resolve("default-state.txt"), ohsomePlanetPath.resolve("state.txt"), StandardCopyOption.REPLACE_EXISTING);
+        var state = ReplicationState.read(ohsomePlanetPath.resolve("default-state.txt"));
+        var stateData = state.toBytes(replicationElementsUrl);
+        Files.write(ohsomePlanetPath.resolve("state.txt"), stateData);
         if (Files.exists(out)) {
             MoreFiles.deleteRecursively(out);
         }
 
-        ReplicationManager.updateContributions(ohsomePlanetPath, out, replicationElementsUrl, false);
+        ReplicationManager.updateContributions(ohsomePlanetPath, out, false);
 
         var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("state.txt"));
         assertEquals(6824842, localStateAfterUpdate.getSequenceNumber());
@@ -115,7 +117,7 @@ class ReplicationTest {
 
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             assertThrowsExactly(NoSuchElementException.class, changesetDb::getLocalState);
-            ReplicationManager.update(ohsomePlanetPath, out, replicationElementsUrl, dbUrl, replicationChangesetUrl, false);
+            ReplicationManager.update(ohsomePlanetPath, out, dbUrl, replicationChangesetUrl, false);
 
             var localChangesetStateAfterUpdate = changesetDb.getLocalState();
             assertEquals(6737400, localChangesetStateAfterUpdate.getSequenceNumber());
