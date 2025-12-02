@@ -75,7 +75,7 @@ class ReplicationTest {
     @Test
     void testUpdateOnlyChangesets() throws Exception {
         var replicationChangesetUrl = RESOURCE_PATH.resolve("replication/changesets").toUri().toURL().toString();
-        ReplicationManager.updateChangesets(dbUrl, replicationChangesetUrl, true);
+        ReplicationManager.updateChangesets(dbUrl, replicationChangesetUrl, false);
 
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             var localStateAfterUpdate = changesetDb.getLocalState();
