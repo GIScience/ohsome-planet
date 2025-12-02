@@ -70,7 +70,7 @@ import static reactor.core.scheduler.Schedulers.parallel;
 
 public class Contributions2Parquet implements Callable<Integer> {
 
-    public static final boolean WRITE_PARQUET = false;
+    public static final boolean WRITE_PARQUET = true;
 
 
     private final Path pbfPath;
@@ -383,7 +383,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 edits++;
                 changesetIds.add(contrib.changeset());
                 var entity = contrib.entity();
-                if (before == null || entity.version() == before.entity().version()) {
+                if (before == null || entity.version() != before.entity().version()) {
                     minorVersion = 0;
                 } else {
                     minorVersion++;

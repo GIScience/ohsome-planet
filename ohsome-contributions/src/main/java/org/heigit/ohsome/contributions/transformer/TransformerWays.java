@@ -164,7 +164,7 @@ public class TransformerWays extends Transformer {
                     edits++;
                     changesetIds.add(contrib.changeset());
                     var entity = contrib.entity();
-                    if (before == null || entity.version() == before.entity().version()) {
+                    if (before == null || entity.version() != before.entity().version()) {
                         minorVersion = 0;
                     } else {
                         minorVersion++;

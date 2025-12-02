@@ -36,7 +36,6 @@ public class ReplicationEntity {
                 lon, lat);
     }
 
-
     public static void serialize(OSMWay way, Output output) {
         serializeEntity(way, output);
         output.writeU32(way.minorVersion());
@@ -116,11 +115,6 @@ public class ReplicationEntity {
             last = id;
         }
     }
-
-
-
-
-
 
     public static Set<Long> deserializeSet(long id, byte[] bytes) {
         var input = fromBuffer(wrap(bytes));
