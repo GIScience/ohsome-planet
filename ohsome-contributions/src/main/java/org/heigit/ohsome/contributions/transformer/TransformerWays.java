@@ -1,6 +1,5 @@
 package org.heigit.ohsome.contributions.transformer;
 
-import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
@@ -32,6 +31,7 @@ import java.util.function.LongPredicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
+import static org.heigit.ohsome.contributions.Contributions2Parquet.WRITE_PARQUET;
 import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
 import static org.heigit.ohsome.contributions.util.Utils.hasNoTags;
 import static org.heigit.ohsome.osm.OSMEntity.OSMNode;
@@ -151,35 +151,48 @@ public class TransformerWays extends Transformer {
 
 
             var minorNodes = fetchMinors(batch);
-            var changesetIds = batch.stream()
-                    .map(osh -> new ContributionsWay(osh, minorNodes))
-                    .<Contribution>mapMulti(Iterator::forEachRemaining)
-                    .map(Contribution::changeset)
-                    .collect(Collectors.toSet());
-
-            var changesets = fetchChangesets(changesetIds, changesetDb);
+            var changesetIds = new HashSet<Long>();
 
             for (var osh : batch) {
-                var contributions = new ContributionsWay(osh, minorNodes);
-                var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 
-                var lastContrib = (Contrib) null;
-                while (converter.hasNext()) {
-                    var contrib = converter.next();
-                    if (contrib.isPresent()) {
-                        lastContrib = contrib.get();
-                        writer.write(processor.id(), lastContrib);
+                var contributions = new ContributionsWay(osh, minorNodes);
+                var edits = 0;
+                var minorVersion = 0;
+                var before = (Contribution) null;
+                while (contributions.hasNext()) {
+                    var contrib = contributions.next();
+                    edits++;
+                    changesetIds.add(contrib.changeset());
+                    var entity = contrib.entity();
+                    if (before == null || entity.version() == before.entity().version()) {
+                        minorVersion = 0;
+                    } else {
+                        minorVersion++;
                     }
+                    before = contrib;
                 }
-                if (lastContrib != null && osh.getLast().visible()) {
-                    var last = osh.getLast();
+
+                if (osh.getLast().visible()) {
+                    var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
                     replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
                     replicationElementsCount++;
-                    var minorVersion = lastContrib.getOsmMinorVersion();
-                    var edits = lastContrib.getOsmEdits();
-                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last.withMinorAndEdits(minorVersion, edits), output));
+                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
                 }
+            }
 
+            if (WRITE_PARQUET) {
+                var changesets = fetchChangesets(changesetIds, changesetDb);
+                for (var osh : batch) {
+                    var contributions = new ContributionsWay(osh, minorNodes);
+                    var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
+
+                    while (converter.hasNext()) {
+                        var contrib = converter.next();
+                        if (contrib.isPresent()) {
+                            writer.write(processor.id(), contrib.get());
+                        }
+                    }
+                }
             }
         }
         return new Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);

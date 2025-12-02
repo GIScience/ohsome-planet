@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
+import static org.heigit.ohsome.contributions.Contributions2Parquet.WRITE_PARQUET;
 import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
 import static org.heigit.ohsome.contributions.util.Utils.hasNoTags;
 import static org.heigit.ohsome.osm.OSMType.NODE;
@@ -116,22 +117,24 @@ public class TransformerNodes extends Transformer {
                 batch.add(osh);
             }
 
-            var changesetIds = batch.stream()
-                    .map(ContributionsNode::new)
-                    .<Contribution>mapMulti(Iterator::forEachRemaining)
-                    .map(Contribution::changeset)
-                    .collect(Collectors.toSet());
+            if (WRITE_PARQUET) {
+                var changesetIds = batch.stream()
+                        .map(ContributionsNode::new)
+                        .<Contribution>mapMulti(Iterator::forEachRemaining)
+                        .map(Contribution::changeset)
+                        .collect(Collectors.toSet());
 
-            var changesets = fetchChangesets(changesetIds, changesetDb);
+                var changesets = fetchChangesets(changesetIds, changesetDb);
 
-            for (var osh : batch) {
-                var contributions = new ContributionsNode(osh);
-                var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
+                for (var osh : batch) {
+                    var contributions = new ContributionsNode(osh);
+                    var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 
-                while (converter.hasNext()) {
-                    var contrib = converter.next();
-                    if (contrib.isPresent()) {
-                        writer.write(processor.id(), contrib.get());
+                    while (converter.hasNext()) {
+                        var contrib = converter.next();
+                        if (contrib.isPresent()) {
+                            writer.write(processor.id(), contrib.get());
+                        }
                     }
                 }
             }

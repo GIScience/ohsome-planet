@@ -7,9 +7,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.contrib.Contributions;
-import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
-import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
+import org.heigit.ohsome.contributions.contrib.*;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
@@ -20,6 +18,7 @@ import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
+import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.Blob;
@@ -70,6 +69,8 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class Contributions2Parquet implements Callable<Integer> {
+
+    public static final boolean WRITE_PARQUET = false;
 
 
     private final Path pbfPath;
@@ -294,6 +295,11 @@ public class Contributions2Parquet implements Callable<Integer> {
                         continue;
                     }
 
+                    if (osh.getLast().visible()) {
+                        replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
+                        replicationElementsCount++;
+                    }
+
                     var writer = writers.take();
                     contribWorkers.execute(() -> {
                         try {
@@ -343,7 +349,6 @@ public class Contributions2Parquet implements Callable<Integer> {
     }
 
     private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
-        var id = entities.getFirst().id();
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
@@ -362,41 +367,53 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         var minorWays = RocksMap.get(minorWaysDb, minorMemberIds.get(WAY), MinorWay::deserialize);
         minorWays.values().stream()
-                .<OSMEntity.OSMWay>mapMulti(Iterable::forEach)
-                .forEach(osm -> {
-                    minorNodeIds.addAll(osm.refs());
-                    changesetIds.add(osm.changeset());
-                });
+                .<OSMWay>mapMulti(Iterable::forEach)
+                .map(OSMWay::refs)
+                .forEach(minorNodeIds::addAll);
 
         var minorNodes = RocksMap.get(minorNodesDb, minorNodeIds, MinorNode::deserialize);
-        minorNodes.values().stream()
-                .<OSMEntity.OSMNode>mapMulti(Iterable::forEach)
-                .map(OSMEntity.OSMNode::changeset)
-                .forEach(changesetIds::add);
 
-        var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
-
-        var time = System.nanoTime();
-        var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
-        var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
-        var lastContrib = (Contrib) null;
-        while (converter.hasNext()) {
-            var contrib = converter.next();
-            if (contrib.isPresent()) {
-                lastContrib = contrib.get();
-                writer.write(lastContrib);
+        {
+            var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
+            var edits = 0;
+            var minorVersion = 0;
+            var before = (Contribution) null;
+            while (contributions.hasNext()) {
+                var contrib = contributions.next();
+                edits++;
+                changesetIds.add(contrib.changeset());
+                var entity = contrib.entity();
+                if (before == null || entity.version() == before.entity().version()) {
+                    minorVersion = 0;
+                } else {
+                    minorVersion++;
+                }
+                before = contrib;
             }
-        }
 
-        if (lastContrib != null && osh.getLast().visible()) {
-            var last = osh.getLast();
-            var minorVersions = lastContrib.getOsmMinorVersion();
-            var edits = lastContrib.getOsmEdits();
-            var replicationOutput =  new Output(4 << 10);
-            replicationOutput.reset();
-            ReplicationEntity.serialize(last.withMinorAndEdits(minorVersions, edits), replicationOutput);
-            var key = RocksUtil.key(last.id());
-            replicationDb.put(key, replicationOutput.array());
+            if (osh.getLast().visible()) {
+                var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
+
+                var replicationOutput =  new Output(4 << 10);
+                replicationOutput.reset();
+                ReplicationEntity.serialize(last.withMinorAndEdits(minorVersion, edits), replicationOutput);
+                var key = RocksUtil.key(last.id());
+                replicationDb.put(key, replicationOutput.array());
+            }
+
+        }
+        if (WRITE_PARQUET) {
+            var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
+            var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
+            var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
+            var lastContrib = (Contrib) null;
+            while (converter.hasNext()) {
+                var contrib = converter.next();
+                if (contrib.isPresent()) {
+                    lastContrib = contrib.get();
+                    writer.write(lastContrib);
+                }
+            }
         }
     }
 
