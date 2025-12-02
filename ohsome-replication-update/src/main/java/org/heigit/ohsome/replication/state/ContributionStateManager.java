@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Properties;
 
+import static java.time.Instant.now;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 
@@ -99,7 +100,11 @@ public class ContributionStateManager implements IContributionStateManager {
         localState = state;
     }
 
-    public void updateToRemoteState() {
+    public void updateToRemoteState(){
+        updateToRemoteState(now());
+    }
+
+    public void updateToRemoteState(Instant processUntil) {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
@@ -107,6 +112,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
+                .filter((state)-> state.getTimestamp().isBefore(processUntil))
                 .concatMap(state -> fromCallable(() -> process(state)))
                 .count()
                 .blockOptional()

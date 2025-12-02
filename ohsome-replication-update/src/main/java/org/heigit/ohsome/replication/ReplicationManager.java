@@ -8,6 +8,7 @@ import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -15,6 +16,8 @@ import static java.time.Instant.now;
 
 
 public class ReplicationManager {
+
+    public static final int ACCEPTABLE_DELAY = 180;
 
     private ReplicationManager() {
         // utility class
@@ -49,9 +52,13 @@ public class ReplicationManager {
                     waiter.resetRetry();
                 }
 
-                if (!remoteChangesetState.equals(contributionManager.getLocalState())
-                        && Waiter.notWaitingForChangesets(remoteContributionState, remoteChangesetState)) {
-                    contributionManager.updateToRemoteState();
+                if (!remoteChangesetState.equals(contributionManager.getLocalState())) {
+                    if (secondsBetween(remoteChangesetState, remoteContributionState) < ACCEPTABLE_DELAY){
+                        contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp());
+                    }
+                    else {
+                        contributionManager.updateToRemoteState(now());
+                    }
                     waiter.resetRetry();
                 }
 
@@ -61,6 +68,10 @@ public class ReplicationManager {
             lock.unlock();
         }
         return 0;
+    }
+
+    private static long secondsBetween(ReplicationState remoteChangesetState, ReplicationState remoteContributionState) {
+        return Duration.between(remoteChangesetState.getTimestamp(), remoteContributionState.getTimestamp()).toSeconds();
     }
 
     private static void waitForReplication(ReplicationState remoteChangesetState, ReplicationState remoteContributionState, Waiter waiter) throws InterruptedException {
