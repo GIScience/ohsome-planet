@@ -15,6 +15,7 @@ import org.rocksdb.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -29,6 +30,30 @@ public class UpdateStoreRocksDb implements UpdateStore {
 
     static {
         RocksDB.loadLibrary();
+    }
+
+
+    public static void query(Path path, List<String> params) throws Exception {
+        try (var store = open(path, 1024*1024)) {
+            for(var param : params) {
+                var parts = param.split("/");
+                var type = parts[0].toLowerCase();
+                var id = Long.parseLong(parts[1]);
+                if (type.startsWith("n")) {
+                   var node = store.nodes(Set.of(id)).get(id);
+                   var nodeWay = store.backRefs(NODE_WAY, Set.of(id)).get(id);
+                   var nodeRelation = store.backRefs(NODE_RELATION, Set.of(id)).get(id);
+                    System.out.printf("%s:%n  %s%n  ways:%s%n  rels:%s%n", param, node, nodeWay, nodeRelation);
+                } else if (type.startsWith("w")) {
+                    var way = store.ways(Set.of(id)).get(id);
+                    var wayRelation = store.backRefs(WAY_RELATION, Set.of(id)).get(id);
+                    System.out.printf("%s:%n  %s%n  rels:%s%n", param, way, wayRelation);
+                } else if (type.startsWith("r")) {
+                    var relation = store.relations(Set.of(id)).get(id);
+                    System.out.printf("%s:%n  %s%n", param, relation);
+                }
+            }
+        }
     }
 
     public static UpdateStore open(Path path, long cacheSizeInBytes) throws RocksDBException {

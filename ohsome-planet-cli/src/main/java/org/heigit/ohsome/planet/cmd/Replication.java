@@ -2,12 +2,14 @@ package org.heigit.ohsome.planet.cmd;
 
 import org.heigit.ohsome.planet.utils.CliUtils;
 import org.heigit.ohsome.replication.ReplicationManager;
+import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 import java.nio.file.Path;
 import java.security.InvalidParameterException;
+import java.util.List;
 import java.util.concurrent.Callable;
 
 @Command(name = "replication",
@@ -71,7 +73,17 @@ public class Replication implements Callable<Integer> {
 
     }
 
-    @Command
+    @Command(mixinStandardHelpOptions = true)
+    int store(
+        @Option(names = {"--directory"}, required = true)
+        Path directory,
+        @CommandLine.Parameters
+        List<String> params) throws Exception {
+        UpdateStoreRocksDb.query(directory, params);
+        return 0;
+    }
+
+    @Command(mixinStandardHelpOptions = true)
     public int update(
             @Option(names = "--continuous", defaultValue = "false", description = "continuous updates")
             boolean continuous,
