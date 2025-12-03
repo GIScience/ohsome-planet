@@ -31,7 +31,7 @@ public class Replication implements Callable<Integer> {
         @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
         Path directory;
 
-        @Option(names = {"--size"}, description = "Maximum size of change to apply at once. Default: unlimited", required = false)
+        @Option(names = {"--size"}, description = "Maximum size of change to apply at once. Default: unlimited")
         int size = 0;
     }
 
@@ -48,7 +48,7 @@ public class Replication implements Callable<Integer> {
         @Option(names = {"--changeset-db"}, description = "full jdbc:url to changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD", required = true)
         String changesetDbUrl;
 
-        @Option(names = {"--replication-changesets"}, defaultValue = "https://planet.openstreetmap.org/replication/changesets", description = "Replication endpoint for changesets, Default: ${DEFAULT-VALUE}")
+        @Option(names = {"--replication-changesets"}, defaultValue = "https://planet.openstreetmap.org/replication/changesets/", description = "Replication endpoint for changesets, Default: ${DEFAULT-VALUE}")
         String replicationChangesetsUrl;
 
     }
