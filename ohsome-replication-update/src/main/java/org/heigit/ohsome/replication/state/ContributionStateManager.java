@@ -1,11 +1,13 @@
 package org.heigit.ohsome.replication.state;
 
 import com.google.common.base.Stopwatch;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.parquet.ParquetUtil;
+import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
 import org.heigit.ohsome.replication.UpdateStore;
@@ -21,6 +23,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import static java.time.Instant.now;
 import static reactor.core.publisher.Mono.fromCallable;
@@ -47,6 +51,8 @@ public class ContributionStateManager implements IContributionStateManager {
     Server<OSMEntity> server;
     String endpoint;
     Path directory;
+    private AtomicBoolean shutdownInitiated;
+    private int maxSize;
 
     public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, Path out, UpdateStore updateStore, IChangesetDB changesetDB, SpatialJoiner countryJoiner) throws IOException {
         server = Server.osmEntityServer(endpoint);
@@ -112,13 +118,41 @@ public class ContributionStateManager implements IContributionStateManager {
         logger.info("updating to remote state {} from {} ({})", remote, local, steps);
         var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
+                .take(maxSize)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
                 .filter((state)-> state.getTimestamp().isBefore(processUntil))
+                .takeUntil(state -> shutdownInitiated.get())
                 .concatMap(state -> fromCallable(() -> process(state)))
                 .count()
                 .blockOptional()
                 .orElseThrow();
         logger.info("updating to remote state {} done. {} in {}", remote, statesUpdated, timer);
+    }
+
+    private Consumer<AvroUtil.AvroBuilder<Contrib>> config(ReplicationState state) {
+      return builder -> {
+          builder
+                  .withAdditionalMetadata("replication_base_url", state.getEndpoint())
+                  .withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()))
+                  .withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString())
+
+                  .withPageSize(ParquetWriter.DEFAULT_PAGE_SIZE)
+//                .withDictionaryPageSize(4 * ParquetWriter.DEFAULT_PAGE_SIZE)
+
+                  .withDictionaryEncoding("osm_id", false)
+                  .withDictionaryEncoding("refs.list.element", false)
+                  .withBloomFilterEnabled("refs.list.element", true)
+
+                  .withBloomFilterEnabled("user.id", true)
+
+                  .withBloomFilterEnabled("changeset.id", true)
+
+                  .withDictionaryEncoding("members.list.element.id", false)
+                  .withBloomFilterEnabled("members.list.element.id", true)
+
+                  .withMinRowCountForPageSizeCheck(1)
+                  .withMaxRowCountForPageSizeCheck(2);
+      };
     }
 
     private int process(ReplicationState state) throws Exception {
@@ -136,11 +170,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner);
         var unclosedChangesets = new HashSet<Long>();
         var counter = 0;
-        try (var writer = ParquetUtil.openWriter(tmpParquetFile, Contrib.getClassSchema(), builder -> {
-            builder.withAdditionalMetadata("replication_base_url", state.getEndpoint());
-            builder.withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()));
-            builder.withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString());
-        })) {
+        try (var writer = ParquetUtil.openWriter(tmpParquetFile, Contrib.getClassSchema(), config(state))) {
             for (var contrib : updater.update(osc).toIterable()) {
                 writer.write(contrib);
                 counter++;
@@ -165,5 +195,13 @@ public class ContributionStateManager implements IContributionStateManager {
         logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
 
         return state.getSequenceNumber();
+    }
+
+    public void setShutdownInitiated(AtomicBoolean shutdownInitiated) {
+        this.shutdownInitiated = shutdownInitiated;
+    }
+
+    public void setMaxSize(int maxSize) {
+        this.maxSize = maxSize > 0 ? maxSize : Integer.MAX_VALUE;
     }
 }

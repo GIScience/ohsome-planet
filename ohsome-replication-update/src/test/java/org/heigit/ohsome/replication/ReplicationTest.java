@@ -96,7 +96,7 @@ class ReplicationTest {
             MoreFiles.deleteRecursively(out);
         }
 
-        ReplicationManager.updateContributions(null, ohsomePlanetPath, out, false);
+        ReplicationManager.updateContributions(null, ohsomePlanetPath, out, 0,false);
 
         var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("state.txt"));
         assertEquals(6824842, localStateAfterUpdate.getSequenceNumber());

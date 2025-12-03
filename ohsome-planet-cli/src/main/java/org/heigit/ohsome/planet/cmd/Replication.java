@@ -28,6 +28,9 @@ public class Replication implements Callable<Integer> {
         Path out;
         @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
         Path directory;
+
+        @Option(names = {"--size"}, description = "Maximum size of change to apply at once. Default: unlimited", required = false)
+        int size = 0;
     }
 
     public static class OptionalContributions {
@@ -96,6 +99,7 @@ public class Replication implements Callable<Integer> {
                     optionalContributions.contributionParameters.countryFilePath,
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
+                    optionalContributions.contributionParameters.size,
                     continuous
             );
         }

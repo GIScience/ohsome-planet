@@ -47,6 +47,10 @@ public class ReplicationManager {
 
             changesetManager.initializeLocalState();
             contributionManager.initializeLocalState();
+
+            contributionManager.setShutdownInitiated(shutdownInitiated);
+            contributionManager.setMaxSize(-1);
+
             var waiter = new Waiter(shutdownInitiated);
 
             do {
@@ -94,7 +98,7 @@ public class ReplicationManager {
         }
     }
 
-    public static int updateContributions(Path countryFilePath, Path directory, Path out, boolean continuous) throws Exception {
+    public static int updateContributions(Path countryFilePath, Path directory, Path out, int size, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
@@ -107,6 +111,8 @@ public class ReplicationManager {
             var waiter = new Waiter(shutdownInitiated);
             var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, IChangesetDB.noop(), countryJoiner);
             contributionManager.initializeLocalState();
+            contributionManager.setShutdownInitiated(shutdownInitiated);
+            contributionManager.setMaxSize(size);
 
             do {
                 var remoteState = contributionManager.fetchRemoteState();
