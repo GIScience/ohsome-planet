@@ -13,6 +13,8 @@ import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.UpdateStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.util.*;
@@ -30,6 +32,9 @@ import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class ContributionUpdater {
+
+    private static final Logger logger = LoggerFactory.getLogger(ContributionUpdater.class);
+
     public record Entity<T extends OSMEntity>(long id, List<T> newVersions, T before) {
 
         public List<T> osh() {
@@ -195,16 +200,6 @@ public class ContributionUpdater {
         });
     }
 
-
-
-
-
-
-
-
-
-
-
     private Map<Long, OSMNode> nodes(Set<Long> ids) {
         return store.nodes(ids);
     }
@@ -240,6 +235,10 @@ public class ContributionUpdater {
 
         var contributions = new ContributionsWay(osh, nodes);
         var contribs = getContribs(contributions, entity.before(), changesets);
+        if (contribs.isEmpty()) {
+            logger.error("contribs are empty! {} \n{}", entity.id(), entity);
+            throw new IllegalStateException("contribs are empty!");
+        }
 
         var last = contribs.getLast();
         var osm = osh.getLast();
