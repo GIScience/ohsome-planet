@@ -5,7 +5,10 @@
 [![LICENSE](https://img.shields.io/github/license/GIScience/ohsome-planet)](LICENSE)
 [![status: active](https://github.com/GIScience/badges/raw/master/status/active.svg)](https://github.com/GIScience/badges#active)
 
-The ohsome-planet tool transforms OSM (history) PBF files into GeoParquet format.
+The ohsome-planet tool can be used to transforms OSM (history) PBF files into GeoParquet format as well as to set up a 
+postgresDB changeset table with an OSM changeset file (osm.bz2). Additionally, it can be used to run replication 
+updates afterwards.
+
 It creates the actual OSM elements geometries for nodes, ways and relations.
 The tool can join information from OSM changesets such as hashtags, OSM editor or usernames.
 You can join country codes to every OSM element by passing a boundary dataset as additional input.
@@ -29,6 +32,44 @@ cd ohsome-planet
 ## Run
 You can download the [full latest or history planet](https://planet.openstreetmap.org/pbf/full-history/) 
 or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
+The OSM planet server also offers a [full changeset file](https://planet.openstreetmap.org/planet/).
+
+### Changesets2Postgres
+To process an OSM changesets file use the changesets command like in the following example:
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar changesets \
+    --changesets your/data/path/changesets-latest.osm.bz2 \
+    --changeset-db jdbc:postgresql://[host]:[port]/postgres \
+    --schema
+```
+
+`--changeset-db` requires the path to a running postgres instance. You can configure the postgres connection by using
+the following environment variables:
+
+```
+OHSOME_PLANET_DB_USER=your_user
+OHSOME_PLANET_DB_PASSWORD=your_pw
+OHSOME_PLANET_DB_POOLSIZE=32
+OHSOME_PLANET_DB_SCHEMA=public
+```
+
+The flag `--schema` will initialize the data schema, in this case a table called `changesets` and another called 
+`changeset_state`. Using the flag `--overwrite` will truncate these tables first before the new insert process starts.  
+
+The changesets schema looks like this:
+```shell
+    id                 int8 NOT NULL UNIQUE,
+    created_at         timestamptz NOT NULL,
+    closed_at          timestamptz NULL,
+    tags               jsonb NOT NULL,
+    hashtags           _varchar NOT NULL,
+    user_id            int8 NOT NULL,
+    user_name          varchar NOT NULL,
+    open               boolean NOT NULL,
+    geom               geometry(polygon, 4326) NULL
+```
+
+### Contributions2Parquet
 
 To process a given PBF file, provide it in the `--pbf` parameter in the following example.
 ```shell
@@ -42,7 +83,7 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
 The parameters `--country-file`, `--changeset-db`, `--output` and `--overwrite` are optional.
 To see all available parameters, call the tool with `--help` parameter.
 
-### Country Data
+#### Country Data
 By passing the parameter `--country-file` you can perform a spatial join to enrich OSM contributions with country codes.
 The country file should be provided in `.csv` format.
 Geometries should we represented as `WKT` (well-known text) string.
@@ -58,7 +99,7 @@ ITA;POLYGON ((10.766602 41.211722, 14.985352 41.211722, 14.985352 44.024422, 10.
 
 Passing this option will populate the `countries` attribute in the parquet files.
 
-### Changesets
+#### Changesets
 By passing the parameter `--changeset-db` you can join OSM changeset information.
 It is expected that you pass the database connection as JDBC URL, e.g. `jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD`.
 Currently, ohsome-planet can connect to a database following the schema of [ChangesetMD](https://github.com/ToeBee/ChangesetMD).
@@ -71,7 +112,7 @@ The changeset join will populate the `changeset` struct attribute in the parquet
 - `numChanges`
 
 
-### Tag Filtering
+#### Tag Filtering
 At the moment, there is only limited support for tag filtering.
 By passing the `--include-tags` parameter you can specify a comma separated list of OSM tag keys, e.g. `highway,building,landuse`.
 These tag keys will be used to filter OSM relations only.
@@ -80,6 +121,30 @@ Currently, filtering for OSM nodes or ways is not implemented.
 In case you have more complex tag filtering needs, please refer to the [osmium documentation](https://docs.osmcode.org/osmium/latest/osmium-tags-filter.html) in order to prepare the input OSM pbf file.
 
 We are planning to add more tag filtering options in the future.
+
+### Replication
+The ohsome-planet tool can also be used to generate updates from the replication files provided e.g. by the 
+[OSM server](https://planet.openstreetmap.org/replication/). Changesets are updated in the postgres database, 
+while contributions will be written as parquet files matching those found on the replication source.
+
+This command can be used to either update changesets or contributions individually, or update both at the same time.
+If you want to only update changesets you need to supply all arguments that concern changesets and use the flag `--jcs`,
+similarly you can do the same for contributions and use `--jcb`.
+
+If you want to process both it should look something like this: 
+
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
+    --changeset-db "jdbc:postgresql://[host]:[port]/postgres" \
+    --output path/to/parquet/output/ \
+    --directory /path/to/internal-keyvalue-db/
+```
+Just like for the `contributions` command you can use the `--country-file` argument here as well.
+The postgres connection can be customized with the same environment variables as for the changesets command.
+
+Some additional optional parameters are available, which can be seen using the `--help` command. Among others 
+the `--continuous` flag can be used to make the update process run as a continuous service, and `--replication-changesets`
+can be used to set a custom changeset replication source.
 
 ## Output Structure
 
