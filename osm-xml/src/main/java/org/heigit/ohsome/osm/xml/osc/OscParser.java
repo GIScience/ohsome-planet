@@ -216,7 +216,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
 
         LOG.debug("node/{} {} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset,
                 user, uid, tags, lon, lat);
-        return new OSMNode(id, version(version, visible), timestamp, changeset, uid, user, visible, tags, lon, lat);
+        return new OSMNode(id, version(version, visible), timestamp, changeset, uid, user, visible, Map.copyOf(tags), lon, lat);
     }
 
     private Integer version(Integer version, boolean visible) {
@@ -231,7 +231,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         parseEntity();
         LOG.debug("way/{} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset, user,
                 uid, tags, members.size());
-        return new OSMWay(id, version(version, visible), timestamp, changeset, uid, user, visible, tags,
+        return new OSMWay(id, version(version, visible), timestamp, changeset, uid, user, visible, Map.copyOf(tags),
                 members.stream().map(OSMMember::id).toList());
     }
 
@@ -239,7 +239,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         parseEntity();
         LOG.debug("relation/{} {} {} {} {} {} {} {} mems:{}", id, version, visible, timestamp,
                 changeset, user, uid, tags, members.size());
-        return new OSMRelation(id, version(version, visible), timestamp, changeset, uid, user, visible, tags,
+        return new OSMRelation(id, version(version, visible), timestamp, changeset, uid, user, visible, Map.copyOf(tags),
                 members);
     }
 
