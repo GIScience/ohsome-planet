@@ -25,7 +25,7 @@ public class ChangesetDb implements Changesets {
 
     @Override
     public <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception {
-        return changesets(ids, "osm_changeset", factory);
+        return changesets(ids, "changesets", factory);
     }
 
     public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
