@@ -236,8 +236,7 @@ public class ContributionUpdater {
         var contributions = new ContributionsWay(osh, nodes);
         var contribs = getContribs(contributions, entity.before(), changesets);
         if (contribs.isEmpty()) {
-            logger.error("contribs are empty! {} \n{}", entity.id(), entity);
-            throw new IllegalStateException("contribs are empty!");
+            return contribs;
         }
 
         var last = contribs.getLast();
@@ -288,6 +287,9 @@ public class ContributionUpdater {
 
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(nodes, ways));
         var contribs = getContribs(contributions, entity.before(), changesets);
+        if (contribs.isEmpty()){
+            return contribs;
+        }
 
         var last = contribs.getLast();
         var osm = osh.getLast();
