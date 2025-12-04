@@ -153,7 +153,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         var summaryNodes = Transformer.Summary.EMPTY;
         var summaryWays = Transformer.Summary.EMPTY;
 
-/*
+
         var minorNodesPath = temp.resolve("minorNodes");
 
         var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
@@ -167,7 +167,7 @@ public class Contributions2Parquet implements Callable<Integer> {
              var nodeWayBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY))) {
             summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
         }
-*/
+
         var summaryRelations = processRelations(pbfPath, temp, out, replication, parallel, blobTypes, keyFilter, changesetDb);
 
         System.out.println("summaryNodes = " + summaryNodes);

@@ -60,14 +60,14 @@ public class Contributions implements Callable<Integer> {
     public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
-//        if (Files.exists(out)) {
-//            if (overwrite) {
-//                MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
-//            } else {
-//                System.out.println("Directory already exists. To overwrite use --overwrite");
-//                System.exit(0);
-//            }
-//        }
+        if (Files.exists(out)) {
+            if (overwrite) {
+                MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
+            } else {
+                System.out.println("Directory already exists. To overwrite use --overwrite");
+                System.exit(1);
+            }
+        }
 
         if (temp == null) {
             temp = out;
