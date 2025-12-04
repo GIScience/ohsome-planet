@@ -150,12 +150,16 @@ public class Contributions2Parquet implements Callable<Integer> {
         Files.createDirectories(out);
 
         RocksDB.loadLibrary();
+        var summaryNodes = Transformer.Summary.EMPTY;
+        var summaryWays = Transformer.Summary.EMPTY;
+
+/*
         var minorNodesPath = temp.resolve("minorNodes");
+
         var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
-        var summaryNodes = processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+        summaryNodes = processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
         var minorWaysPath = temp.resolve("minorWays");
         var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
-        var summaryWays = Transformer.Summary.EMPTY;
         try (var options = defaultOptions(false);
              var minorNodes = open(options, minorNodesPath);
              var optionsWithMerge = defaultOptions(true)
@@ -163,7 +167,7 @@ public class Contributions2Parquet implements Callable<Integer> {
              var nodeWayBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY))) {
             summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
         }
-
+*/
         var summaryRelations = processRelations(pbfPath, temp, out, replication, parallel, blobTypes, keyFilter, changesetDb);
 
         System.out.println("summaryNodes = " + summaryNodes);
