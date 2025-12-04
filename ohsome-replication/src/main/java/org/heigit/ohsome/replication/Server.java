@@ -6,6 +6,7 @@ import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -30,9 +31,11 @@ import static org.heigit.ohsome.osm.changesets.OSMChangesets.readChangesets;
 public class Server<T> {
     private static final Logger logger = LoggerFactory.getLogger(Server.class);
 
+    public static final String OSM_REPLICATION_ENDPOINT_COOKIE = "OSM_REPLICATION_ENDPOINT_COOKIE";
+
     public static Server<OSMChangeset> osmChangesetServer(String endpoint) {
         return new Server<>(
-                endpoint,
+                endpoint, null,
                 "state.yaml",
                 "sequence",
                 "last_run",
@@ -54,7 +57,7 @@ public class Server<T> {
             String targetURL
     ) {
         return new Server<>(
-                targetURL,
+                targetURL, System.getProperty(OSM_REPLICATION_ENDPOINT_COOKIE, System.getenv(OSM_REPLICATION_ENDPOINT_COOKIE)),
                 "state.txt",
                 "sequenceNumber",
                 "timestamp",
@@ -79,9 +82,11 @@ public class Server<T> {
     protected final Integer replicationOffset;
     private final Function<String, Instant> timestampParser;
     private final ParserFunction<T> parser;
+    private final String cookie;
 
     Server(
             String targetURL,
+            String cookie,
             String topLevelFile,
             String sequenceKey,
             String timestampKey,
@@ -90,7 +95,8 @@ public class Server<T> {
             Function<String, Instant> timestampParser,
             ParserFunction<T> parser
     ) {
-        targetUrl = targetURL;
+        this.targetUrl = targetURL;
+        this.cookie = cookie;
         this.topLevelFile = topLevelFile;
         this.sequenceKey = sequenceKey;
         this.timestampKey = timestampKey;
@@ -104,10 +110,13 @@ public class Server<T> {
         return targetUrl;
     }
 
-    private static InputStream getResponse(URL url, int backoff) throws InterruptedException, IOException {
+    private static InputStream getResponse(URL url, String cookie, int backoff) throws InterruptedException, IOException {
         while (true) {
             try {
-                var connection = url.openConnection();
+                var connection = (HttpsURLConnection) url.openConnection();
+                if (cookie != null) {
+                    connection.addRequestProperty("Cookie", cookie);
+                }
                 connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes
                 connection.setConnectTimeout(10 * 60 * 1000); // timeout 10 minutes
                 return connection.getInputStream();
@@ -122,7 +131,10 @@ public class Server<T> {
     }
 
     public static InputStream getFileStream(URL url) throws IOException, InterruptedException {
-        return getResponse(url, 2);
+        return getFileStream(url, null);
+    }
+    public static InputStream getFileStream(URL url, String cookie) throws IOException, InterruptedException {
+        return getResponse(url, cookie, 2);
     }
 
     public static byte[] getFile(URL url) throws IOException, InterruptedException {
@@ -145,14 +157,14 @@ public class Server<T> {
     }
 
     public ReplicationState getRemoteState(URL url) throws IOException, InterruptedException {
-        var input = getFileStream(url);
+        var input = getFileStream(url, cookie);
         var props = new Properties();
         props.load(input);
         return new ReplicationState(props, sequenceKey, timestampKey, timestampParser);
     }
 
     public byte[] getReplicationFile(int sequenceNumber) throws IOException, InterruptedException {
-        return new GZIPInputStream(getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + this.replicationFileName).toURL())).readAllBytes();
+        return new GZIPInputStream(getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + this.replicationFileName).toURL(), cookie)).readAllBytes();
     }
 
     public Iterator<T> getElements(ReplicationState state) throws Exception {

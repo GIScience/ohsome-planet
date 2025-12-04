@@ -55,7 +55,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
-import static org.heigit.ohsome.contributions.FileInfo.printInfo;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
@@ -80,14 +79,13 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final Path countryFilePath;
     private final Path replication;
     private final String includeTags;
-    private final boolean debug;
     private final Server<OSMEntity> server;
 
 
     private URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
 
-    public Contributions2Parquet(Path pbfPath, Path temp, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags, boolean debug) {
+    public Contributions2Parquet(Path pbfPath, Path temp, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags) {
         this.pbfPath = pbfPath;
         this.temp = temp;
         this.out = out;
@@ -97,16 +95,12 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.replication = replicationWorkDir;
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
-        this.debug = debug;
         this.server = Server.osmEntityServer(replicationEndpoint.toString() + "/");
     }
 
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
-        if (debug) {
-            printInfo(pbf);
-        }
 
         if (replicationEndpoint == null && pbf.header().replicationBaseUrl() != null) {
             replicationEndpoint = URI.create(pbf.header().replicationBaseUrl()).toURL();
@@ -134,10 +128,6 @@ public class Contributions2Parquet implements Callable<Integer> {
             for (var tag : includeTags.split(",")) {
                 keyFilter.put(tag, alwaysTrue());
             }
-        }
-
-        if (debug) {
-            printBlobInfo(blobTypes);
         }
 
         countryJoiner = Optional.ofNullable(countryFilePath)
@@ -418,11 +408,4 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
     }
 
-    private void printBlobInfo(Map<OSMType, List<BlobHeader>> blobTypes) {
-        System.out.println("Blobs by type:");
-        System.out.println("  Nodes: " + blobTypes.get(OSMType.NODE).size() +
-                           " | Ways: " + blobTypes.get(OSMType.WAY).size() +
-                           " | Relations: " + blobTypes.get(OSMType.RELATION).size()
-        );
-    }
 }

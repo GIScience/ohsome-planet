@@ -46,9 +46,6 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--replication-endpoint", "--endpoint" }, converter = UrlConverter.class)
     private URL replicationEndpoint;
 
-    @CommandLine.Option(names = {"--debug"}, description = "Print debug information.")
-    private boolean debug = false;
-
     @CommandLine.Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
     private String includeTags = "";
 
@@ -85,7 +82,7 @@ public class Contributions implements Callable<Integer> {
                 pbfPath, temp, out, parallel,
                 changesetDbUrl, countryFilePath,
                 replication, replicationEndpoint,
-                includeTags, debug);
+                includeTags);
 
         return contributionsToParquet.call();
     }
