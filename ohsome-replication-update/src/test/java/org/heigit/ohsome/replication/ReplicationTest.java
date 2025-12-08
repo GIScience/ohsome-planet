@@ -96,7 +96,7 @@ class ReplicationTest {
             MoreFiles.deleteRecursively(out);
         }
 
-        ReplicationManager.updateContributions(null, ohsomePlanetPath, out, 0,false);
+        ReplicationManager.updateContributions(null, ohsomePlanetPath, out.toString(), 0,1, false);
 
         var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("state.txt"));
         assertEquals(6824842, localStateAfterUpdate.getSequenceNumber());
@@ -117,7 +117,7 @@ class ReplicationTest {
 
         try (var changesetDb = new ChangesetDB(dbUrl)) {
             assertThrowsExactly(NoSuchElementException.class, changesetDb::getLocalState);
-            ReplicationManager.update(null, ohsomePlanetPath, out, dbUrl, replicationChangesetUrl, false);
+            ReplicationManager.update(null, ohsomePlanetPath, out.toString(), dbUrl, replicationChangesetUrl, false);
 
             var localChangesetStateAfterUpdate = changesetDb.getLocalState();
             assertEquals(6737400, localChangesetStateAfterUpdate.getSequenceNumber());
