@@ -187,8 +187,8 @@ public class ContributionStateManager implements IContributionStateManager {
         out.move(tmpStateFile, Path.of(path + ".state.txt"));
         var tmpLocalState = directory.resolve("tmp/state.txt") ;
         Files.write(tmpLocalState, stateData);
-        Files.copy(tmpLocalState, directory.resolve("state.txt"));
         out.move(tmpLocalState, out.resolve("state.txt"));
+        Files.write(directory.resolve("state.txt"), stateData);
 
         logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
 
