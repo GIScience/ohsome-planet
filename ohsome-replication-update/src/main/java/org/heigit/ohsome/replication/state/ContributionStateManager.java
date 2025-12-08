@@ -189,7 +189,8 @@ public class ContributionStateManager implements IContributionStateManager {
         var path = out.resolve(state.getSequenceNumberPath());
         out.move(tmpParquetFile, Path.of(path + ".opc.parquet"));
         out.move(tmpStateFile, Path.of(path + ".state.txt"));
-        Files.write(out.resolve("state.txt"), stateData);
+        Files.write(directory.resolve("state.txt"), stateData);
+        out.move(directory.resolve("state.txt"), Path.of(path + "state.txt"));
 
         logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
 

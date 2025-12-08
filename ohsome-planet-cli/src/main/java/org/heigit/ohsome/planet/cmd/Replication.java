@@ -102,6 +102,8 @@ public class Replication implements Callable<Integer> {
     ) throws Exception {
         CliUtils.setVerbosity(verbosity);
 
+        parallel = parallel == 0 ? Math.max(1, Runtime.getRuntime().availableProcessors()) -1 : parallel;
+
         if (optionalChangesets.justContributions && optionalContributions.justChangesets) {
             throw new InvalidParameterException("Either just-contributions or just-changesets can be specified");
         }
