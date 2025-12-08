@@ -33,9 +33,6 @@ public class Replication implements Callable<Integer> {
 
         @Option(names = {"--size"}, description = "Maximum name of osc files to apply at once. Default: unlimited")
         int size = 0;
-
-        @Option(names = {"--parallel"}, description = "number of threads used for processing.")
-        private int parallel = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
     public static class OptionalContributions {
@@ -115,7 +112,7 @@ public class Replication implements Callable<Integer> {
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
                     optionalContributions.contributionParameters.size,
-                    optionalContributions.contributionParameters.parallel,
+                    parallel,
                     continuous
             );
         }
