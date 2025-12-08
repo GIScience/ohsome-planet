@@ -87,6 +87,11 @@ public class ReplicationState {
         return sequenceNumber;
     }
 
+
+    public Path getSequenceNumberPath() {
+        return getSequenceNumberPath(Path.of(""));
+    }
+
     public Path getSequenceNumberPath(Path base) {
         return base.resolve(sequenceNumberAsPath(sequenceNumber));
     }

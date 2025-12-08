@@ -21,6 +21,13 @@
             <artifactId>ohsome-contributions</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-output-minio</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>ohsome-replication-update</artifactId>

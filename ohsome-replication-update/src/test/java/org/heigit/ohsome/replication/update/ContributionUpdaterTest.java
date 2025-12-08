@@ -17,7 +17,7 @@ public class ContributionUpdaterTest {
     @Test
     void update() {
         var store = new UpdateStoreMap();
-        var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP);
+        var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP, Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
 
 
         System.out.println("--");

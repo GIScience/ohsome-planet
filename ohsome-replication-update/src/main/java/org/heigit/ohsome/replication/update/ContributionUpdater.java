@@ -49,6 +49,7 @@ public class ContributionUpdater {
 
     private final Changesets changesetDb;
     private final SpatialJoiner countryJoiner;
+    private final int parallel;
     private final UpdateStore store;
 
     private Map<Long, Entity<OSMNode>> newNodes;
@@ -59,10 +60,11 @@ public class ContributionUpdater {
     private final Map<Long, OSMRelation> updatedRelations = new ConcurrentHashMap<>();
 
 
-    public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner) {
+    public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner, int parallel) {
         this.store = store;
         this.changesetDb = changesetDb;
         this.countryJoiner = countryJoiner;
+        this.parallel = parallel;
     }
 
     public Flux<Contrib> update(List<OSMEntity> osc) {
@@ -80,7 +82,7 @@ public class ContributionUpdater {
     public Flux<Contrib> updateNodes(Iterator<OSMEntity> osc) {
         newNodes = newNodes(osc);
         return Flux.fromIterable(newNodes.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity)).subscribeOn(parallel()))
+                .flatMapSequential(entity -> fromCallable(() -> updateNode(entity)).subscribeOn(parallel()), parallel)
                 .flatMapIterable(identity());
     }
 
@@ -95,14 +97,14 @@ public class ContributionUpdater {
     public Flux<Contrib> updateWays(Iterator<OSMEntity> osc) {
         newWays = newWays(osc);
         return Flux.fromIterable(newWays.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity)).subscribeOn(parallel()))
+                .flatMapSequential(entity -> fromCallable(() -> updateWay(entity)).subscribeOn(parallel()), parallel)
                 .flatMapIterable(identity());
     }
 
     public Flux<Contrib> updateRelations(Iterator<OSMEntity> osc) {
         newRelations = newRelations(osc);
         return Flux.fromIterable(newRelations.values())
-                .flatMapSequential(entity -> fromCallable(() -> updateRelation(entity)).subscribeOn(parallel()))
+                .flatMapSequential(entity -> fromCallable(() -> updateRelation(entity)).subscribeOn(parallel()), parallel)
                 .flatMapIterable(identity());
     }
 

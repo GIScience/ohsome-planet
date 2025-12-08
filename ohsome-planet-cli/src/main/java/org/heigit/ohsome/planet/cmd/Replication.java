@@ -27,12 +27,15 @@ public class Replication implements Callable<Integer> {
         @Option(names = {"--country-file"})
         Path countryFilePath;
         @Option(names = {"--output"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}", required = true)
-        Path out;
+        String out;
         @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
         Path directory;
 
-        @Option(names = {"--size"}, description = "Maximum size of change to apply at once. Default: unlimited")
+        @Option(names = {"--size"}, description = "Maximum name of osc files to apply at once. Default: unlimited")
         int size = 0;
+
+        @Option(names = {"--parallel"}, description = "number of threads used for processing.")
+        private int parallel = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
     }
 
     public static class OptionalContributions {
@@ -66,7 +69,7 @@ public class Replication implements Callable<Integer> {
             @CommandLine.ArgGroup(multiplicity = "1")
             ContributionParameters contributionParameters,
 
-            @CommandLine.Option(names = {"--pbf"}, required = true)
+            @Option(names = {"--pbf"}, required = true)
             Path pbfPath) {
 
         return 0;
@@ -112,6 +115,7 @@ public class Replication implements Callable<Integer> {
                     optionalContributions.contributionParameters.directory,
                     optionalContributions.contributionParameters.out,
                     optionalContributions.contributionParameters.size,
+                    optionalContributions.contributionParameters.parallel,
                     continuous
             );
         }

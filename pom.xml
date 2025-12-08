@@ -43,6 +43,8 @@
         <module>osm-changesets</module>
         <module>ohsome-changesets</module>
         <module>ohsome-replication</module>
+        <module>ohsome-output-minio</module>
+        <module>ohsome-output</module>
     </modules>
 
     <dependencyManagement>
@@ -140,11 +142,11 @@
     </build>
 
     <repositories>
-        <repository>
-            <id>heigit-nexus-public</id>
-            <name>HeiGIT maven repositories</name>
-            <url>https://nexus.heigit.org/repository/maven-public/</url>
-        </repository>
+<!--        <repository>-->
+<!--            <id>heigit-nexus-public</id>-->
+<!--            <name>HeiGIT maven repositories</name>-->
+<!--            <url>https://nexus.heigit.org/repository/maven-public/</url>-->
+<!--        </repository>-->
     </repositories>
 
 </project>

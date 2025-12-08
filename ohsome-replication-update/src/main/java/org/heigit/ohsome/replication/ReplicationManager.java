@@ -4,11 +4,13 @@ import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.output.OutputLocationProvider;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
@@ -29,52 +31,56 @@ public class ReplicationManager {
     private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path countryFilePath, Path directory, Path out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path countryFilePath, Path directory, String out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
 
-        var countryJoiner = Optional.ofNullable(countryFilePath)
-                .map(SpatialGridJoiner::fromCSVGrid)
-                .orElseGet(SpatialJoiner::noop);
+        try (var outputLocation = OutputLocationProvider.load(out)) {
+            var probe = directory.resolve("probe.txt");
+            Files.writeString(probe, "ohsome-planet");
+            outputLocation.move(probe, outputLocation.resolve("probe.txt"));
 
-        try (
-                var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
-                var changesetDb = new ChangesetDB(changesetDbUrl)
-        ) {
-            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, changesetDb, countryJoiner);
-            var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
+            var countryJoiner = Optional.ofNullable(countryFilePath)
+                    .map(SpatialGridJoiner::fromCSVGrid)
+                    .orElseGet(SpatialJoiner::noop);
+            try (
+                    var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
+                    var changesetDb = new ChangesetDB(changesetDbUrl)
+            ) {
+                var contributionManager = ContributionStateManager.openManager(directory, outputLocation, updateStore, changesetDb, countryJoiner);
+                var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
-            changesetManager.initializeLocalState();
-            contributionManager.initializeLocalState();
+                changesetManager.initializeLocalState();
+                contributionManager.initializeLocalState();
 
-            contributionManager.setShutdownInitiated(shutdownInitiated);
-            contributionManager.setMaxSize(-1);
+                contributionManager.setShutdownInitiated(shutdownInitiated);
+                contributionManager.setMaxSize(-1);
 
-            var waiter = new Waiter(shutdownInitiated);
+                var waiter = new Waiter(shutdownInitiated);
 
-            do {
-                var remoteChangesetState = changesetManager.fetchRemoteState();
-                var remoteContributionState = contributionManager.fetchRemoteState();
+                do {
+                    var remoteChangesetState = changesetManager.fetchRemoteState();
+                    var remoteContributionState = contributionManager.fetchRemoteState();
 
-                if (!remoteChangesetState.equals(changesetManager.getLocalState())) {
-                    changesetManager.updateToRemoteState();
-                    changesetManager.updateUnclosedChangesets();
-                    waiter.resetRetry();
-                }
-
-                if (!remoteChangesetState.equals(contributionManager.getLocalState())) {
-                    if (secondsBetween(remoteChangesetState, remoteContributionState) < ACCEPTABLE_DELAY){
-                        contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp());
+                    if (!remoteChangesetState.equals(changesetManager.getLocalState())) {
+                        changesetManager.updateToRemoteState();
+                        changesetManager.updateUnclosedChangesets();
+                        waiter.resetRetry();
                     }
-                    else {
-                        contributionManager.updateToRemoteState(now());
-                    }
-                    waiter.resetRetry();
-                }
 
-                waitForReplication(remoteChangesetState, remoteContributionState, waiter);
-            } while (!shutdownInitiated.get() && continuous);
+                    if (!remoteChangesetState.equals(contributionManager.getLocalState())) {
+                        if (secondsBetween(remoteChangesetState, remoteContributionState) < ACCEPTABLE_DELAY) {
+                            contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp());
+                        } else {
+                            contributionManager.updateToRemoteState(now());
+                        }
+                        waiter.resetRetry();
+                    }
+
+                    waitForReplication(remoteChangesetState, remoteContributionState, waiter);
+                } while (!shutdownInitiated.get() && continuous);
+            }
         } finally {
             lock.unlock();
         }
@@ -98,41 +104,49 @@ public class ReplicationManager {
         }
     }
 
-    public static int updateContributions(Path countryFilePath, Path directory, Path out, int size, boolean continuous) throws Exception {
+    public static int updateContributions(Path countryFilePath, Path directory, String out, int size, int parallel, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
 
-        var countryJoiner = Optional.ofNullable(countryFilePath)
-                .map(SpatialGridJoiner::fromCSVGrid)
-                .orElseGet(SpatialJoiner::noop);
+        try (var outputLocation = OutputLocationProvider.load(out)) {
+            var probe = directory.resolve("probe.txt");
+            Files.writeString(probe, "ohsome-planet");
+            outputLocation.move(probe, outputLocation.resolve("probe.txt"));
 
-        try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
-            var waiter = new Waiter(shutdownInitiated);
-            var contributionManager = ContributionStateManager.openManager(directory, out, updateStore, IChangesetDB.noop(), countryJoiner);
-            contributionManager.initializeLocalState();
-            contributionManager.setShutdownInitiated(shutdownInitiated);
-            contributionManager.setMaxSize(size);
+            var countryJoiner = Optional.ofNullable(countryFilePath)
+                    .map(SpatialGridJoiner::fromCSVGrid)
+                    .orElseGet(SpatialJoiner::noop);
 
-            do {
-                var remoteState = contributionManager.fetchRemoteState();
-                if (!remoteState.equals(contributionManager.getLocalState())) {
-                    contributionManager.updateToRemoteState();
-                    waiter.resetRetry();
+            try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
+                var waiter = new Waiter(shutdownInitiated);
+                var contributionManager = ContributionStateManager.openManager(directory, outputLocation, updateStore, IChangesetDB.noop(), countryJoiner);
+                contributionManager.initializeLocalState();
+                contributionManager.setShutdownInitiated(shutdownInitiated);
+                contributionManager.setMaxSize(size);
+                contributionManager.setParallel(parallel);
 
-                    var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
-                    if (timeSinceLastReplication < WAIT_TIME) {
-                        waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                do {
+                    var remoteState = contributionManager.fetchRemoteState();
+                    if (!remoteState.equals(contributionManager.getLocalState())) {
+                        contributionManager.updateToRemoteState();
+                        waiter.resetRetry();
+
+                        var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
+                        if (timeSinceLastReplication < WAIT_TIME) {
+                            waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                        }
+                    } else {
+                        waiter.waitForRetry();
                     }
-                } else {
-                    waiter.waitForRetry();
-                }
-            } while (!shutdownInitiated.get() && continuous);
+                } while (!shutdownInitiated.get() && continuous);
+            }
         } finally {
             lock.unlock();
         }
         return 0;
     }
+
 
     public static int updateChangesets(String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
