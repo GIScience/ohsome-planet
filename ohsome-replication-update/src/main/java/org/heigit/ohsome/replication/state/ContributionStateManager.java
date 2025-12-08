@@ -144,10 +144,6 @@ public class ContributionStateManager implements IContributionStateManager {
                     .withDictionaryEncoding("refs.list.element", false)
                     .withBloomFilterEnabled("refs.list.element", true)
 
-                    .withBloomFilterEnabled("user.id", true)
-
-                    .withBloomFilterEnabled("changeset.id", true)
-
                     .withDictionaryEncoding("members.list.element.id", false)
                     .withBloomFilterEnabled("members.list.element.id", true)
 
@@ -190,7 +186,7 @@ public class ContributionStateManager implements IContributionStateManager {
         out.move(tmpParquetFile, Path.of(path + ".opc.parquet"));
         out.move(tmpStateFile, Path.of(path + ".state.txt"));
         Files.write(directory.resolve("state.txt"), stateData);
-        out.move(directory.resolve("state.txt"), Path.of(path + "state.txt"));
+        out.move(directory.resolve("state.txt"), out.resolve("state.txt"));
 
         logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
 
