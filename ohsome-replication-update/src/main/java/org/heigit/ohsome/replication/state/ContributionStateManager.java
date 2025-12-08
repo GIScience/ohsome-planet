@@ -185,7 +185,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var path = out.resolve(state.getSequenceNumberPath());
         out.move(tmpParquetFile, Path.of(path + ".opc.parquet"));
         out.move(tmpStateFile, Path.of(path + ".state.txt"));
-        var tmpLocalState = directory.resolve("tmp/state.txt") ;
+        var tmpLocalState = directory.resolve("tmp/%d-state.txt".formatted(state.getSequenceNumber())) ;
         Files.write(tmpLocalState, stateData);
         out.move(tmpLocalState, out.resolve("state.txt"));
 
