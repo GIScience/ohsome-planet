@@ -2,6 +2,8 @@ package org.heigit.ohsome.output;
 
 import io.minio.MinioClient;
 import io.minio.messages.Bucket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -9,6 +11,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class MinioOutputLocationProvider implements OutputLocationProvider {
+    private static final Logger logger = LoggerFactory.getLogger(MinioOutputLocationProvider.class);
+
     public static final String MINIO_S3_KEY_ID = "MINIO_S3_KEY_ID";
     public static final String MINIO_S3_SECRET = "MINIO_S3_SECRET";
 
@@ -19,7 +23,6 @@ public class MinioOutputLocationProvider implements OutputLocationProvider {
 
     @Override
     public OutputLocation open(String path) throws Exception {
-        // minio:https://hot.storage.heigit.org/heigit-ohsome-planet/data/global/2025-12-03/contributions;region:eu-central-1
         var parts = path.substring(6).split(";");
         var url = URI.create(parts[0]).toURL();
         var endpoint = url.getProtocol() + "://" + url.getHost();
@@ -28,10 +31,11 @@ public class MinioOutputLocationProvider implements OutputLocationProvider {
         var minioPath = Path.of(pathParts[1]);
 
         var key = System.getProperty(MINIO_S3_KEY_ID, System.getenv(MINIO_S3_KEY_ID));
-        var secret = System.getProperty(MINIO_S3_SECRET, System.getProperty(MINIO_S3_SECRET));
+        var secret = System.getProperty(MINIO_S3_SECRET, System.getenv(MINIO_S3_SECRET));
 
         var builder = MinioClient.builder()
                 .endpoint(endpoint)
+                .region("eu-central-1")
                 .credentials(key, secret);
         for (var i = 1; i < parts.length; i++) {
             var param = parts[i].split(":");
