@@ -47,17 +47,20 @@ public class ContributionStateManager implements IContributionStateManager {
 
     private final Path localStatePath;
     private final OutputLocation out;
-    ReplicationState localState;
-    ReplicationState remoteState;
-    Server<OSMEntity> server;
-    String endpoint;
-    Path directory;
+    private final Server<OSMEntity> server;
+    private final String endpoint;
+    private final Path directory;
+    private final Path tmpDir;
+
+    private ReplicationState localState;
+    private ReplicationState remoteState;
+
     private AtomicBoolean shutdownInitiated;
     private int maxSize;
     private int parallel = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
 
     public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, OutputLocation out, UpdateStore updateStore, IChangesetDB changesetDB, SpatialJoiner countryJoiner) throws IOException {
-        server = Server.osmEntityServer(endpoint);
+        this.server = Server.osmEntityServer(endpoint);
         this.endpoint = endpoint;
         this.directory = directory;
         this.out = out;
@@ -66,6 +69,9 @@ public class ContributionStateManager implements IContributionStateManager {
         this.countryJoiner = countryJoiner;
 
         Files.createDirectories(directory);
+        this.tmpDir = directory.resolve("tmp");
+        Files.createDirectories(tmpDir);
+
         this.localStatePath = directory.resolve("state.txt");
         this.localState = localState;
     }
@@ -93,7 +99,7 @@ public class ContributionStateManager implements IContributionStateManager {
         if (Files.exists(localStatePath)) {
             return ReplicationState.read(localStatePath);
         }
-        return null;
+        throw new IOException("Unable to load local state from " + localStatePath);
     }
 
     protected void updateLocalState(ReplicationState state) throws IOException {
@@ -116,23 +122,27 @@ public class ContributionStateManager implements IContributionStateManager {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
-        logger.info("updating to remote state {} from {} ({})", remote, local, steps);
+        logger.info("updating to remote state {} from {} ({} states)", remote, local, steps);
+        var statesToUpdate = Math.min(steps, maxSize);
         var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
                 .take(maxSize)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
                 .filter((state) -> state.getTimestamp().isBefore(processUntil))
                 .takeUntil(state -> shutdownInitiated.get())
-                .concatMap(state -> fromCallable(() -> process(state)))
+                .index()
+                .concatMap(state -> fromCallable(() -> process(state.getT2(), state.getT1(), statesToUpdate)))
                 .count()
                 .blockOptional()
                 .orElseThrow();
-        logger.info("updating to remote state {} done. {} in {}", remote, statesUpdated, timer);
+        local = getLocalState().getSequenceNumber();
+        var statesToRemote = remote - local;
+        logger.info("{} states updated to remote state {} in {}. {}", statesUpdated, local, timer,
+                statesToRemote == 0 ? "we are up-to-date with remote." : "%d states left to remote.".formatted(statesToRemote));
     }
 
     private Consumer<AvroUtil.AvroBuilder<Contrib>> config(ReplicationState state) {
-        return builder -> {
-            builder
+        return builder -> builder
                     .withAdditionalMetadata("replication_base_url", state.getEndpoint())
                     .withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()))
                     .withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString())
@@ -149,21 +159,19 @@ public class ContributionStateManager implements IContributionStateManager {
 
                     .withMinRowCountForPageSizeCheck(1)
                     .withMaxRowCountForPageSizeCheck(2);
-        };
     }
 
-    private int process(ReplicationState state) throws Exception {
+    private int process(ReplicationState state, long index, int statesToUpdate) throws Exception {
         var stateData = state.toBytes(null);
-
-        var tmpParquetFile = directory.resolve("tmp").resolve("%d.opc.parquet".formatted(state.getSequenceNumber()));
-        var tmpStateFile = directory.resolve("tmp").resolve("%d.state.txt".formatted(state.getSequenceNumber()));
-        Files.createDirectories(tmpParquetFile.getParent());
+        var tmpParquetFile = tmpDir.resolve("%d.opc.parquet".formatted(state.getSequenceNumber()));
+        var tmpStateFile = tmpDir.resolve("%d.state.txt".formatted(state.getSequenceNumber()));
 
         Files.write(tmpStateFile, stateData);
+
         var timer = Stopwatch.createStarted();
         var osc = new ArrayList<OSMEntity>();
         server.getElements(state).forEachRemaining(osc::add);
-        logger.info("updating {}  with {} major changes ...", state.getSequenceNumber(), osc.size());
+        logger.info("update {} / {} ({}/{}) with {} major changes ...", state.getSequenceNumber(), state.getTimestamp(), index,statesToUpdate, osc.size());
         var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner, parallel);
         var unclosedChangesets = new HashSet<Long>();
         var counter = 0;
@@ -179,18 +187,32 @@ public class ContributionStateManager implements IContributionStateManager {
             }
         }
         changesetDB.pendingChangesets(unclosedChangesets);
+
+        var path = out.resolve(state.getSequenceNumberPath());
+        var targetParquetFile = Path.of(path + ".opc.parquet");
+        logger.debug("try to move file {} ({} bytes) to {}", tmpParquetFile, Files.size(tmpParquetFile), targetParquetFile);
+        try {
+            out.move(tmpParquetFile, targetParquetFile);
+        } catch (Exception e) {
+            logger.error("move file {} to {} failed", tmpParquetFile, targetParquetFile, e);
+            throw e;
+        }
+        var targetStateFile = Path.of(path + ".state.txt");
+        logger.debug("try to move file {} to {}", tmpStateFile, targetStateFile);
+        try {
+            out.move(tmpStateFile, targetStateFile);
+        } catch (Exception e) {
+            logger.error("move file {} to {} failed", tmpStateFile, targetStateFile, e);
+        }
+        var tmpLocalState = directory.resolve("tmp/%d-state.txt".formatted(state.getSequenceNumber())) ;
+        Files.write(tmpLocalState, stateData);
+        logger.debug("try to move file {} to {}", tmpLocalState, out.resolve("state"));
+        out.move(tmpLocalState, out.resolve("state.txt"));
+
         updater.updateStore();
         updateLocalState(state);
 
-        var path = out.resolve(state.getSequenceNumberPath());
-        out.move(tmpParquetFile, Path.of(path + ".opc.parquet"));
-        out.move(tmpStateFile, Path.of(path + ".state.txt"));
-        var tmpLocalState = directory.resolve("tmp/%d-state.txt".formatted(state.getSequenceNumber())) ;
-        Files.write(tmpLocalState, stateData);
-        out.move(tmpLocalState, out.resolve("state.txt"));
-
-        logger.info("update for state {} done. {} contributions, {} uncloseded. in {}", state.getSequenceNumber(), counter, unclosedChangesets.size(), timer);
-
+        logger.info("update {} / {} done. {} contributions, {} open changesets. in {}", state.getSequenceNumber(), state.getTimestamp(), counter, unclosedChangesets.size(), timer);
         return state.getSequenceNumber();
     }
 

@@ -21,6 +21,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.emptySet;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
@@ -318,7 +319,7 @@ public class ContributionUpdater {
     }
 
 
-    private <T extends OSMEntity> ArrayList<Contrib> getContribs(Contributions contributions, T before, Map<Long, ContribChangeset> changesets) {
+    private <T extends OSMEntity> List<Contrib> getContribs(Contributions contributions, T before, Map<Long, ContribChangeset> changesets) {
         var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
         if (before != null) {
             converter.setMinorAndEdits(before.minorVersion(), before.edits() - 1);
@@ -359,58 +360,86 @@ public class ContributionUpdater {
 
     }
 
-    private <T extends OSMEntity> SortedMap<Long, Entity<T>> filter(Map<Long, List<T>> newVersions, Map<Long, T> versionBefore) {
+    private <T extends OSMEntity> SortedMap<Long, Entity<T>> filter(Map<Long, List<T>> newVersions, Map<Long, T> versionBefore, Set<Long> minor) {
         var filtered = new TreeMap<Long, Entity<T>>();
+
         newVersions.forEach((id, osh) -> {
             var before = versionBefore.get(id);
-            if (osh.isEmpty()) {
-                if (before == null) {
-                    throw new RuntimeException("No before found for id " + id);
-                }
-                // minor edits
-                filtered.put(id, new Entity<>(id, osh, before));
-                return;
-            }
-            if (before != null) {
-                osh.removeIf(version -> version.version() <= before.version());
+            if (osh.isEmpty() && before == null) {
+                throw new RuntimeException("No before found for id " + id);
             }
 
-            if (!osh.isEmpty()) {
-                filtered.put(id, new Entity<>(id, osh, before));
+            if (before != null && !osh.isEmpty()) {
+                var filteredOSH = new ArrayList<T>(osh.size());
+                for (var osm: osh) {
+                    if (osm.version() > before.version()) {
+                        filteredOSH.add(osm);
+                    }
+                }
+                osh = filteredOSH;
             }
+
+            if (osh.isEmpty() && !minor.contains(id)) {
+                return;
+            }
+
+            filtered.put(id, new Entity<>(id, osh, before));
         });
         return filtered;
     }
 
     public Map<Long, Entity<OSMNode>> newNodes(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMNode.class);
+        logger.debug("nodes newVersions {}", newVersions.size());
         var versionBefore = new HashMap<>(store.nodes(newVersions.keySet()));
-        return filter(newVersions, versionBefore);
+        logger.debug("nodes versionBefore {}", versionBefore.size());
+        var filtered = filter(newVersions, versionBefore, emptySet());
+        logger.debug("newNodes {}, versions:{}, before:{}", filtered.size(),  newVersions.size(), versionBefore.size());
+        return filtered;
     }
 
     public Map<Long, Entity<OSMWay>> newWays(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMWay.class);
+        var majorVersions = newVersions.size();
         var nodeWaysBackRefs = backRefs(NODE_WAY, newNodes.keySet());
+        var minorWays = new HashSet<Long>();
         nodeWaysBackRefs.forEach((nodeId, ways) -> {
             for (var wayId : ways) {
+                minorWays.add(wayId);
                 newVersions.computeIfAbsent(wayId, x -> List.of());
             }
         });
 
         var versionBefore = new HashMap<>(ways(newVersions.keySet()));
-        return filter(newVersions, versionBefore);
+        var filtered =  filter(newVersions, versionBefore,  minorWays);
+        logger.debug("newWays {}, versions:{}/{}, before:{}", filtered.size(), majorVersions, newVersions.size(), versionBefore.size());
+        return filtered;
     }
 
     public Map<Long, Entity<OSMRelation>> newRelations(Iterator<OSMEntity> osc) {
         var newVersions = getByType(osc, OSMRelation.class);
+        var majorVersions = newVersions.size();
         var nodeRelsBackRefs = backRefs(NODE_RELATION, newNodes.keySet());
-        nodeRelsBackRefs.forEach((nodeId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
+        var minorRelations = new HashSet<Long>();
+        nodeRelsBackRefs.forEach((nodeId, relations) -> {
+            for (var relId : relations) {
+                minorRelations.add(relId);
+                newVersions.computeIfAbsent(relId, x -> List.of());
+            }
+        });
 
         var wayRelsBackRefs = backRefs(WAY_RELATION, newWays.keySet());
-        wayRelsBackRefs.forEach((wayId, relations) -> relations.forEach(relId -> newVersions.computeIfAbsent(relId, x -> List.of())));
+        wayRelsBackRefs.forEach((wayId, relations) -> {
+            for (var relId : relations){
+                minorRelations.add(relId);
+                newVersions.computeIfAbsent(relId, x -> List.of());
+            }
+        });
 
         var versionBefore = new HashMap<>(relations(newVersions.keySet()));
-        return filter(newVersions, versionBefore);
+        var filtered = filter(newVersions, versionBefore, minorRelations);
+        logger.debug("newRelations {}, versions:{}/{}, before:{}", filtered.size(), majorVersions, newVersions.size(), versionBefore.size());
+        return filtered;
     }
 
 }
