@@ -25,7 +25,7 @@ public class MinioOutputLocationProvider implements OutputLocationProvider {
     public OutputLocation open(String path) throws Exception {
         var parts = path.substring(6).split(";");
         var url = URI.create(parts[0]).toURL();
-        var endpoint = url.getProtocol() + "://" + url.getHost();
+        var endpoint = url.getProtocol() + "://" + url.getHost() + (url.getPort() != -1 ? ":" + url.getPort() : "");
         var pathParts = url.getPath().substring(1).split("/", 2);
         var bucket = pathParts[0];
         var minioPath = Path.of(pathParts[1]);

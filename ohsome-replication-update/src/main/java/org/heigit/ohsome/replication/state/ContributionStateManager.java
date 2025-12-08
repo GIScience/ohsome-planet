@@ -171,7 +171,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var timer = Stopwatch.createStarted();
         var osc = new ArrayList<OSMEntity>();
         server.getElements(state).forEachRemaining(osc::add);
-        logger.info("update {} / {} ({}/{}) with {} major changes ...", state.getSequenceNumber(), state.getTimestamp(), index,statesToUpdate, osc.size());
+        logger.info("update {} / {} ({}/{}) with  {} major changes ...", state.getSequenceNumber(), state.getTimestamp(), index + 1, statesToUpdate, osc.size());
         var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner, parallel);
         var unclosedChangesets = new HashSet<Long>();
         var counter = 0;
@@ -212,7 +212,9 @@ public class ContributionStateManager implements IContributionStateManager {
         updater.updateStore();
         updateLocalState(state);
 
-        logger.info("update {} / {} done. {} contributions, {} open changesets. in {}", state.getSequenceNumber(), state.getTimestamp(), counter, unclosedChangesets.size(), timer);
+        logger.info("update {} / {} ({}/{}) done. {} ({} major) contributions, {} open changesets. in {}", state.getSequenceNumber(), state.getTimestamp(),
+                index + 1, statesToUpdate,
+                counter, osc.size(), unclosedChangesets.size(), timer);
         return state.getSequenceNumber();
     }
 
