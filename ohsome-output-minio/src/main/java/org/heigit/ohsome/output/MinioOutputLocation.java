@@ -2,13 +2,17 @@ package org.heigit.ohsome.output;
 
 import io.minio.MinioClient;
 import io.minio.UploadObjectArgs;
-import io.minio.errors.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class MinioOutputLocation implements OutputLocation {
+
+    private static final Logger logger = LoggerFactory.getLogger(MinioOutputLocation.class);
+
+    private final static int MAX_RETRIES = 3;
 
     private final MinioClient client;
     private final String bucket;
@@ -26,20 +30,28 @@ public class MinioOutputLocation implements OutputLocation {
     }
 
     @Override
-    public void move(Path src, Path dest) throws IOException {
-        try {
-            client.uploadObject(UploadObjectArgs.builder()
-                    .bucket(bucket)
-                    .filename(src.toString())
-                    .object(dest.toString())
-                    .build());
-            Files.deleteIfExists(src);
-        } catch(IOException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IOException(e);
+    public void move(Path src, Path dest) throws Exception {
+        var retries = 0;
+        while (true) {
+            try {
+                client.uploadObject(UploadObjectArgs.builder()
+                        .bucket(bucket)
+                        .filename(src.toString())
+                        .object(dest.toString())
+                        .build());
+                break;
+            } catch (Exception e) {
+                if (retries++ < MAX_RETRIES) {
+                    logger.warn("Failed to upload object %s to %s. Retry %d/%d.".formatted(src, dest, retries, MAX_RETRIES),  e);
+                    Thread.sleep(100);
+                    continue;
+                }
+                throw e;
+            }
         }
+        Files.deleteIfExists(src);
     }
+
 
     @Override
     public void close() throws Exception {

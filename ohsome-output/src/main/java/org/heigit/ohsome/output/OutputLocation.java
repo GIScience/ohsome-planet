@@ -1,11 +1,10 @@
 package org.heigit.ohsome.output;
 
-import java.io.IOException;
 import java.nio.file.Path;
 
 public interface OutputLocation extends AutoCloseable {
 
-    void move(Path src, Path dest) throws IOException;
+    void move(Path src, Path dest) throws Exception;
 
     Path resolve(String other);
 
