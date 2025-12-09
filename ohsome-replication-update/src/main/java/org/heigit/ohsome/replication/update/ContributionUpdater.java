@@ -369,6 +369,11 @@ public class ContributionUpdater {
                 throw new RuntimeException("No before found for id " + id);
             }
 
+            if (before == null && osh.size() == 1 && !osh.getLast().visible()) {
+                // deleted without a version before, skip it!
+                return;
+            }
+
             if (before != null && !osh.isEmpty()) {
                 var filteredOSH = new ArrayList<T>(osh.size());
                 for (var osm: osh) {
