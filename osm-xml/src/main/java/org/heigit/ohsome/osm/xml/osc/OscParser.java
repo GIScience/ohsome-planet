@@ -20,6 +20,8 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
+import static java.util.List.copyOf;
+import static java.util.Map.copyOf;
 import static javax.xml.stream.XMLStreamConstants.*;
 
 public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
@@ -216,7 +218,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
 
         LOG.debug("node/{} {} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset,
                 user, uid, tags, lon, lat);
-        return new OSMNode(id, version, timestamp, changeset, uid, user, visible, Map.copyOf(tags), lon, lat);
+        return new OSMNode(id, version, timestamp, changeset, uid, user, visible, copyOf(tags), lon, lat);
     }
 
     private boolean validCoordinate(double lon, double lat) {
@@ -227,7 +229,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         parseEntity();
         LOG.debug("way/{} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset, user,
                 uid, tags, members.size());
-        return new OSMWay(id, version, timestamp, changeset, uid, user, visible, Map.copyOf(tags),
+        return new OSMWay(id, version, timestamp, changeset, uid, user, visible, copyOf(tags),
                 members.stream().map(OSMMember::id).toList());
     }
 
@@ -235,8 +237,7 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         parseEntity();
         LOG.debug("relation/{} {} {} {} {} {} {} {} mems:{}", id, version, visible, timestamp,
                 changeset, user, uid, tags, members.size());
-        return new OSMRelation(id, version, timestamp, changeset, uid, user, visible, Map.copyOf(tags),
-                members);
+        return new OSMRelation(id, version, timestamp, changeset, uid, user, visible, copyOf(tags), copyOf(members));
     }
 
     private OSMEntity computeNext() {
