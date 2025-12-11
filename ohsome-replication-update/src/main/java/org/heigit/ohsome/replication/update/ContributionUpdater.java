@@ -11,7 +11,6 @@ import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
-import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.UpdateStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +24,6 @@ import static java.util.Collections.emptySet;
 import static java.util.function.Function.identity;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toMap;
-import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
 import static org.heigit.ohsome.osm.OSMType.NODE;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 import static org.heigit.ohsome.replication.UpdateStore.BackRefs.*;
@@ -48,7 +46,7 @@ public class ContributionUpdater {
         }
     }
 
-    private final Changesets changesetDb;
+    private final Map<Long, ContribChangeset> changesets;
     private final SpatialJoiner countryJoiner;
     private final int parallel;
     private final UpdateStore store;
@@ -61,9 +59,9 @@ public class ContributionUpdater {
     private final Map<Long, OSMRelation> updatedRelations = new ConcurrentHashMap<>();
 
 
-    public ContributionUpdater(UpdateStore store, Changesets changesetDb, SpatialJoiner countryJoiner, int parallel) {
+    public ContributionUpdater(UpdateStore store, Map<Long, ContribChangeset> changesets, SpatialJoiner countryJoiner, int parallel) {
         this.store = store;
-        this.changesetDb = changesetDb;
+        this.changesets = changesets;
         this.countryJoiner = countryJoiner;
         this.parallel = parallel;
     }
@@ -87,10 +85,8 @@ public class ContributionUpdater {
                 .flatMapIterable(identity());
     }
 
-    private List<Contrib> updateNode(Entity<OSMNode> entity) throws Exception {
+    private List<Contrib> updateNode(Entity<OSMNode> entity) {
         var osh = entity.osh();
-        var changesetIds = osh.stream().map(OSMEntity::changeset).collect(Collectors.toSet());
-        var changesets = fetchChangesets(changesetIds, changesetDb);
         var contributions = new ContributionsNode(osh);
         return getContribs(contributions, entity.before(), changesets);
     }
@@ -219,7 +215,7 @@ public class ContributionUpdater {
         return store.backRefs(type, ids);
     }
 
-    private List<Contrib> updateWay(Entity<OSMWay> entity) throws Exception {
+    private List<Contrib> updateWay(Entity<OSMWay> entity) {
         var osh = entity.osh();
 
         var refIds = new HashSet<Long>();
@@ -230,11 +226,6 @@ public class ContributionUpdater {
 
         updateMembers(refIds, nodes, newNodes);
 
-
-        var changesetIds = new HashSet<Long>();
-        collectChangesetIds(nodes, changesetIds);
-        osh.forEach(osm -> changesetIds.add(osm.changeset()));
-        var changesets = fetchChangesets(changesetIds, changesetDb);
 
         var contributions = new ContributionsWay(osh, nodes);
         var contribs = getContribs(contributions, entity.before(), changesets);
@@ -251,7 +242,7 @@ public class ContributionUpdater {
         return contribs;
     }
 
-    private List<Contrib> updateRelation(Entity<OSMRelation> entity) throws Exception {
+    private List<Contrib> updateRelation(Entity<OSMRelation> entity) {
         var osh = entity.osh();
 
         var nodeIds = new HashSet<Long>();
@@ -280,14 +271,6 @@ public class ContributionUpdater {
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
         updateMembers(nodeIds, nodes, newNodes);
 
-
-        var changesetIds = new HashSet<Long>();
-
-        collectChangesetIds(nodes, changesetIds);
-        collectChangesetIds(ways, changesetIds);
-        osh.forEach(osm -> changesetIds.add(osm.changeset()));
-        var changesets = fetchChangesets(changesetIds, changesetDb);
-
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(nodes, ways));
         var contribs = getContribs(contributions, entity.before(), changesets);
         if (contribs.isEmpty()){
@@ -310,14 +293,6 @@ public class ContributionUpdater {
                 .filter(Objects::nonNull)
                 .forEach(entity -> members.put(entity.id(), entity.osh()));
     }
-
-    private <T extends OSMEntity> void collectChangesetIds(Map<Long, List<T>> members, Set<Long> changesets) {
-        members.values().stream()
-                .<OSMEntity>mapMulti(Iterable::forEach)
-                .map(OSMEntity::changeset)
-                .forEach(changesets::add);
-    }
-
 
     private <T extends OSMEntity> List<Contrib> getContribs(Contributions contributions, T before, Map<Long, ContribChangeset> changesets) {
         var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);

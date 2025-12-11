@@ -21,9 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -137,7 +135,7 @@ public class ContributionStateManager implements IContributionStateManager {
                 .orElseThrow();
         local = getLocalState().getSequenceNumber();
         var statesToRemote = remote - local;
-        logger.info("{} states updated to remote state {} in {}. {}", statesUpdated, local, timer,
+        logger.info("{} states updated to state {} in {}. {}", statesUpdated, local, timer,
                 statesToRemote == 0 ? "we are up-to-date with remote." : "%d states left to remote.".formatted(statesToRemote));
     }
 
@@ -169,24 +167,40 @@ public class ContributionStateManager implements IContributionStateManager {
         Files.write(tmpStateFile, stateData);
 
         var timer = Stopwatch.createStarted();
+        var changesetIds = new HashSet<Long>();
         var osc = new ArrayList<OSMEntity>();
-        server.getElements(state).forEachRemaining(osc::add);
-        logger.info("update {} / {} ({}/{}) with  {} major changes ...", state.getSequenceNumber(), state.getTimestamp(), index + 1, statesToUpdate, osc.size());
-        var updater = new ContributionUpdater(updateStore, changesetDB, countryJoiner, parallel);
-        var unclosedChangesets = new HashSet<Long>();
+        server.getElements(state).forEachRemaining( osm -> {
+            changesetIds.add(osm.changeset());
+            osc.add(osm);
+        });
+
+        var changesets = Utils.fetchChangesets(changesetIds, changesetDB);
+        var openChangesets = new HashSet<Long>();
+        for (var cs : changesets.values()) {
+            if (cs.getClosedAt() == null) {
+                openChangesets.add(cs.getId());
+            }
+        }
+
+        logger.info("update {} / {} ({}/{}) with  {} changes in {}({} open) changesets ...", state.getSequenceNumber(), state.getTimestamp(), index + 1, statesToUpdate, osc.size(), changesets.size(), openChangesets.size());
+        var updater = new ContributionUpdater(updateStore, changesets, countryJoiner, parallel);
         var counter = 0;
+        var pendingCounter = 0;
         try (var writer = ParquetUtil.openWriter(tmpParquetFile, Contrib.getClassSchema(), config(state))) {
             for (var contrib : updater.update(osc).toIterable()) {
+                if (contrib.getTags().isEmpty() && contrib.getTagsBefore().isEmpty()) {
+                    continue;
+                }
                 writer.write(contrib);
                 counter++;
                 var changeset = contrib.getChangeset();
                 if (changeset.getClosedAt() == null && changeset.getId() > 0) {
+                    pendingCounter++;
                     // store pending
-                    unclosedChangesets.add(changeset.getId());
                 }
             }
         }
-        changesetDB.pendingChangesets(unclosedChangesets);
+//        changesetDB.pendingChangesets(openChangesets);
 
         var path = out.resolve(state.getSequenceNumberPath());
         var targetParquetFile = Path.of(path + ".opc.parquet");
@@ -212,9 +226,10 @@ public class ContributionStateManager implements IContributionStateManager {
         updater.updateStore();
         updateLocalState(state);
 
-        logger.info("update {} / {} ({}/{}) done. {} ({} major) contributions, {} open changesets. in {}", state.getSequenceNumber(), state.getTimestamp(),
+        logger.info("update {} / {} ({}/{}) done. {} contributions, {} pending. in {}", state.getSequenceNumber(), state.getTimestamp(),
                 index + 1, statesToUpdate,
-                counter, osc.size(), unclosedChangesets.size(), timer);
+                counter, pendingCounter,
+                timer);
         return state.getSequenceNumber();
     }
 

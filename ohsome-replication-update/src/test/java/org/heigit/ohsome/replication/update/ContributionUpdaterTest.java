@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.update;
 
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ContributionUpdaterTest {
 
@@ -15,9 +17,11 @@ public class ContributionUpdaterTest {
 
 
     @Test
-    void update() {
+    void update() throws Exception {
         var store = new UpdateStoreMap();
-        var updater = new ContributionUpdater(store, Changesets.NOOP, SpatialJoiner.NOOP, Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
+        var changesetsIds = Set.of(1L, 2L, 3L);
+        var changesets = Utils.fetchChangesets(changesetsIds, Changesets.NOOP);
+        var updater = new ContributionUpdater(store, changesets, SpatialJoiner.NOOP, Math.max(1, Runtime.getRuntime().availableProcessors() - 1));
 
 
         System.out.println("--");
