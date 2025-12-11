@@ -5,6 +5,7 @@ import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.parquet.ParquetUtil;

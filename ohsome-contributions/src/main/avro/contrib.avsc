@@ -293,6 +293,12 @@
       "doc": "`CREATION`, `DELETION`, `TAG`, `GEOMETRY`, `TAG_GEOMETRY`"
     },
     {
+      "name": "refs_count",
+      "type": "int",
+      "default": 0,
+      "doc": "numbers of node references. Always 0 for types `node`,`relation`."
+    },
+    {
       "name": "refs",
       "type": [
         "null",
@@ -303,6 +309,12 @@
       ],
       "default": null,
       "doc": "only used for `ways`, list of OSM node id references that are part of this `way`"
+    },
+    {
+      "name": "members_count",
+      "type": "int",
+      "default": 0,
+      "doc": "numbers of relations members. Always 0 for types `node`,`way`."
     },
     {
       "name": "members",

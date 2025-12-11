@@ -173,11 +173,17 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
         builder.clearRefs();
         builder.clearMembers();
+        builder.clearRefsCount();
+        builder.clearMembersCount();
 
         if (type == OSMType.WAY) {
-            builder.setRefs(((OSMEntity.OSMWay) entity).refs());
+            var refs = ((OSMEntity.OSMWay) entity).refs();
+            builder.setRefsCount(refs.size());
+            builder.setRefs(refs);
         } else if (type == OSMType.RELATION) {
-            builder.setMembers(contribution.members().stream().map(this::member).toList());
+            var members = contribution.members().stream().map(this::member).toList();
+            builder.setMembersCount(members.size());
+            builder.setMembers(members);
         }
         geometryBefore = geometry;
         return Optional.of(builder.setBuildTime(System.nanoTime() - buildTime).build());
