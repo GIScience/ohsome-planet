@@ -12,6 +12,7 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.replication.ReplicationEntity;
 import org.rocksdb.RocksDBException;
 
@@ -33,11 +34,11 @@ import static org.heigit.ohsome.osm.OSMType.NODE;
 
 public class TransformerNodes extends Transformer {
 
-    public TransformerNodes(OSMPbf pbf, Path temp, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb, Path sstReplicationPath) {
+    public TransformerNodes(OSMPbf pbf, Path temp, OutputLocation out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb, Path sstReplicationPath) {
         super(NODE, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, sstReplicationPath);
     }
 
-    public static Summary processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
+    public static Summary processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, OutputLocation out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
         Files.createDirectories(replicationPath);
 

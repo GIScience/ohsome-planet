@@ -7,7 +7,10 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.contrib.*;
+import org.heigit.ohsome.contributions.contrib.Contribution;
+import org.heigit.ohsome.contributions.contrib.Contributions;
+import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
+import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
 import org.heigit.ohsome.contributions.minor.MinorNode;
 import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
@@ -25,6 +28,8 @@ import org.heigit.ohsome.osm.pbf.Blob;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.output.OutputLocation;
+import org.heigit.ohsome.output.OutputLocationProvider;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.replication.ReplicationState;
@@ -35,6 +40,8 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.StringAppendOperator;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
@@ -52,6 +59,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
@@ -69,23 +77,24 @@ import static reactor.core.scheduler.Schedulers.parallel;
 
 public class Contributions2Parquet implements Callable<Integer> {
 
+    private static final Logger logger = LoggerFactory.getLogger(Contributions2Parquet.class);
+
     public static final boolean WRITE_PARQUET = true;
 
     private final Path pbfPath;
     private final Path temp;
-    private final Path out;
+    private final String out;
     private final int parallel;
     private final String changesetDbUrl;
     private final Path countryFilePath;
     private final Path replication;
     private final String includeTags;
-    private final Server<OSMEntity> server;
 
 
     private URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
 
-    public Contributions2Parquet(Path pbfPath, Path temp, Path out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags) {
+    public Contributions2Parquet(Path pbfPath, Path temp, String out, int parallel, String changesetDbUrl, Path countryFilePath, Path replicationWorkDir, URL replicationEndpoint, String includeTags) {
         this.pbfPath = pbfPath;
         this.temp = temp;
         this.out = out;
@@ -95,7 +104,6 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.replication = replicationWorkDir;
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
-        this.server = Server.osmEntityServer(replicationEndpoint.toString() + "/");
     }
 
     @Override
@@ -107,8 +115,11 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
 
         var latestState = (ReplicationState) null;
+        var server = (Server<OSMEntity>) null;
+
         if (replicationEndpoint != null) {
             try {
+                server = Server.osmEntityServer(replicationEndpoint + "/");
                 latestState = server.getLatestRemoteState();
                 System.out.println("latest replication state: " + latestState);
             } catch (IOException e) {
@@ -117,6 +128,9 @@ public class Contributions2Parquet implements Callable<Integer> {
                 replicationEndpoint = null;
             }
         }
+
+        logger.debug("using replication_endpoint {}", replicationEndpoint);
+
 
         var total = Stopwatch.createStarted();
 
@@ -134,54 +148,55 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .map(SpatialGridJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
-        var changesetDb = Changesets.open(changesetDbUrl, parallel);
+        try (var outputLocation = OutputLocationProvider.load(out);
+             var changesetDb = Changesets.open(changesetDbUrl, parallel)) {
 
-        Files.createDirectories(temp);
-        Files.createDirectories(out);
+            Files.createDirectories(temp);
 
-        RocksDB.loadLibrary();
-        var summaryNodes = Transformer.Summary.EMPTY;
-        var summaryWays = Transformer.Summary.EMPTY;
+            RocksDB.loadLibrary();
+            var summaryNodes = Transformer.Summary.EMPTY;
+            var summaryWays = Transformer.Summary.EMPTY;
 
 
-        var minorNodesPath = temp.resolve("minorNodes");
+            var minorNodesPath = temp.resolve("minorNodes");
 
-        var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
-        summaryNodes = processNodes(pbf, blobTypes, temp, out, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
-        var minorWaysPath = temp.resolve("minorWays");
-        var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
-        try (var options = defaultOptions(false);
-             var minorNodes = open(options, minorNodesPath);
-             var optionsWithMerge = defaultOptions(true)
-                     .setMergeOperator(new StringAppendOperator((char) 0));
-             var nodeWayBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY))) {
-            summaryWays = processWays(pbf, blobTypes, temp, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
+            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+            var minorWaysPath = temp.resolve("minorWays");
+            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
+            try (var options = defaultOptions(false);
+                 var minorNodes = open(options, minorNodesPath);
+                 var optionsWithMerge = defaultOptions(true)
+                         .setMergeOperator(new StringAppendOperator((char) 0));
+                 var nodeWayBackRefs = open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY))) {
+                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+            }
+
+            var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb);
+
+            System.out.println("summaryNodes = " + summaryNodes);
+            System.out.println("summaryWays = " + summaryWays);
+            System.out.println("summaryRelations = " + summaryRelations);
+
+            var replicationTimestamp = Stream.of(summaryNodes, summaryWays, summaryRelations)
+                    .map(Transformer.Summary::replicationTimestamp)
+                    .mapToLong(Instant::getEpochSecond)
+                    .max().orElseThrow();
+            System.out.println("replicationTimestamp = " + replicationTimestamp);
+            if (replicationEndpoint != null && server != null) {
+                var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
+                System.out.println("replicationState = " + replicationState);
+                var replicationStateData = replicationState.toBytes(server.endpoint());
+                Files.write(replication.resolve("state.txt"), replicationStateData);
+                outputLocation.write(outputLocation.resolve("contributions").resolve("state.txt"), replicationStateData);
+            }
+
+            System.out.println("done in " + total);
+            return CommandLine.ExitCode.OK;
         }
-
-        var summaryRelations = processRelations(pbfPath, temp, out, replication, parallel, blobTypes, keyFilter, changesetDb);
-
-        System.out.println("summaryNodes = " + summaryNodes);
-        System.out.println("summaryWays = " + summaryWays);
-        System.out.println("summaryRelations = " + summaryRelations);
-
-        var replicationTimestamp = Math.max(Math.max(
-                        summaryNodes.replicationTimestamp().getEpochSecond(),
-                        summaryWays.replicationTimestamp().getEpochSecond()),
-                summaryRelations.replicationTimestamp().getEpochSecond());
-        System.out.println("replicationTimestamp = " + replicationTimestamp);
-
-        var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
-        System.out.println("replicationState = " + replicationState);
-
-        try (var output = Files.newOutputStream(replication.resolve("state.txt"))) {
-            replicationState.store(output, server.endpoint());
-        }
-
-        System.out.println("done in " + total);
-        return CommandLine.ExitCode.OK;
     }
 
-    private Transformer.Summary processRelations(Path pbfPath, Path temp, Path output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws Exception {
+    private Transformer.Summary processRelations(Path pbfPath, Path temp, OutputLocation output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws Exception {
         var replicationPath = UpdateStore.updatePath(replication, RELATION);
         Files.createDirectories(replicationPath);
 
@@ -283,7 +298,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     }
                 }
 
-                for(var osh : batch) {
+                for (var osh : batch) {
                     if (osh.getLast().visible()) {
                         replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
                         replicationElementsCount++;
@@ -324,7 +339,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         return osh;
     }
 
-    private static ArrayBlockingQueue<Writer> getWriters(Path temp, Path output, int numFiles) {
+    private static ArrayBlockingQueue<Writer> getWriters(Path temp, OutputLocation output, int numFiles) {
         var writers = new ArrayBlockingQueue<Writer>(numFiles);
         for (var i = 0; i < numFiles; i++) {
             writers.add(new Writer(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
@@ -383,7 +398,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             if (osh.getLast().visible()) {
                 var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
 
-                var replicationOutput =  new Output(4 << 10);
+                var replicationOutput = new Output(4 << 10);
                 replicationOutput.reset();
                 ReplicationEntity.serialize(last.withMinorAndEdits(minorVersion, edits), replicationOutput);
                 var key = RocksUtil.key(last.id());

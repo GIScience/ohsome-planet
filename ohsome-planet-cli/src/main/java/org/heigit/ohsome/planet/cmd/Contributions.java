@@ -1,7 +1,5 @@
 package org.heigit.ohsome.planet.cmd;
 
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
@@ -22,7 +20,7 @@ public class Contributions implements Callable<Integer> {
     private Path pbfPath;
 
     @CommandLine.Option(names = {"--output", "-o"})
-    private Path out = Path.of("out");
+    private String out = Path.of("ohsome-planet").toString();
 
     @CommandLine.Option(names = {"--temp"})
     private Path temp;
@@ -57,24 +55,14 @@ public class Contributions implements Callable<Integer> {
     public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
-        if (Files.exists(out)) {
-            if (overwrite) {
-                MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
-            } else {
-                System.out.println("Directory already exists. To overwrite use --overwrite");
-                System.exit(1);
-            }
-        }
-
         if (temp == null) {
-            temp = out;
+            temp = Path.of("ohsome-planet/tmp");
         }
 
         if (replication == null) {
-            replication = out.resolve("replication");
+            replication = Path.of("ohsome-planet/replication");
         }
 
-        Files.createDirectories(out);
         Files.createDirectories(temp);
         Files.createDirectories(replication);
 

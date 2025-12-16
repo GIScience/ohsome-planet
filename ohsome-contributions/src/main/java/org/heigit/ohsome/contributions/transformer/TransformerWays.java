@@ -15,6 +15,7 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
@@ -38,7 +39,7 @@ import static org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class TransformerWays extends Transformer {
-    public static Summary processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, Path out, int parallel,
+    public static Summary processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, OutputLocation out, int parallel,
                                       RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath, RocksDB nodeWayBackRefs) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
         Files.createDirectories(replicationPath);
@@ -57,7 +58,7 @@ public class TransformerWays extends Transformer {
     private final LongPredicate writeMinor;
     private final RocksDB nodeWayBackRefs;
 
-    public TransformerWays(OSMPbf pbf, Path temp, Path out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir, RocksDB nodeWayBackRefs) {
+    public TransformerWays(OSMPbf pbf, Path temp, OutputLocation out, int parallel, RocksDB minorNodesStorage, Path sstDirectory, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationWorkDir, RocksDB nodeWayBackRefs) {
         super(WAY, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, replicationWorkDir);
         this.minorNodesStorage = minorNodesStorage;
         this.writeMinor = writeMinor;

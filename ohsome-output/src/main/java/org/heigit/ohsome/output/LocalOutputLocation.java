@@ -1,6 +1,7 @@
 package org.heigit.ohsome.output;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -17,6 +18,21 @@ public class LocalOutputLocation implements OutputLocation {
     public void move(Path src, Path dest) throws IOException {
         Files.createDirectories(dest.getParent());
         Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    @Override
+    public void delete(Path dest) throws IOException {
+        Files.delete(dest);
+    }
+
+    @Override
+    public void write(Path dest, byte[] data) throws IOException {
+        Files.write(dest, data);
+    }
+
+    @Override
+    public InputStream read(Path dest) throws IOException {
+        return Files.newInputStream(path);
     }
 
     @Override

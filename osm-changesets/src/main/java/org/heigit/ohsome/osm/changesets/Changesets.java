@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface Changesets  {
+public interface Changesets extends AutoCloseable {
     Changesets NOOP = new Changesets() {
         @Override
         public <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) {
@@ -29,6 +29,11 @@ public interface Changesets  {
             return new ChangesetDb(new HikariDataSource(config));
         }
         return NOOP;
+    }
+
+    @Override
+    default void close() throws Exception {
+
     }
 
     <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception;

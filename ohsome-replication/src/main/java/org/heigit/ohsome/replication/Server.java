@@ -119,6 +119,7 @@ public class Server<T> {
                 }
                 connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes
                 connection.setConnectTimeout(10 * 60 * 1000); // timeout 10 minutes
+                logger.debug("request {} with cookie {}", url, cookie);
                 return connection.getInputStream();
             } catch (FileNotFoundException e) {
                 throw e;

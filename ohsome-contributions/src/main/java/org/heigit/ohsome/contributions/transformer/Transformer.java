@@ -15,6 +15,7 @@ import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.RocksDB;
@@ -42,20 +43,14 @@ public abstract class Transformer {
     protected final OSMType osmType;
     protected final OSMPbf pbf;
     protected final Path tempDir;
-    protected final Path outputDir;
+    protected final OutputLocation outputDir;
     protected final int parallel;
     protected final SpatialJoiner countryJoiner;
     protected final Changesets changesetDb;
     protected final Path minorSstDirectory;
     private final Path replicationSstDirectory;
 
-
-    protected Transformer(OSMType type, OSMPbf pbf, Path temp, Path out, int parallel,
-                          SpatialJoiner countryJoiner, Changesets changesetDb, Path minorSstDir) {
-        this(type, pbf, temp, out, parallel, countryJoiner, changesetDb, minorSstDir, null);
-    }
-
-    protected Transformer(OSMType type, OSMPbf pbf, Path temp, Path out, int parallel,
+    protected Transformer(OSMType type, OSMPbf pbf, Path temp, OutputLocation out, int parallel,
                           SpatialJoiner countryJoiner, Changesets changesetDb, Path minorSstDir, Path replicationSstDir) {
         this.osmType = type;
         this.pbf = pbf;
@@ -152,7 +147,7 @@ public abstract class Transformer {
             "geometry":{"encoding":"WKB","geometry_types":["Point","LineString","Polygon","Multipolygon","GeometryCollection"]}}}
             """.replace("\n", "");
 
-    public static Parquet openWriter(Path tempDir, Path outputDir, OSMType type,
+    public static Parquet openWriter(Path tempDir, OutputLocation outputDir, OSMType type,
                                      Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
         return new Parquet(tempDir, outputDir, type, config);
     }
@@ -228,13 +223,13 @@ public abstract class Transformer {
         }
 
         private final Path tempDir;
-        private final Path outputDir;
+        private final OutputLocation outputDir;
         private final OSMType type;
         private final Consumer<AvroUtil.AvroBuilder<Contrib>> config;
 
         private final Map<String, WriterPath> writers = new HashMap<>();
 
-        public Parquet(Path tempDir, Path outputDir, OSMType type, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
+        public Parquet(Path tempDir, OutputLocation outputDir, OSMType type, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
             this.tempDir = tempDir;
             this.outputDir = outputDir;
             this.type = type;
@@ -243,7 +238,7 @@ public abstract class Transformer {
 
         @Override
         public void close() throws IOException {
-            var suppressed = new ArrayList<IOException>();
+            var suppressed = new ArrayList<Exception>();
             for (var entry : writers.entrySet()) {
                 var status = entry.getKey();
                 var writerPath = entry.getValue();
@@ -253,8 +248,8 @@ public abstract class Transformer {
                             .resolve(status)
                             .resolve(writerPath.path().getFileName());
                     Files.createDirectories(newPath.toAbsolutePath().getParent());
-                    Files.move(writerPath.path(), newPath);
-                } catch (IOException e) {
+                    outputDir.move(writerPath.path(), newPath);
+                } catch (Exception e) {
                     suppressed.add(e);
                 }
             }

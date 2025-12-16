@@ -28,6 +28,11 @@ public class ChangesetDb implements Changesets {
         return changesets(ids, "changesets", factory);
     }
 
+    @Override
+    public void close() throws Exception {
+        dataSource.close();
+    }
+
     public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
         try (var conn = dataSource.getConnection();
              var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, hashtags from %s where id = any(?)".formatted(table));

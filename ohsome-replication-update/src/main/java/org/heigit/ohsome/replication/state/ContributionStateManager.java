@@ -212,17 +212,18 @@ public class ContributionStateManager implements IContributionStateManager {
             logger.error("move file {} to {} failed", tmpParquetFile, targetParquetFile, e);
             throw e;
         }
+
         var targetStateFile = Path.of(path + ".state.txt");
         logger.debug("try to move file {} to {}", tmpStateFile, targetStateFile);
-        try {
-            out.move(tmpStateFile, targetStateFile);
-        } catch (Exception e) {
-            logger.error("move file {} to {} failed", tmpStateFile, targetStateFile, e);
-        }
-        var tmpLocalState = directory.resolve("tmp/%d-state.txt".formatted(state.getSequenceNumber())) ;
-        Files.write(tmpLocalState, stateData);
-        logger.debug("try to move file {} to {}", tmpLocalState, out.resolve("state"));
-        out.move(tmpLocalState, out.resolve("state.txt"));
+        out.write(targetStateFile, stateData);
+
+        out.write(out.resolve("state.txt"), stateData);
+        out.write(out.resolve("state.csv"), "sequence_number,timestamp,path%n%s,%s,%s"
+                .formatted(
+                        state.getSequenceNumber(),
+                        state.getTimestamp(),
+                        targetParquetFile)
+                .getBytes());
 
         updater.updateStore();
         updateLocalState(state);

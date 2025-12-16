@@ -5,8 +5,11 @@ import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.transformer.Transformer;
 import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.util.io.Output;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -20,13 +23,14 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 class Writer implements AutoCloseable {
+    private static final Logger logger = LoggerFactory.getLogger(Writer.class);
 
     private final Map<String, ParquetWriter<Contrib>> writers = new HashMap<>();
 
     private final int writerId;
     private final OSMType type;
     private final Path temp;
-    private final Path outputDir;
+    private final OutputLocation outputDir;
     private final Consumer<AvroUtil.AvroBuilder<Contrib>> config;
 
     final Output output = new Output(4 << 10);
@@ -34,7 +38,7 @@ class Writer implements AutoCloseable {
     ByteBuffer valBuffer = ByteBuffer.allocateDirect(4 << 10);
     private PrintWriter logWriter;
 
-    Writer(int writerId, OSMType type, Path temp, Path outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
+    Writer(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
         this.writerId = writerId;
         this.type = type;
         this.temp = temp;
@@ -132,13 +136,15 @@ class Writer implements AutoCloseable {
 
     private void close(Function<String, Path> pathFnt) {
         writers.forEach((key, writer) -> {
+            logger.debug("closing writer {} {}", getId(), key);
+            var path = progressPath(key);
+            var finalPath = pathFnt.apply(key);
             try {
                 writer.close();
-                var path = progressPath(key);
-                var finalPath = pathFnt.apply(key);
-                Files.createDirectories(finalPath.toAbsolutePath().getParent());
-                Files.move(path, finalPath);
-            } catch (IOException e) {
+
+                outputDir.move(path, finalPath);
+            } catch (Exception e) {
+                logger.error("closing writer {}: {} - {}", getId(), key, finalPath, e);
                 // ignore exception
             }
         });

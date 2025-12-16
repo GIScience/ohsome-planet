@@ -1,10 +1,11 @@
 package org.heigit.ohsome.output;
 
-import io.minio.MinioClient;
-import io.minio.UploadObjectArgs;
+import io.minio.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -34,6 +35,7 @@ public class MinioOutputLocation implements OutputLocation {
         var retries = 0;
         while (true) {
             try {
+                logger.debug("uploading file {} {} -> {}", bucket, src, dest);
                 client.uploadObject(UploadObjectArgs.builder()
                         .bucket(bucket)
                         .filename(src.toString())
@@ -52,6 +54,30 @@ public class MinioOutputLocation implements OutputLocation {
         Files.deleteIfExists(src);
     }
 
+    @Override
+    public void delete(Path dest) throws Exception {
+        client.removeObject(RemoveObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(dest.toString())
+                .build());
+    }
+
+    @Override
+    public void write(Path dest, byte[] data) throws Exception {
+        client.putObject(PutObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(dest.toString())
+                        .stream(new ByteArrayInputStream(data), data.length, -1)
+                .build());
+    }
+
+    @Override
+    public InputStream read(Path dest) throws Exception {
+        return client.getObject(GetObjectArgs.builder()
+                        .bucket(bucket)
+                        .object(dest.toString())
+                .build());
+    }
 
     @Override
     public void close() throws Exception {
