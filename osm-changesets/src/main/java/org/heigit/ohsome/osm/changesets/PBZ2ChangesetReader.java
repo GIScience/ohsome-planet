@@ -20,9 +20,7 @@ public class PBZ2ChangesetReader {
         return PBZ2Reader.read(path)
                 .window(2, 1)
                 .concatMap(Flux::collectList)
-                .map(PBZ2ChangesetReader::completeBlocksForChangesets)
-                ;
-
+                .map(PBZ2ChangesetReader::completeBlocksForChangesets);
     }
 
     private static byte[] completeBlocksForChangesets(List<byte[]> blocks) {

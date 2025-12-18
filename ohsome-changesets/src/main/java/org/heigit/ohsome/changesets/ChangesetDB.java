@@ -142,6 +142,7 @@ public class ChangesetDB implements IChangesetDB {
                                   VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?::geometry)
                                   ON CONFLICT (id) DO UPDATE
                                   SET
+                                      created_at = EXCLUDED.created_at,
                                       closed_at = EXCLUDED.closed_at,
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,

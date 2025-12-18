@@ -56,6 +56,10 @@ public class FastByteArrayOutputStream extends OutputStream {
         return array;
     }
 
+    public int size() {
+        return position;
+    }
+
     public byte[] array() {
         return Arrays.copyOf(array, position);
     }

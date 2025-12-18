@@ -11,10 +11,16 @@
     <artifactId>osm-changesets</artifactId>
 
     <properties>
-        <jackson.version>2.18.2</jackson.version>
+        <jackson.version>2.19.4</jackson.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>osm-pbf</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>ohsome-parquet</artifactId>

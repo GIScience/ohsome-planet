@@ -1,36 +1,36 @@
 package org.heigit.ohsome.osm.changesets;
 
-import com.google.common.primitives.Bytes;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream;
+import org.heigit.ohsome.util.io.FastByteArrayOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.SynchronousSink;
 
-import java.io.ByteArrayInputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.SeekableByteChannel;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.function.Function;
 
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
 public class PBZ2Reader implements Iterator<byte[]> {
+    private static final Logger logger = LoggerFactory.getLogger(PBZ2Reader.class);
 
     public static Flux<byte[]> read(Path path) throws IOException {
         return Flux.using(
-                () -> Files.newByteChannel(path),
-                PBZ2Reader::readFromStream,
+                () -> new BufferedInputStream(Files.newInputStream(path)),
+                readFromStream(path),
                 PBZ2Reader::closeQuitely);
     }
 
-    private static Flux<byte[]> readFromStream(SeekableByteChannel input) {
-        return Flux
-                .generate(() -> new PBZ2Reader(input), PBZ2Reader::readNext)
+    private static Function<InputStream, Flux<byte[]>> readFromStream(Path path) {
+        return input -> Flux
+                .generate(() -> new PBZ2Reader(input, path), PBZ2Reader::readNext)
                 .flatMapSequential(block -> fromCallable(() -> decompress(block)).subscribeOn(parallel()));
     }
 
@@ -48,27 +48,38 @@ public class PBZ2Reader implements Iterator<byte[]> {
 
     private static final byte[] bzHeader = {'B', 'Z', 'h', '9', 0x31, 0x41, 0x59, 0x26, 0x53, 0x59};
 
-    private final SeekableByteChannel channel;
-    private final ByteBuffer buffer = ByteBuffer.allocate(1 << 20);
-    private final byte[] array = buffer.array();
-    private final byte[] data = new byte[256 << 10];
+    private final InputStream channel;
+    private final long size;
+    private final FastByteArrayOutputStream output =  new FastByteArrayOutputStream(256 << 10);
 
     private int count;
-    private int limit;
     private int pos;
-    private int bzi;
 
     private byte[] next;
 
-    public PBZ2Reader(SeekableByteChannel channel) throws IOException {
-        this.channel = channel;
-        limit = channel.read(buffer);
-        if (Bytes.indexOf(array, bzHeader) != 0) {
-            throw new IOException("missing bzip header at the beginning!");
+    public PBZ2Reader(InputStream input, Path path) throws IOException {
+        this.channel = input;
+        this.size= Files.size(path);
+
+
+        var header = channel.readNBytes(10);
+        if (header.length  != 10) {
+            throw new IOException("End of Stream");
         }
-        System.arraycopy(bzHeader, 0, data, 0, bzHeader.length);
-        count = bzHeader.length;
-        pos = count;
+
+        if (header[0] != 'B' || header[1] != 'Z' || header[2] != 'h') {
+            throw new IOException("Stream is not in the BZip2 format");
+        }
+
+        final int blockSize = header[3];
+        if (blockSize < '1' || blockSize > '9') {
+            throw new IOException("BZip2 block size is invalid");
+        }
+
+        var blockSize100k = blockSize - '0';
+        System.out.println("blockSize100k = " + blockSize100k);
+        output.write(header);
+        count = header.length;
     }
 
     @Override
@@ -92,42 +103,30 @@ public class PBZ2Reader implements Iterator<byte[]> {
 
 
     private byte[] computeNext() throws IOException {
-        while (true) {
-            if (pos >= limit) {
-                if (channel.position() >= channel.size()) {
-                    return null;
-                }
-                limit = channel.read(buffer.clear());
-                pos = 0;
-            }
-            var offset = pos;
-            while (bzi < bzHeader.length && pos < limit) {
-                var b = array[pos++];
-                if (b == bzHeader[bzi]) {
-                    bzi++;
-                } else if (b == bzHeader[0]) {
-                    bzi = 1;
-                } else {
-                    bzi = 0;
-                }
-            }
-            var len = pos - offset;
-            //TODO ensure capacity
-            System.arraycopy(array, offset, data, count, len);
-            count += len;
-            if (bzi == bzHeader.length) {
+        if (count >= size) {
+            return null;
+        }
+
+        var bzi = 0;
+        while (bzi < bzHeader.length && count < size) {
+            var b = channel.read();
+            count++;
+            output.write(b);
+            if (b == bzHeader[0]) {
+                bzi = 1;
+            } else if (bzi == 3 || b == bzHeader[bzi]) {
+                bzi++;
+            } else if (bzi > 0) {
                 bzi = 0;
-                var ret = new byte[count - 10];
-                System.arraycopy(data, 0, ret, 0, ret.length);
-                count = bzHeader.length;
-                return ret;
-            }
-            if (channel.position() >= channel.size()) {
-                var ret = new byte[count];
-                System.arraycopy(data, 0, ret, 0, ret.length);
-                return ret;
             }
         }
+
+        var end =  Arrays.copyOfRange(output.array, output.size() - (bzi == 10 ? 10 : 0), output.size());
+        var data = Arrays.copyOf(output.array, output.size() - (bzi == 10 ? 10 : 0));
+        logger.debug("Buffer = ... %s (%d)%n", Arrays.toString(end), data.length);
+        output.reset();
+        output.write(end);
+        return data;
     }
 
     public PBZ2Reader readNext(SynchronousSink<byte[]> sink) {
