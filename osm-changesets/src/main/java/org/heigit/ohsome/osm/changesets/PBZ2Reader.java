@@ -52,7 +52,7 @@ public class PBZ2Reader implements Iterator<byte[]> {
     private final long size;
     private final FastByteArrayOutputStream output =  new FastByteArrayOutputStream(256 << 10);
 
-    private int count;
+    private long count;
     private int pos;
 
     private byte[] next;
@@ -110,6 +110,9 @@ public class PBZ2Reader implements Iterator<byte[]> {
         var bzi = 0;
         while (bzi < bzHeader.length && count < size) {
             var b = channel.read();
+            if (b == -1) {
+                break;
+            }
             count++;
             output.write(b);
             if (b == bzHeader[0]) {
@@ -123,6 +126,9 @@ public class PBZ2Reader implements Iterator<byte[]> {
 
         var end =  Arrays.copyOfRange(output.array, output.size() - (bzi == 10 ? 10 : 0), output.size());
         var data = Arrays.copyOf(output.array, output.size() - (bzi == 10 ? 10 : 0));
+        if (data.length == 0) {
+            return null;
+        }
         logger.debug("Buffer = ... %s (%d)%n", Arrays.toString(end), data.length);
         output.reset();
         output.write(end);
