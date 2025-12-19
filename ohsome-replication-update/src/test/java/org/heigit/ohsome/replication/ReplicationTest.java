@@ -87,7 +87,9 @@ class ReplicationTest {
     void testUpdateOnlyContributions() throws Exception {
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
 
-        MoreFiles.deleteRecursively(ohsomePlanetPath);
+        if (Files.exists(ohsomePlanetPath)) {
+            MoreFiles.deleteRecursively(ohsomePlanetPath);
+        }
         Files.createDirectories(ohsomePlanetPath);
 
         var out = ohsomePlanetPath.resolve("out");
