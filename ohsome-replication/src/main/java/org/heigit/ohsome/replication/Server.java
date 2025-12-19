@@ -6,7 +6,6 @@ import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.HttpsURLConnection;
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -113,7 +112,7 @@ public class Server<T> {
     private static InputStream getResponse(URL url, String cookie, int backoff) throws InterruptedException, IOException {
         while (true) {
             try {
-                var connection = (HttpsURLConnection) url.openConnection();
+                var connection = url.openConnection();
                 if (cookie != null) {
                     connection.addRequestProperty("Cookie", cookie);
                 }

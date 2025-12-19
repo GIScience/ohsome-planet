@@ -110,10 +110,6 @@ public class ReplicationManager {
         initializeShutdownHook(lock, shutdownInitiated);
 
         try (var outputLocation = OutputLocationProvider.load(out)) {
-            var probe = directory.resolve("probe.txt");
-            Files.writeString(probe, "ohsome-planet");
-            outputLocation.move(probe, outputLocation.resolve("probe.txt"));
-
             var countryJoiner = Optional.ofNullable(countryFilePath)
                     .map(SpatialGridJoiner::fromCSVGrid)
                     .orElseGet(SpatialJoiner::noop);

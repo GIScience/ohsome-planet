@@ -48,7 +48,7 @@ class ReplicationTest {
     void setUp() throws SQLException, IOException {
         var config = new HikariConfig();
         config.setJdbcUrl(dbUrl);
-        for (var script : new String[]{"setupDB/initializeDataForReplication.sql"}){
+        for (var script : new String[]{"setupDB/initializeDataForReplication.sql"}) {
             try (var datasource = new HikariDataSource(config);
                  var conn = datasource.getConnection();
                  var st = conn.prepareStatement(
@@ -86,17 +86,20 @@ class ReplicationTest {
     @Test
     void testUpdateOnlyContributions() throws Exception {
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
-        var out = RESOURCE_PATH.resolve("out");
-        var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();
 
-        var state = ReplicationState.read(ohsomePlanetPath.resolve("default-state.txt"));
+        MoreFiles.deleteRecursively(ohsomePlanetPath);
+        Files.createDirectories(ohsomePlanetPath);
+
+        var out = ohsomePlanetPath.resolve("out");
+        var endpointPath = RESOURCE_PATH.resolve("replication/minute");
+        var replicationElementsUrl = endpointPath.toUri().toURL().toString();
+
+        var state = ReplicationState.read(endpointPath.resolve("default-state.txt"));
         var stateData = state.toBytes(replicationElementsUrl);
         Files.write(ohsomePlanetPath.resolve("state.txt"), stateData);
-        if (Files.exists(out)) {
-            MoreFiles.deleteRecursively(out);
-        }
 
-        ReplicationManager.updateContributions(null, ohsomePlanetPath, out.toString(), 0,1, false);
+
+        ReplicationManager.updateContributions(null, ohsomePlanetPath, out.toString(), 0, 1, false);
 
         var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("state.txt"));
         assertEquals(6824842, localStateAfterUpdate.getSequenceNumber());

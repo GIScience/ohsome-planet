@@ -174,7 +174,7 @@ public class ContributionStateManager implements IContributionStateManager {
             changesetIds.add(osm.changeset());
             osc.add(osm);
         });
-
+        changesetIds.add(-1L);
         var changesets = Utils.fetchChangesets(changesetIds, changesetDB);
         var openChangesets = new HashSet<Long>();
         for (var cs : changesets.values()) {

@@ -14,7 +14,6 @@
     <properties>
         <mockito.version>5.19.0</mockito.version>
         <prometheus.version>1.4.1</prometheus.version>
-
     </properties>
 
     <dependencies>

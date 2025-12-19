@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -15,15 +16,15 @@
     <scm>
         <developerConnection>scm:git:git@github.com:GIScience/ohsome-planet.git</developerConnection>
         <url>https://github.com/GIScience/ohsome-planet</url>
-      <tag>1.1.0</tag>
-  </scm>
+        <tag>1.1.0</tag>
+    </scm>
 
     <properties>
         <java.version>21</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <testcontainer.version>1.21.3</testcontainer.version>
+        <testcontainer.version>1.21.4</testcontainer.version>
         <slf4j.version>2.0.17</slf4j.version>
 
         <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
@@ -142,11 +143,11 @@
     </build>
 
     <repositories>
-<!--        <repository>-->
-<!--            <id>heigit-nexus-public</id>-->
-<!--            <name>HeiGIT maven repositories</name>-->
-<!--            <url>https://nexus.heigit.org/repository/maven-public/</url>-->
-<!--        </repository>-->
+        <!--        <repository>-->
+        <!--            <id>heigit-nexus-public</id>-->
+        <!--            <name>HeiGIT maven repositories</name>-->
+        <!--            <url>https://nexus.heigit.org/repository/maven-public/</url>-->
+        <!--        </repository>-->
     </repositories>
 
 </project>

@@ -1,4 +1,0 @@
-#Tue Nov 11 17:21:35 CET 2025
-endpoint=
-sequenceNumber=6824839
-timestamp=2025-10-22T09\:04\:45Z
