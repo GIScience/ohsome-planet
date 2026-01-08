@@ -55,23 +55,32 @@ The parameters `--parallel`, `--country-file`, `--changeset-db`, `--output` and 
 
 ### Changesets (PostgreSQL)
 
-First, create an empty PostgreSQL database with PostGIS extension or provide connection to an existing database. You can set it up like this.
+First, create an empty PostgreSQL database with PostGIS extension or provide a connection to an existing database. For instance, 
+you can set it up like this.
 
 ```shell
 export OHSOME_PLANET_DB_USER=your_password
 export OHSOME_PLANET_DB_PASSWORD=your_user
 export OHSOME_PLANET_DB_PORT=5432
 
-docker run -d --name ohsome_planet_changeset_db -e POSTGRES_PASSWORD=$OHSOME_PLANET_DB_PASSWORD -e POSTGRES_USER=$OHSOME_PLANET_DB_USER -p $OHSOME_PLANET_DB_PORT:5432 postgis/postgis
+docker run -d \
+    --name ohsome_planet_changeset_db \
+    -e POSTGRES_PASSWORD=$OHSOME_PLANET_DB_PASSWORD \
+    -e POSTGRES_USER=$OHSOME_PLANET_DB_USER \
+    -p $OHSOME_PLANET_DB_PORT:5432 \
+    postgis/postgis
 ```
 
-Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM planet server. If you want to clip the extent to a smaller region, you can use the `changeset-filter` command of the [osmium library](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset extracts. 
+Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM planet server. If you want to clip the extent to a smaller region, you can use the `changeset-filter` command of the [osmium library](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset file extracts. 
 
 ```shell
-osmium changeset-filter --bbox=8.319,48.962,8.475,49.037 changesets-latest.osm.bz2 changesets-latest-karlsruhe.osm.bz2 
+osmium changeset-filter \
+    --bbox=8.319,48.962,8.475,49.037 \
+    changesets-latest.osm.bz2 \
+    changesets-latest-karlsruhe.osm.bz2 
 ```
 
-Then, process an OSM changesets `.bz2` file like in the following example.
+Then, process the OSM changesets `.bz2` file like in the following example.
 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar changesets \
@@ -86,16 +95,22 @@ The parameters `--schema` and `--overwrite` are optional. Find more detailed inf
 
 ### Replication (Parquet / PostgreSQL)
 
-The ohsome-planet tool can also be used to generate updates from the replication files provided e.g. by the 
-[OSM server](https://planet.openstreetmap.org/replication/). Contributions will be written as Parquet files matching those found on the replication source. Changesets are updated in the PostgreSQL database.
+The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
+[OSM Planet server](https://planet.openstreetmap.org/replication/).
+GeoFabrik also provides updates for regional extracts.
+Contributions will be written as Parquet files matching those found on the replication source.
+Changesets are updated in the PostgreSQL database.
 
-If you want to update both it should look something like this: 
+If you want to update both datasets your command should look like this: 
 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
-    --changeset-db "jdbc:postgresql://[host]:[port]/postgres" \
+    --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
+    --parallel 8 \
+    --country-file data/world.csv \
     --output path/to/parquet/output/ \
     --directory /path/to/internal-keyvalue-db/
+    --continuous
 ```
 
 This command can be used to either update changesets or contributions individually, or update both at the same time.
