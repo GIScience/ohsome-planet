@@ -48,7 +48,6 @@ public class ContributionStateManager implements IContributionStateManager {
     private final OutputLocation out;
     private final Server<OSMEntity> server;
     private final String endpoint;
-    private final Path directory;
     private final Path tmpDir;
 
     private ReplicationState localState;
@@ -61,7 +60,6 @@ public class ContributionStateManager implements IContributionStateManager {
     public ContributionStateManager(String endpoint, Path directory, ReplicationState localState, OutputLocation out, UpdateStore updateStore, IChangesetDB changesetDB, SpatialJoiner countryJoiner) throws IOException {
         this.server = Server.osmEntityServer(endpoint);
         this.endpoint = endpoint;
-        this.directory = directory;
         this.out = out;
         this.updateStore = updateStore;
         this.changesetDB = changesetDB;
@@ -163,9 +161,6 @@ public class ContributionStateManager implements IContributionStateManager {
     private int process(ReplicationState state, long index, int statesToUpdate) throws Exception {
         var stateData = state.toBytes(null);
         var tmpParquetFile = tmpDir.resolve("%d.opc.parquet".formatted(state.getSequenceNumber()));
-        var tmpStateFile = tmpDir.resolve("%d.state.txt".formatted(state.getSequenceNumber()));
-
-        Files.write(tmpStateFile, stateData);
 
         var timer = Stopwatch.createStarted();
         var changesetIds = new HashSet<Long>();
@@ -201,7 +196,7 @@ public class ContributionStateManager implements IContributionStateManager {
                 }
             }
         }
-//        changesetDB.pendingChangesets(openChangesets);
+        changesetDB.pendingChangesets(openChangesets);
 
         var path = out.resolve(state.getSequenceNumberPath());
         var targetParquetFile = Path.of(path + ".opc.parquet");
@@ -214,7 +209,6 @@ public class ContributionStateManager implements IContributionStateManager {
         }
 
         var targetStateFile = Path.of(path + ".state.txt");
-        logger.debug("try to move file {} to {}", tmpStateFile, targetStateFile);
         out.write(targetStateFile, stateData);
 
         out.write(out.resolve("state.txt"), stateData);

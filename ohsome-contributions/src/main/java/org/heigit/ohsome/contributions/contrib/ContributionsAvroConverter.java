@@ -212,10 +212,14 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         var contrib = contribMember.contrib();
         if (contrib != null) {
             memberBuilder
+                    .setTimestamp(contrib.timestamp())
+                    .setChangesetId(contrib.changeset())
                     .setGeometryType(geometry(contrib).getGeometryType())
                     .setGeometry(wkb(contrib));
         } else {
             memberBuilder
+                    .setTimestamp(Instant.EPOCH)
+                    .setChangesetId(0)
                     .setGeometryType(null)
                     .setGeometry(null);
         }
