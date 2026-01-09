@@ -136,11 +136,11 @@ If you want to update both datasets your command should look like this:
 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
+    --data path/to/data \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
     --parallel 8 \
     --country-file data/world.csv \
-    --output path/to/parquet/output/ \
-    --directory /path/to/internal-keyvalue-db/ \
+    --parquet-data path/to/parquet/output/ \
     --continue
 ```
 

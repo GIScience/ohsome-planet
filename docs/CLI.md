@@ -30,19 +30,23 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
 ```
 
 
-* default will write to `./ohsome-planet`?
-* `--output` --> this is the location of the parquet files, but also used for minorNodes and minorWays when specified. However, when using minio then only parquet files
-  * this could be `--contributions-directory` or `--parquet-directory`
-* `--temp` --> this is the rocksDB needed to build way and relation geometries and temporary progress folder
-  * this could be `--temp-directory`
-* `--replication-workdir` --> this is what is needed for replication
-  * this could be `--replication-directory`
+
+
+parameters:
+* `--data` (mandatory): local path where all output (including temporary files, replication files, parquet files) will be stored. this path will be used when you run `replication update` to find the replication sub-directory.
+
+* `--keep-temp-data` (optional): boolean, temp files will not be deleted after process finishes
+
+* `--parquet-data` (optional): `/data/out-test/` or `s3://heigit-ohsome-planet/data/v1/benni-test`
+
+* `--init-replication` (optional): boolean. this will create the replication files in the data directory
+
 
 
 Full output structure
 ```
-ohsome-planet
-├── contributions
+ohsome-planet -- output data directory
+├── contributions -- parquet-data
 │   ├── history
 │   │   ├── node-0-172539-history-contribs.parquet
 │   │   ├── ...
@@ -57,14 +61,14 @@ ohsome-planet
 │       ├── ...
 │       ├── way-0-3981228-latest-contribs.parquet
 │       ├── ...
-├── replication
+├── replication -- there is no param to set this
 │   ├── node_relations (rocksDB)
 │   ├── nodes (rocksDB)
 │   ├── node_ways (rocksDB)
 │   ├── relations (rocksDB)
 │   ├── way_relations (rocksDB)
 │   └── ways (rocksDB)
-└── tmp
+└── tmp -- there is no param to set this, but you can use --keep-temp-data
     ├── minorNodes (rocksDB)
     ├── minorWays (rocksDB)
     └── progress
