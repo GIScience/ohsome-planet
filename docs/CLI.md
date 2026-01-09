@@ -4,79 +4,34 @@ Here we provide additional information for using the command line interface (CLI
 
 ## Contributions
 
-
+### Write to S3
 Write Parquet files directly into S3 object store.
-* maybe this should use `s3:` instead of `minio:`
-* 
+This will temporarily write Parquet files to your disk and subsequently move them into the S3 path.
 
 ```shell
 export S3_KEY_ID=your_s3_key_id
 export S3_SECRET=your_s3_secret
+export S3_ENDPOINT=your_s3_endpoint
+export S3_REGION=your_s3_region
 
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
     --pbf /data/osm/berlin-internal.osh.pbf \
-    --output "https://storage.heigit.org/heigit-ohsome-planet/data/v1/berlin/contributions/2026-01-09/" \
-    --overwrite 
+    --parquet-data "s3://heigit-ohsome-planet/data/v1/berlin/contributions/"
 ```
 
 
-Setup initial data needed to start replication.
+### Join Country Codes
+By passing the parameter `--country-file` you can perform a spatial join to enrich OSM contributions with country codes.
+Passing this option will populate the `countries` attribute in the Parquet files.
 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
     --pbf /data/osm/berlin-internal.osh.pbf \
-    --parallel 8 \
-    --overwrite 
+    --country-file /data/world.csv
 ```
 
-
-
-
-parameters:
-* `--data` (mandatory): local path where all output (including temporary files, replication files, parquet files) will be stored. this path will be used when you run `replication update` to find the replication sub-directory.
-
-* `--keep-temp-data` (optional): boolean, temp files will not be deleted after process finishes
-
-* `--parquet-data` (optional): `/data/out-test/` or `s3://heigit-ohsome-planet/data/v1/benni-test`
-
-* `--init-replication` (optional): boolean. this will create the replication files in the data directory
-
-
-
-Full output structure
-```
-ohsome-planet -- output data directory
-├── contributions -- parquet-data
-│   ├── history
-│   │   ├── node-0-172539-history-contribs.parquet
-│   │   ├── ...
-│   │   ├── relation-0-history-contribs.parquet
-│   │   ├── ...
-│   │   ├── way-0-3981228-history-contribs.parquet
-│   │   ├── ...
-│   └── latest
-│       ├── node-0-172539-latest-contribs.parquet
-│       ├── ...
-│       ├── relation-0-latest-contribs.parquet
-│       ├── ...
-│       ├── way-0-3981228-latest-contribs.parquet
-│       ├── ...
-├── replication -- there is no param to set this
-│   ├── node_relations (rocksDB)
-│   ├── nodes (rocksDB)
-│   ├── node_ways (rocksDB)
-│   ├── relations (rocksDB)
-│   ├── way_relations (rocksDB)
-│   └── ways (rocksDB)
-└── tmp -- there is no param to set this, but you can use --keep-temp-data
-    ├── minorNodes (rocksDB)
-    ├── minorWays (rocksDB)
-    └── progress
-```
-
-
-#### Country Data
-By passing the parameter `--country-file` you can perform a spatial join to enrich OSM contributions with country codes.
 The country file should be provided in `.csv` format.
 Geometries should we represented as `WKT` (well-known text) string.
 The current version only supports `POLYGON` or `MULTIPOLYGON` geometries.
@@ -89,12 +44,25 @@ FRA;POLYGON ((1.186523 45.058001, 4.833984 45.058001, 4.833984 48.545705, 1.1865
 ITA;POLYGON ((10.766602 41.211722, 14.985352 41.211722, 14.985352 44.024422, 10.766602 44.024422, 10.766602 41.211722))
 ```
 
-Passing this option will populate the `countries` attribute in the parquet files.
-
-#### Changesets
+### Join Changeset Tags
 By passing the parameter `--changeset-db` you can join OSM changeset information.
-It is expected that you pass the database connection as JDBC URL, e.g. `jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD`.
-Currently, ohsome-planet can connect to a database following the schema of [ChangesetMD](https://github.com/ToeBee/ChangesetMD).
+
+```shell
+export OHSOME_PLANET_DB=
+export OHSOME_PLANET_DB_USER=
+export OHSOME_PLANET_DB_PASSWORD=
+export OHSOME_PLANET_DB_SCHEMA=
+export OHSOME_PLANET_DB_POOLSIZE=
+
+java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
+    --pbf /data/osm/berlin-internal.osh.pbf \
+    --changeset-db "jdbc:postgresql://localhost:5432"
+```
+
+You can pass the database connection also as JDBC URL including the credentials, e.g. `jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password`.
+You can set up this database with ohsome-planet as well using the `changesets` command.
+See below for further details.
 
 The changeset join will populate the `changeset` struct attribute in the parquet files with the following information:
 - `closed_at`
@@ -104,14 +72,74 @@ The changeset join will populate the `changeset` struct attribute in the parquet
 - `numChanges`
 
 
-#### Tag Filtering
+### Initialize for Replication
+In case you are planning to derive minutely-derived updates, then you have to first run the `contributions` command of ohsome-planet together with the `--replication-endpoint` parameter.
+
+Write Parquet files and initialize the source data needed for replication from OSM planet server.
+
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
+    --pbf /data/osm/berlin-internal.osh.pbf \
+    --replication-endpoint "https://planet.osm.org/replication/minute/"
+```
+
+Write Parquet files and initialize the source data needed for replication from GeoFabrik replication server.
+You can get this token using their [OSM OAuth Cookie Client](https://github.com/geofabrik/sendfile_osm_oauth_protector/blob/master/doc/client.md) python script.
+
+```shell
+export OSM_OAUTH_TOKEN=your_token
+
+java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
+    --pbf /data/osm/berlin-internal.osh.pbf \
+    --replication-endpoint "https://osm-internal.download.geofabrik.de/europe/germany/berlin-updates/"
+```
+
+In both cases your data folder will contain additional information.
+The replication folder will be used to derive minutely updates with the `replication` command of ohsome-planet.
+
+```text
+/data/ohsome-planet/berlin
+├── contributions
+│   ├── history
+│   │   ├── node-0-history.parquet
+│   │   ├── ...
+│   │   ├── way-0-history.parquet
+│   │   ├── ...
+│   │   ├── relation-0-history.parquet
+│   │   └── ...
+│   ├── latest
+│   │   ├── node-0-latest.parquet
+│   │   ├── ...
+│   │   ├── way-0-latest.parquet
+│   │   ├── ...
+│   │   ├── relation-0-latest.parquet
+│   │   ├── ...
+│   └── state.txt
+└── replication
+    ├── node_relations (rocksDB)
+    ├── nodes (rocksDB)
+    ├── node_ways (rocksDB)
+    ├── relations (rocksDB)
+    ├── way_relations (rocksDB)
+    └── ways (rocksDB)
+```
+
+### Filter Relations by OSM Tag Keys
 At the moment, there is only limited support for tag filtering.
 By passing the `--include-tags` parameter you can specify a comma separated list of OSM tag keys, e.g. `highway,building,landuse`.
+
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
+    --data /data/ohsome-planet/berlin \
+    --pbf /data/osm/berlin-internal.osh.pbf \
+    --include-tags "highway,building,landuse"
+```
+
 These tag keys will be used to filter OSM relations only.
 Currently, filtering for OSM nodes or ways is not implemented.
-
 In case you have more complex tag filtering needs, please refer to the [osmium documentation](https://docs.osmcode.org/osmium/latest/osmium-tags-filter.html) in order to prepare the input OSM pbf file.
-
 We are planning to add more tag filtering options in the future.
 
 
