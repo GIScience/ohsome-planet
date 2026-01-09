@@ -16,6 +16,7 @@ You can join country codes to every OSM element by passing a boundary dataset as
 You can use the ohsome-planet data to perform a wide range of geospatial analyses, e.g. using DuckDB, GeoPandas or QGIS.
 Display the data directly on a map and start playing around!
 
+
 ## Installation
 
 Installation requires Java 21.
@@ -27,6 +28,7 @@ git clone --recurse-submodules https://github.com/GIScience/ohsome-planet.git
 cd ohsome-planet
 ./mvnw clean package -DskipTests
 ```
+
 
 ## Usage
 
@@ -41,17 +43,46 @@ You can download the [full latest or history planet](https://planet.openstreetma
 or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
 To process a given `.pbf` file, provide it in the `--pbf` parameter in the following example.
+Here we use a history file for Berlin obtained from GeoFabrik. 
+
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
-    --pbf data/karlsruhe.osh.pbf \
+    --pbf /data/osm/berlin-internal.osh.pbf \
     --parallel 8 \
-    --country-file data/world.csv \
+    --country-file /data/world.csv \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
-    --output out-karlsruhe \
+    --output /data/out-berlin \
     --overwrite 
 ```
 
 The parameters `--parallel`, `--country-file`, `--changeset-db`, `--output` and `--overwrite` are optional. Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#contributions). To see all available parameters, call the tool with `--help` parameter.
+
+When using a history PBF file, the output files are split into `history` and `latest` contributions.
+All contributions which are a) not deleted and b) visible in OSM at the timestamp of the extract are considered as `latest`.
+The remaining contributions, e.g. deleted or old versions, are considered as `history`.
+The number of threads (`--parallel` parameter) defines the number of files which will be created.
+
+```text
+out-berlin
+├── contributions
+│   ├── history
+│   │   ├── node-0-163811-history.parquet
+│   │   ├── ...
+│   │   ├── way-0-2496473-history.parquet
+│   │   ├── ...
+│   │   ├── relation-0-12345-history.parquet
+│   │   └── ...
+│   └── latest
+│       ├── node-0-163811-latest.parquet
+│       ├── ...
+│       ├── way-0-2496473-latest.parquet
+│       ├── ...
+│       ├── relation-0-12345-latest.parquet
+│       └── ...
+├── minorNodes (rocksdb)
+└── minorWays (rocksdb)
+```
+
 
 ### Changesets (PostgreSQL)
 
@@ -98,7 +129,7 @@ The parameters `--schema` and `--overwrite` are optional. Find more detailed inf
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
 [OSM Planet server](https://planet.openstreetmap.org/replication/).
 GeoFabrik also provides updates for regional extracts.
-Contributions will be written as Parquet files matching those found on the replication source.
+Contributions will be written as Parquet files matching those found in the replication source.
 Changesets are updated in the PostgreSQL database.
 
 If you want to update both datasets your command should look like this: 
@@ -109,20 +140,14 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
     --parallel 8 \
     --country-file data/world.csv \
     --output path/to/parquet/output/ \
-    --directory /path/to/internal-keyvalue-db/
-    --continuous
+    --directory /path/to/internal-keyvalue-db/ \
+    --continue
 ```
 
-This command can be used to either update changesets or contributions individually, or update both at the same time.
-If you want to only update changesets you need to supply all arguments that concern changesets and use the flag `--jcs`,
-similarly you can do the same for contributions and use `--jcb`.
+Just like for the `contributions` command you can use the optional parameters `--parallel`, `--country-file` arguments here as well.
+The optional `--continue` flag can be used to make the update process run as a continuous service, which will wait and fetch new changes from the OSM planet server. If you want to only update changesets you can use the `--just-changesets` flag. You can do the same for contributions with `--just-contributions`.
 
-Just like for the `contributions` command you can use the `--country-file` argument here as well.
-The postgres connection can be customized with the same environment variables as for the changesets command.
-
-Some additional optional parameters are available, which can be seen using the `--help` command. Among others 
-the `--continuous` flag can be used to make the update process run as a continuous service, and `--replication-changesets`
-can be used to set a custom changeset replication source.
+Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#replication). To see all available parameters, call the tool with `--help` parameter.
 
 ## Output Structure
 
