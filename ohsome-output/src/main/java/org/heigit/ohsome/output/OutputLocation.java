@@ -13,8 +13,9 @@ public interface OutputLocation extends AutoCloseable {
 
     InputStream read(Path dest) throws Exception;
 
-
     Path resolve(String other);
+
+    String location(Path path);
 
     default Path resolve(Path other) {
         return resolve(other.toString());

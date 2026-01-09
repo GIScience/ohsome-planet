@@ -26,10 +26,10 @@ public class Replication implements Callable<Integer> {
     static class ContributionParameters {
         @Option(names = {"--country-file"})
         Path countryFilePath;
-        @Option(names = {"--output"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}", required = true)
-        String out;
-        @Option(paramLabel = "path_to_dir", names = {"--directory"}, description = "Output directory for key-value latest contribution store", required = true)
-        Path directory;
+        @Option(names = {"--parquet-data"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}")
+        String parquetData;
+        @Option(paramLabel = "path_to_dir", names = {"--data"}, description = "Output directory for key-value latest contribution store", required = true)
+        Path data = Path.of("ohsome-planet");
 
         @Option(names = {"--size"}, description = "Maximum name of osc files to apply at once. Default: unlimited")
         int size = 0;
@@ -61,18 +61,6 @@ public class Replication implements Callable<Integer> {
         boolean justContributions;
     }
 
-    @Command
-    public int init(
-            @CommandLine.ArgGroup(multiplicity = "1")
-            ContributionParameters contributionParameters,
-
-            @Option(names = {"--pbf"}, required = true)
-            Path pbfPath) {
-
-        return 0;
-
-    }
-
     @Command(mixinStandardHelpOptions = true)
     int store(
         @Option(names = {"--directory"}, required = true)
@@ -85,7 +73,7 @@ public class Replication implements Callable<Integer> {
 
     @Command(mixinStandardHelpOptions = true)
     public int update(
-            @Option(names = "--continuous", defaultValue = "false", description = "continuous updates")
+            @Option(names = "--continue", defaultValue = "false", description = "continue updates")
             boolean continuous,
 
             @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
@@ -111,8 +99,8 @@ public class Replication implements Callable<Integer> {
         if (optionalChangesets.justContributions) {
             return ReplicationManager.updateContributions(
                     optionalContributions.contributionParameters.countryFilePath,
-                    optionalContributions.contributionParameters.directory,
-                    optionalContributions.contributionParameters.out,
+                    optionalContributions.contributionParameters.data,
+                    optionalContributions.contributionParameters.parquetData,
                     optionalContributions.contributionParameters.size,
                     parallel,
                     continuous
@@ -129,8 +117,8 @@ public class Replication implements Callable<Integer> {
 
         return ReplicationManager.update(
                 optionalContributions.contributionParameters.countryFilePath,
-                optionalContributions.contributionParameters.directory,
-                optionalContributions.contributionParameters.out,
+                optionalContributions.contributionParameters.data,
+                optionalContributions.contributionParameters.parquetData,
                 optionalChangesets.changesetParameters.changesetDbUrl,
                 optionalChangesets.changesetParameters.replicationChangesetsUrl,
                 continuous

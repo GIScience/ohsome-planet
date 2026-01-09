@@ -104,7 +104,7 @@ public class ReplicationManager {
         }
     }
 
-    public static int updateContributions(Path countryFilePath, Path directory, String out, int size, int parallel, boolean continuous) throws Exception {
+    public static int updateContributions(Path countryFilePath, Path data, String out, int size, int parallel, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
@@ -114,9 +114,9 @@ public class ReplicationManager {
                     .map(SpatialGridJoiner::fromCSVGrid)
                     .orElseGet(SpatialJoiner::noop);
 
-            try (var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true)) {
+            try (var updateStore = UpdateStoreRocksDb.open(data, 10 << 20, true)) {
                 var waiter = new Waiter(shutdownInitiated);
-                var contributionManager = ContributionStateManager.openManager(directory, outputLocation, updateStore, IChangesetDB.noop(), countryJoiner);
+                var contributionManager = ContributionStateManager.openManager(data.resolve("replication"), outputLocation, updateStore, IChangesetDB.noop(), countryJoiner);
                 contributionManager.initializeLocalState();
                 contributionManager.setShutdownInitiated(shutdownInitiated);
                 contributionManager.setMaxSize(size);

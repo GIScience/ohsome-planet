@@ -40,9 +40,11 @@ public class TransformerNodes extends Transformer {
 
     public static Summary processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, OutputLocation out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        Files.createDirectories(replicationPath);
+        if (replicationPath != null) {
+            Files.createDirectories(replicationPath);
+        }
 
-        var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb, replicationPath.resolve("ingest"));
+        var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath, countryJoiner, changesetDb, replicationPath);
         var summary = transformer.process(blobsByType);
 
         moveSstToRocksDb(rocksDbPath);
@@ -104,11 +106,14 @@ public class TransformerNodes extends Transformer {
                 }
 
                 sstWriter.writeMinorNode(osh);
-                var last = osh.getLast();
-                if (last.visible()) {
-                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
-                    replicationElementsCount++;
-                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+
+                if (replicationSSTWriter != null) {
+                    var last = osh.getLast();
+                    if (last.visible()) {
+                        replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                        replicationElementsCount++;
+                        replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                    }
                 }
 
                 if (hasNoTags(osh)) {

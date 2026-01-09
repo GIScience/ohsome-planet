@@ -19,14 +19,17 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--pbf"}, required = true)
     private Path pbfPath;
 
-    @CommandLine.Option(names = {"--output", "-o"})
-    private String out = Path.of("ohsome-planet").toString();
+    @CommandLine.Option(names = {"--data"}, required = true)
+    private Path data;
 
-    @CommandLine.Option(names = {"--temp"})
-    private Path temp;
+    @CommandLine.Option(names = {"--parquet-data"})
+    private String parquetData;
 
     @CommandLine.Option(names = {"--overwrite"})
     private boolean overwrite = false;
+
+    @CommandLine.Option(names = {"--keep-temp-data"}, required = false)
+    private boolean keepTempData = false;
 
     @CommandLine.Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
     private int parallel = Runtime.getRuntime().availableProcessors() - 1;
@@ -37,11 +40,9 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--changeset-db"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
     private String changesetDbUrl = "";
 
-
-    @CommandLine.Option(names = {"--replication-workdir", "--workdir"})
-    private Path replication;
-
-    @CommandLine.Option(names = {"--replication-endpoint", "--endpoint" }, converter = UrlConverter.class)
+    @CommandLine.Option(names = {"--replication-endpoint", "--endpoint" },
+            converter = UrlConverter.class,
+            description = "url to replication endpoint e.g. https://planet.openstreetmap.org/replication/minute/")
     private URL replicationEndpoint;
 
     @CommandLine.Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
@@ -55,21 +56,16 @@ public class Contributions implements Callable<Integer> {
     public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
-        if (temp == null) {
-            temp = Path.of("ohsome-planet/tmp");
-        }
+        Files.createDirectories(data);
 
-        if (replication == null) {
-            replication = Path.of("ohsome-planet/replication");
+        if (parquetData == null) {
+            parquetData = data.resolve("contributions").toString();
         }
-
-        Files.createDirectories(temp);
-        Files.createDirectories(replication);
 
         var contributionsToParquet = new Contributions2Parquet(
-                pbfPath, temp, out, parallel,
+                pbfPath, data, parquetData, parallel,
                 changesetDbUrl, countryFilePath,
-                replication, replicationEndpoint,
+                replicationEndpoint,
                 includeTags);
 
         return contributionsToParquet.call();

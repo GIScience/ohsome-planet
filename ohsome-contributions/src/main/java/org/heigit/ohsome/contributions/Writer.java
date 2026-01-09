@@ -90,7 +90,7 @@ class Writer implements AutoCloseable {
     }
 
     private Path finalPath(String status) {
-        return outputDir.resolve("contributions")
+        return outputDir
                 .resolve(status)
                 .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
     }

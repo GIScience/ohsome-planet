@@ -31,6 +31,11 @@ public class MinioOutputLocation implements OutputLocation {
     }
 
     @Override
+    public String location(Path path) {
+        return "%s%s/%s".formatted(MinioOutputLocationProvider.protocol, bucket, path.toAbsolutePath());
+    }
+
+    @Override
     public void move(Path src, Path dest) throws Exception {
         var retries = 0;
         while (true) {

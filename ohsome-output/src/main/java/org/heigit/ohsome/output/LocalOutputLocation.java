@@ -41,6 +41,11 @@ public class LocalOutputLocation implements OutputLocation {
     }
 
     @Override
+    public String location(Path path) {
+        return path.toAbsolutePath().toString();
+    }
+
+    @Override
     public void close() {
 
     }

@@ -42,9 +42,11 @@ public class TransformerWays extends Transformer {
     public static Summary processWays(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, OutputLocation out, int parallel,
                                       RocksDB minorNodeStorage, Path rocksDbPath, LongPredicate writeMinor, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath, RocksDB nodeWayBackRefs) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        Files.createDirectories(replicationPath);
+        if (replicationPath != null) {
+            Files.createDirectories(replicationPath);
+        }
 
-        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath.resolve("ingest"), writeMinor, countryJoiner, changesetDb, replicationPath.resolve("ingest"), nodeWayBackRefs);
+        var transformer = new TransformerWays(pbf, temp, out, parallel, minorNodeStorage, rocksDbPath, writeMinor, countryJoiner, changesetDb, replicationPath, nodeWayBackRefs);
         var summary = transformer.process(blobsByType);
 
         moveSstToRocksDb(rocksDbPath);
@@ -125,25 +127,29 @@ public class TransformerWays extends Transformer {
                     sstWriter.writeMinorWay(osh);
                 }
 
-                var last = osh.getLast();
-                if (last.visible()) {
-                    for (var ref : last.refs()) {
-                        backRefsNodeWays.computeIfAbsent(ref, x -> new TreeSet<>()).add(last.id());
+                if (replicationSSTWriter != null) {
+                    var last = osh.getLast();
+                    if (last.visible()) {
+                        for (var ref : last.refs()) {
+                            backRefsNodeWays.computeIfAbsent(ref, x -> new TreeSet<>()).add(last.id());
+                        }
                     }
                 }
                 batch.add(osh);
             }
 
-            try (var writeOpts = new WriteOptions();
-                 var writeBatch = new WriteBatch()) {
-                for (var entry : backRefsNodeWays.entrySet()) {
-                    outputBackRefs.reset();
-                    var key = RocksUtil.key(entry.getKey());
-                    var set = entry.getValue();
-                    ReplicationEntity.serialize(set, outputBackRefs);
-                    writeBatch.merge(key, outputBackRefs.array());
+            if (replicationSSTWriter != null) {
+                try (var writeOpts = new WriteOptions();
+                     var writeBatch = new WriteBatch()) {
+                    for (var entry : backRefsNodeWays.entrySet()) {
+                        outputBackRefs.reset();
+                        var key = RocksUtil.key(entry.getKey());
+                        var set = entry.getValue();
+                        ReplicationEntity.serialize(set, outputBackRefs);
+                        writeBatch.merge(key, outputBackRefs.array());
+                    }
+                    nodeWayBackRefs.write(writeOpts, writeBatch);
                 }
-                nodeWayBackRefs.write(writeOpts, writeBatch);
             }
 
 
@@ -168,11 +174,13 @@ public class TransformerWays extends Transformer {
                     before = contrib;
                 }
 
-                if (osh.getLast().visible()) {
-                    var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
-                    replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
-                    replicationElementsCount++;
-                    replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                if (replicationSSTWriter != null) {
+                    if (osh.getLast().visible()) {
+                        var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
+                        replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                        replicationElementsCount++;
+                        replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                    }
                 }
             }
 

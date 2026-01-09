@@ -18,6 +18,9 @@ public interface UpdateStore extends AutoCloseable {
     }
 
     static Path updatePath(Path base, OSMType type) {
+        if (base == null) {
+            return null;
+        }
         return switch (type) {
             case NODE -> base.resolve("nodes");
             case WAY -> base.resolve("ways");

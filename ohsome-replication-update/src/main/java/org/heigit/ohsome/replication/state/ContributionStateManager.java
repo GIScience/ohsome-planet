@@ -216,7 +216,7 @@ public class ContributionStateManager implements IContributionStateManager {
                 .formatted(
                         state.getSequenceNumber(),
                         state.getTimestamp(),
-                        targetParquetFile)
+                        out.location(targetParquetFile))
                 .getBytes());
 
         updater.updateStore();

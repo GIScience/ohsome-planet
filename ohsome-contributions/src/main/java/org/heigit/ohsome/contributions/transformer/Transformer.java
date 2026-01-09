@@ -1,6 +1,7 @@
 package org.heigit.ohsome.contributions.transformer;
 
 import me.tongfei.progressbar.ProgressBarBuilder;
+import org.apache.avro.data.TimeConversions.TimestampMicrosConversion;
 import org.apache.avro.specific.SpecificData;
 import org.apache.parquet.avro.AvroWriteSupport;
 import org.apache.parquet.column.ParquetProperties;
@@ -59,8 +60,8 @@ public abstract class Transformer {
         this.parallel = parallel;
         this.countryJoiner = countryJoiner;
         this.changesetDb = changesetDb;
-        this.minorSstDirectory = minorSstDir;
-        this.replicationSstDirectory = replicationSstDir;
+        this.minorSstDirectory = minorSstDir.resolve("ingest");
+        this.replicationSstDirectory = replicationSstDir != null ? replicationSstDir.resolve("ingest") : null;
     }
 
     public record Summary(Instant replicationTimestamp, long replicationElementsCount) {
@@ -155,8 +156,7 @@ public abstract class Transformer {
     public static ParquetWriter<Contrib> openWriter(Path path,
                                                     Consumer<AvroUtil.AvroBuilder<Contrib>> config) throws IOException {
         var model = SpecificData.get();
-        model.addLogicalTypeConversion(
-                new org.apache.avro.data.TimeConversions.TimestampMicrosConversion());
+        model.addLogicalTypeConversion(new TimestampMicrosConversion());
         var builder = AvroUtil.<Contrib>openWriter(Contrib.getClassSchema(), path)
                 .withDataModel(model)
                 .withAdditionalMetadata("geo", GEO_SCHEMA)
@@ -191,16 +191,18 @@ public abstract class Transformer {
 
     protected Summary process(Processor processor, Progress progress, Parquet writer) throws Exception {
         var minorSSTPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
-        var replicationSSTPath = replicationSstDirectory.resolve("%03d.sst".formatted(processor.id()));
         try ( var option = RocksUtil.defaultOptions(true);
               var minorSSTWriter = new SstWriter(minorSSTPath, option);
-              var replicationSSTWriter = new SstWriter(replicationSSTPath, option)) {
+              var replicationSSTWriter =  replicationSstDirectory != null ? new SstWriter(replicationSstDirectory.resolve("%03d.sst".formatted(processor.id())), option): null) {
             return process(processor, progress, writer, minorSSTWriter, replicationSSTWriter);
         }
     }
 
 
     public static void moveSstToRocksDb(Path rocksDbPath) throws RocksDBException, IOException {
+        if(rocksDbPath == null) {
+            return;
+        }
         try (var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
              var rocksDb = RocksDB.open(options, rocksDbPath.toString());
              var ifo = new IngestExternalFileOptions()) {
@@ -244,7 +246,7 @@ public abstract class Transformer {
                 var writerPath = entry.getValue();
                 try {
                     writerPath.writer().close();
-                    var newPath = outputDir.resolve("contributions")
+                    var newPath = outputDir
                             .resolve(status)
                             .resolve(writerPath.path().getFileName());
                     Files.createDirectories(newPath.toAbsolutePath().getParent());
@@ -267,8 +269,7 @@ public abstract class Transformer {
 
             if (writerPath == null) {
                 var path = tempDir.resolve("progress")
-                        .resolve("%s-%d-%d-%s-contribs.parquet".formatted(type, processorId, contrib.getOsmId(),
-                                status));
+                        .resolve("%s-%d-%s-contribs.parquet".formatted(type, processorId, status));
                 Files.createDirectories(path.getParent());
                 writerPath = new WriterPath(openWriter(path, config), path);
                 writers.put(status, writerPath);

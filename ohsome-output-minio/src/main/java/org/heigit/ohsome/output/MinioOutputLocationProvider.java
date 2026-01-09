@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -23,39 +22,35 @@ public class MinioOutputLocationProvider implements OutputLocationProvider {
 
     public static final String MINIO_S3_KEY_ID = "S3_KEY_ID";
     public static final String MINIO_S3_SECRET = "S3_SECRET";
+    public static final String MINIO_S3_ENDPOINT = "S3_ENDPOINT";
+    public static final String MINIO_S3_REGION = "S3_REGION";
+
+    static final String protocol = "s3://";
 
     @Override
     public boolean accepts(String path) {
-        return path.startsWith("minio:") || path.startsWith("s3:");
+        return path.startsWith(protocol);
     }
 
     @Override
     public OutputLocation open(String path) throws Exception {
-        var parts = path.split(":", 2)[1].split(";");
-        var url = URI.create(parts[0]).toURL();
-        var endpoint = url.getProtocol() + "://" + url.getHost() + (url.getPort() != -1 ? ":" + url.getPort() : "");
-        var pathParts = url.getPath().substring(1).split("/", 2);
-        var bucket = pathParts[0];
-        var minioPath = Path.of(pathParts[1]);
+        var bucketPath = path.substring(protocol.length()).split("/", 2);
+        var bucket = bucketPath[0];
+        var minioPath = Path.of(bucketPath[1]);
 
-        logger.debug("minio client url:{} endpoint:{} bucket:{} path:{}", url, endpoint, bucket, minioPath);
 
+        var endpoint = System.getProperty(MINIO_S3_ENDPOINT, System.getenv(MINIO_S3_ENDPOINT));
+        var region = System.getProperty(MINIO_S3_REGION, System.getenv(MINIO_S3_REGION));
         var key = System.getProperty(MINIO_S3_KEY_ID, System.getenv(MINIO_S3_KEY_ID));
         var secret = System.getProperty(MINIO_S3_SECRET, System.getenv(MINIO_S3_SECRET));
+        logger.debug("s3 client endpoint:{} bucket:{} path:{}", endpoint, bucket, minioPath);
 
         var builder = MinioClient.builder()
                 .endpoint(endpoint)
                 .region("eu-central-1")
                 .credentials(key, secret);
-        for (var i = 1; i < parts.length; i++) {
-            var param = parts[i].split(":");
-            if (param.length != 2) {
-                System.out.println("malformed param " + parts[i]);
-                continue;
-            }
-            if ("region".equalsIgnoreCase(param[0])) {
-                builder.region(param[1]);
-            }
+        if (region != null) {
+            builder.region(region);
         }
 
         var client = (MinioClient) null;
