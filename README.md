@@ -113,13 +113,13 @@ Then, process the OSM changesets `.bz2` file like in the following example.
 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar changesets \
-    --changesets data/changesets-latest-karlsruhe.osm.bz2 \
+    --bz2 data/changesets-latest-karlsruhe.osm.bz2 \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
-    --schema \
+    --create-tables \
     --overwrite
 ```
 
-The parameters `--schema` and `--overwrite` are optional. Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#changesets). To see all available parameters, call the tool with `--help` parameter.
+The parameters `--create-tables` and `--overwrite` are optional. Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#changesets). To see all available parameters, call the tool with `--help` parameter.
 
 
 ### Replication (Parquet / PostgreSQL)
@@ -147,32 +147,6 @@ The optional `--continue` flag can be used to make the update process run as a c
 
 Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#replication). To see all available parameters, call the tool with `--help` parameter.
 
-## Output Structure
-
-When using a history PBF file, the output files are split into `history` and `latest` contributions. 
-All contributions which are a) not deleted and b) visible in OSM at the timestamp of the extract are considered as `latest`.
-The remaining contributions, e.g. deleted or old versions, are considered as `history`.
-
-```
-out-karlruhe
-├── contributions
-│   ├── history
-│   │   ├── node-0-163811-history.parquet
-│   │   ├── ...
-│   │   ├── way-0-2496473-history.parquet
-│   │   ├── ...
-│   │   ├── relation-0-12345-history.parquet
-│   │   └── ...
-│   └── latest
-│       ├── node-0-163811-latest.parquet
-│       ├── ...
-│       ├── way-0-2496473-latest.parquet
-│       ├── ...
-│       ├── relation-0-12345-latest.parquet
-│       └── ...
-├── minorNodes (rocksdb)
-└── minorWays (rocksdb)
-```
 
 ## Inspect Results
 You can inspect your results easily using [DuckDB](https://duckdb.org/docs/installation).
