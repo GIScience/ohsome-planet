@@ -32,7 +32,7 @@ public class MinioOutputLocation implements OutputLocation {
 
     @Override
     public String location(Path path) {
-        return "%s%s/%s".formatted(MinioOutputLocationProvider.protocol, bucket, path.toAbsolutePath());
+        return "%s%s/%s".formatted(MinioOutputLocationProvider.protocol, bucket, path);
     }
 
     @Override
