@@ -88,7 +88,7 @@ Write Parquet files and initialize the source data needed for replication from G
 You can get this token using their [OSM OAuth Cookie Client](https://github.com/geofabrik/sendfile_osm_oauth_protector/blob/master/doc/client.md) python script.
 
 ```shell
-export OSM_OAUTH_TOKEN=your_token
+export OSM_REPLICATION_ENDPOINT_COOKIE=your_oauth_token
 
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
     --data /data/ohsome-planet/berlin \
