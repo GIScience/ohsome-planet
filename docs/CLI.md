@@ -155,10 +155,10 @@ OHSOME_PLANET_DB_POOLSIZE=32
 OHSOME_PLANET_DB_SCHEMA=public
 ```
 
-The flag `--schema` will initialize the data schema, in this case a table called `changesets` and another called
+The flag `--create-tables` will initialize the data schema, in this case a table called `changesets` and another called
 `changeset_state`. Using the flag `--overwrite` will truncate these tables first before the new insert process starts.
 
-The changesets schema looks like this:
+The changesets table schema looks like this:
 ```shell
     id                 int8 NOT NULL UNIQUE,
     created_at         timestamptz NOT NULL,
@@ -173,16 +173,39 @@ The changesets schema looks like this:
 
 
 ## Replication
+The `replication` command can be used to either update changesets or contributions individually, or update both at the same time.
+If you want to only update changesets you need to supply all arguments that concern changesets and use the flag `--just-changeset`,
+similarly you can do the same for contributions and use `--just-contribution`.
 
-The postgres connection can be customized with the same environment variables as for the changesets command.
+Update only changesets:
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
+    --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
+    --just-changesets
+```
 
 
-This command can be used to either update changesets or contributions individually, or update both at the same time.
-If you want to only update changesets you need to supply all arguments that concern changesets and use the flag `--jcs`,
-similarly you can do the same for contributions and use `--jcb`.
+Before running replication for contributions you need to make sure to initialize all files needed with the `contributions` command.
+Then, update only contributions (no changeset join happens here) with this command:
+
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
+    --data path/to/data \
+    --just-contributions \
+    --size 60
+```
+
+The optional `--size` parameter can be useful in the non-continue mode.
+The parameter defines the number of `.osc` files that will be batched.
+For example, `--size=60` will update 60 files (usually 60 minutes) and then stop the process.
 
 
+## Replication-Store
+The `replication-store` command can be used to show the latest state from the individual replication RocksDBs.
+This is useful when checking for an individual OSM element in replication store which you can pass by OSM id and OSM type.
 
-Some additional optional parameters are available, which can be seen using the `--help` command. Among others
-the `--continuous` flag can be used to make the update process run as a continuous service, and `--replication-changesets`
-can be used to set a custom changeset replication source.
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replication-store \
+  --data path/to/data \
+  -n  
+```

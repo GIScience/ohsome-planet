@@ -64,21 +64,21 @@ The number of threads (`--parallel` parameter) defines the number of files which
 
 ```text
 /data/ohsome-planet/berlin
-├── contributions
-│   ├── history
-│   │   ├── node-0-history.parquet
-│   │   ├── ...
-│   │   ├── way-0-history.parquet
-│   │   ├── ...
-│   │   ├── relation-0-history.parquet
-│   │   └── ...
-│   └── latest
-│       ├── node-0-latest.parquet
-│       ├── ...
-│       ├── way-0-latest.parquet
-│       ├── ...
-│       ├── relation-0-latest.parquet
-│       └── ...
+└── contributions
+    ├── history
+    │   ├── node-0-history.parquet
+    │   ├── ...
+    │   ├── way-0-history.parquet
+    │   ├── ...
+    │   ├── relation-0-history.parquet
+    │   └── ...
+    └── latest
+        ├── node-0-latest.parquet
+        ├── ...
+        ├── way-0-latest.parquet
+        ├── ...
+        ├── relation-0-latest.parquet
+        └── ...
 ```
 
 
@@ -133,7 +133,7 @@ Changesets are updated in the PostgreSQL database.
 If you want to update both datasets your command should look like this: 
 
 ```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
     --data path/to/data \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
     --parallel 8 \
@@ -142,18 +142,20 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar replication update \
     --continue
 ```
 
-Just like for the `contributions` command you can use the optional parameters `--parallel`, `--country-file` arguments here as well.
-The optional `--continue` flag can be used to make the update process run as a continuous service, which will wait and fetch new changes from the OSM planet server. If you want to only update changesets you can use the `--just-changesets` flag. You can do the same for contributions with `--just-contributions`.
+Just like for the `contributions` command you can use the optional parameters `--parallel`, `--country-file`, `--parquet-data` arguments here as well.
+The optional `--continue` flag can be used to make the update process run as a continuous service, which will wait and fetch new changes from the OSM planet server.
+If you want to only update changesets you can use the `--just-changesets` flag. You can do the same for contributions with `--just-contributions`.
 
 Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#replication). To see all available parameters, call the tool with `--help` parameter.
 
 
 ## Inspect Results
 You can inspect your results easily using [DuckDB](https://duckdb.org/docs/installation).
+Take a look at our collection of [useful queries](docs/useful_queries.md) to find many analysis examples.
 
 ```sql
 -- list all columns
-DESCRIBE FROM read_parquet('out-karlsruhe/*.parquet');
+DESCRIBE FROM read_parquet('contributions/*/*.parquet');
 
 -- result
 ┌───────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┬─────────┬─────────┬─────────┬─────────┐
@@ -177,18 +179,20 @@ DESCRIBE FROM read_parquet('out-karlsruhe/*.parquet');
 │ centroid          │ STRUCT(x DOUBLE, y DOUBLE)                                                                                                                                                     │ YES     │ NULL    │ NULL    │ NULL    │
 │ xzcode            │ STRUCT("level" INTEGER, code BIGINT)                                                                                                                                           │ YES     │ NULL    │ NULL    │ NULL    │
 │ geometry_type     │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
-│ geometry          │ BLOB                                                                                                                                                                           │ YES     │ NULL    │ NULL    │ NULL    │
+│ geometry          │ GEOMETRY                                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
 │ area              │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
 │ area_delta        │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
 │ length            │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
 │ length_delta      │ DOUBLE                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
 │ contrib_type      │ VARCHAR                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ refs_count        │ INTEGER                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
 │ refs              │ BIGINT[]                                                                                                                                                                       │ YES     │ NULL    │ NULL    │ NULL    │
-│ members           │ STRUCT("type" VARCHAR, id BIGINT, "role" VARCHAR, geometry_type VARCHAR, geometry BLOB)[]                                                                                      │ YES     │ NULL    │ NULL    │ NULL    │
+│ members_count     │ INTEGER                                                                                                                                                                        │ YES     │ NULL    │ NULL    │ NULL    │
+│ members           │ STRUCT("type" VARCHAR, id BIGINT, "timestamp" TIMESTAMP WITH TIME ZONE, "role" VARCHAR, geometry_type VARCHAR, geometry BLOB)[]                           │ YES     │ NULL    │ NULL    │ NULL    │
 │ countries         │ VARCHAR[]                                                                                                                                                                      │ YES     │ NULL    │ NULL    │ NULL    │
 │ build_time        │ BIGINT                                                                                                                                                                         │ YES     │ NULL    │ NULL    │ NULL    │
 ├───────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─────────┴─────────┴─────────┴─────────┤
-│ 27 rows                                                                                                                                                                                                                          6 columns │
+│ 29 rows                                                                                                                                                                                                                          6 columns │
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
