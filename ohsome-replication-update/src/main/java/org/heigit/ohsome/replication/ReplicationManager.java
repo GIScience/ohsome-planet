@@ -68,7 +68,7 @@ public class ReplicationManager {
                         waiter.resetRetry();
                     }
 
-                    if (!remoteChangesetState.equals(contributionManager.getLocalState())) {
+                    if (!remoteContributionState.equals(contributionManager.getLocalState())) {
                         if (secondsBetween(remoteChangesetState, remoteContributionState) < ACCEPTABLE_DELAY) {
                             contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp(), shutdownInitiated);
                         } else {
