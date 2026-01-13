@@ -4,6 +4,7 @@ import org.heigit.ohsome.replication.ReplicationState;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.time.Instant.EPOCH;
 
@@ -24,7 +25,7 @@ public interface IContributionStateManager {
         }
 
         @Override
-        public void updateToRemoteState() {
+        public void updateToRemoteState(AtomicBoolean shutdownInitiated) {
         }
     };
 
@@ -38,5 +39,5 @@ public interface IContributionStateManager {
 
     ReplicationState fetchRemoteState() throws IOException, URISyntaxException, InterruptedException;
 
-    void updateToRemoteState();
+    void updateToRemoteState(AtomicBoolean shutdownInitiated);
 }

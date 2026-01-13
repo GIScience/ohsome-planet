@@ -53,7 +53,6 @@ public class ContributionStateManager implements IContributionStateManager {
     private ReplicationState localState;
     private ReplicationState remoteState;
 
-    private AtomicBoolean shutdownInitiated;
     private int maxSize;
     private int parallel = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
 
@@ -111,11 +110,11 @@ public class ContributionStateManager implements IContributionStateManager {
         localState = state;
     }
 
-    public void updateToRemoteState() {
-        updateToRemoteState(now());
+    public void updateToRemoteState(AtomicBoolean shutdownInitiated) {
+        updateToRemoteState(now(), shutdownInitiated);
     }
 
-    public void updateToRemoteState(Instant processUntil) {
+    public void updateToRemoteState(Instant processUntil, AtomicBoolean shutdownInitiated) {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
@@ -227,10 +226,6 @@ public class ContributionStateManager implements IContributionStateManager {
                 counter, pendingCounter,
                 timer);
         return state.getSequenceNumber();
-    }
-
-    public void setShutdownInitiated(AtomicBoolean shutdownInitiated) {
-        this.shutdownInitiated = shutdownInitiated;
     }
 
     public void setMaxSize(int maxSize) {
