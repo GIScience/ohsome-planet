@@ -21,7 +21,7 @@ public class Replication implements Callable<Integer> {
     public static class ContributionParameters {
         @Option(names = {"--country-file"})
         Path countryFilePath;
-        @Option(names = {"--parquet-data"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}")
+        @Option(names = {"--parquet-data"}, description = "output directory for parquet files, Default: ${DEFAULT-VALUE}")
         String parquetData;
         @Option(paramLabel = "path_to_dir", names = {"--data"}, description = "Output directory for key-value latest contribution store", required = true)
         Path data = Path.of("ohsome-planet");
@@ -93,10 +93,17 @@ public class Replication implements Callable<Integer> {
         }
 
         if (optionalChangesets.justContributions) {
+
+
+            var parquetData = optionalContributions.contributionParameters.parquetData;
+            if (parquetData == null) {
+                parquetData = optionalContributions.contributionParameters.data.resolve("updates").toString();
+            }
+
             return ReplicationManager.updateContributions(
                     optionalContributions.contributionParameters.countryFilePath,
                     optionalContributions.contributionParameters.data,
-                    optionalContributions.contributionParameters.parquetData,
+                    parquetData,
                     optionalContributions.contributionParameters.size,
                     parallel,
                     continuous
@@ -111,10 +118,16 @@ public class Replication implements Callable<Integer> {
             );
         }
 
+        var parquetData = optionalContributions.contributionParameters.parquetData;
+        if (parquetData == null) {
+            parquetData = optionalContributions.contributionParameters.data.resolve("updates").toString();
+        }
+
         return ReplicationManager.update(
                 optionalContributions.contributionParameters.countryFilePath,
                 optionalContributions.contributionParameters.data,
-                optionalContributions.contributionParameters.parquetData,
+                parquetData,
+                optionalContributions.contributionParameters.size,
                 optionalChangesets.changesetParameters.changesetDbUrl,
                 optionalChangesets.changesetParameters.replicationChangesetsUrl,
                 continuous

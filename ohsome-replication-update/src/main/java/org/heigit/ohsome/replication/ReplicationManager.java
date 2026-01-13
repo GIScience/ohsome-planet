@@ -31,7 +31,7 @@ public class ReplicationManager {
     private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path countryFilePath, Path data, String out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path countryFilePath, Path data, String out, int size, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
@@ -54,8 +54,7 @@ public class ReplicationManager {
 
                 changesetManager.initializeLocalState();
                 contributionManager.initializeLocalState();
-
-                contributionManager.setMaxSize(-1);
+                contributionManager.setMaxSize(size);
 
                 var waiter = new Waiter(shutdownInitiated);
 
