@@ -3,6 +3,7 @@ package org.heigit.ohsome.planet;
 import org.heigit.ohsome.planet.cmd.Changesets;
 import org.heigit.ohsome.planet.cmd.Contributions;
 import org.heigit.ohsome.planet.cmd.Replication;
+import org.heigit.ohsome.planet.cmd.ReplicationStore;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -20,7 +21,8 @@ import static picocli.CommandLine.Command;
         subcommands = {
                 Contributions.class,
                 Changesets.class,
-                Replication.class
+                Replication.class,
+                ReplicationStore.class
         })
 public class OhsomePlanet implements Callable<Integer> {
 
