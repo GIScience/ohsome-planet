@@ -91,6 +91,7 @@ class ReplicationTest {
             MoreFiles.deleteRecursively(ohsomePlanetPath);
         }
         Files.createDirectories(ohsomePlanetPath);
+        Files.createDirectories(ohsomePlanetPath.resolve("replication"));
 
         var out = ohsomePlanetPath.resolve("out");
         var endpointPath = RESOURCE_PATH.resolve("replication/minute");
@@ -98,12 +99,12 @@ class ReplicationTest {
 
         var state = ReplicationState.read(endpointPath.resolve("default-state.txt"));
         var stateData = state.toBytes(replicationElementsUrl);
-        Files.write(ohsomePlanetPath.resolve("state.txt"), stateData);
+        Files.write(ohsomePlanetPath.resolve("replication").resolve("state.txt"), stateData);
 
 
         ReplicationManager.updateContributions(null, ohsomePlanetPath, out.toString(), 0, 1, false);
 
-        var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("state.txt"));
+        var localStateAfterUpdate = ContributionStateManager.loadLocalState(ohsomePlanetPath.resolve("replication").resolve("state.txt"));
         assertEquals(6824842, localStateAfterUpdate.getSequenceNumber());
     }
 

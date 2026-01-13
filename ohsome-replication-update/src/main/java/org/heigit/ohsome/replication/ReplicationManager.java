@@ -31,13 +31,14 @@ public class ReplicationManager {
     private static final int WAIT_TIME = 90;
 
 
-    public static int update(Path countryFilePath, Path directory, String out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
+    public static int update(Path countryFilePath, Path data, String out, String changesetDbUrl, String replicationChangesetUrl, boolean continuous) throws Exception {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
+        data = data.resolve("replication");
 
         try (var outputLocation = OutputLocationProvider.load(out)) {
-            var probe = directory.resolve("probe.txt");
+            var probe = data.resolve("probe.txt");
             Files.writeString(probe, "ohsome-planet");
             outputLocation.move(probe, outputLocation.resolve("probe.txt"));
 
@@ -45,16 +46,15 @@ public class ReplicationManager {
                     .map(SpatialGridJoiner::fromCSVGrid)
                     .orElseGet(SpatialJoiner::noop);
             try (
-                    var updateStore = UpdateStoreRocksDb.open(directory, 10 << 20, true);
+                    var updateStore = UpdateStoreRocksDb.open(data, 10 << 20, true);
                     var changesetDb = new ChangesetDB(changesetDbUrl)
             ) {
-                var contributionManager = ContributionStateManager.openManager(directory, outputLocation, updateStore, changesetDb, countryJoiner);
+                var contributionManager = ContributionStateManager.openManager(data, outputLocation, updateStore, changesetDb, countryJoiner);
                 var changesetManager = new ChangesetStateManager(replicationChangesetUrl, changesetDb);
 
                 changesetManager.initializeLocalState();
                 contributionManager.initializeLocalState();
 
-                contributionManager.setShutdownInitiated(shutdownInitiated);
                 contributionManager.setMaxSize(-1);
 
                 var waiter = new Waiter(shutdownInitiated);
@@ -108,7 +108,7 @@ public class ReplicationManager {
         var lock = new ReentrantLock();
         var shutdownInitiated = new AtomicBoolean(false);
         initializeShutdownHook(lock, shutdownInitiated);
-
+        data = data.resolve("replication");
         try (var outputLocation = OutputLocationProvider.load(out)) {
             var countryJoiner = Optional.ofNullable(countryFilePath)
                     .map(SpatialGridJoiner::fromCSVGrid)
@@ -116,9 +116,8 @@ public class ReplicationManager {
 
             try (var updateStore = UpdateStoreRocksDb.open(data, 10 << 20, true)) {
                 var waiter = new Waiter(shutdownInitiated);
-                var contributionManager = ContributionStateManager.openManager(data.resolve("replication"), outputLocation, updateStore, IChangesetDB.noop(), countryJoiner);
+                var contributionManager = ContributionStateManager.openManager(data, outputLocation, updateStore, IChangesetDB.noop(), countryJoiner);
                 contributionManager.initializeLocalState();
-                contributionManager.setShutdownInitiated(shutdownInitiated);
                 contributionManager.setMaxSize(size);
                 contributionManager.setParallel(parallel);
 
