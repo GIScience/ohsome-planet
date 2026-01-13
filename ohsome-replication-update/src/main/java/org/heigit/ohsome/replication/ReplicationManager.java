@@ -10,7 +10,6 @@ import org.heigit.ohsome.replication.state.ChangesetStateManager;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.heigit.ohsome.replication.utils.Waiter;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Optional;
@@ -38,10 +37,6 @@ public class ReplicationManager {
         data = data.resolve("replication");
 
         try (var outputLocation = OutputLocationProvider.load(out)) {
-            var probe = data.resolve("probe.txt");
-            Files.writeString(probe, "ohsome-planet");
-            outputLocation.move(probe, outputLocation.resolve("probe.txt"));
-
             var countryJoiner = Optional.ofNullable(countryFilePath)
                     .map(SpatialGridJoiner::fromCSVGrid)
                     .orElseGet(SpatialJoiner::noop);
