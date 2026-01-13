@@ -181,7 +181,8 @@ Update only changesets:
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
-    --just-changesets
+    --just-changesets \
+    --verbose
 ```
 
 
@@ -192,7 +193,8 @@ Then, update only contributions (no changeset join happens here) with this comma
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
     --data path/to/data \
     --just-contributions \
-    --size 60
+    --size 60 \
+    --verbose
 ```
 
 The optional `--size` parameter can be useful in the non-continue mode.
