@@ -78,7 +78,7 @@ public class ReplicationManager {
                         waiter.resetRetry();
                     }
 
-                    waitForReplication(remoteChangesetState, remoteContributionState, waiter);
+                    if (continuous) waitForReplication(remoteChangesetState, remoteContributionState, waiter);
                 } while (!shutdownInitiated.get() && continuous);
             }
         } finally {
@@ -128,7 +128,7 @@ public class ReplicationManager {
                         waiter.resetRetry();
 
                         var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
-                        if (timeSinceLastReplication < WAIT_TIME) {
+                        if (timeSinceLastReplication < WAIT_TIME  && continuous) {
                             waiter.sleep(WAIT_TIME - timeSinceLastReplication);
                         }
                     } else {
@@ -162,7 +162,7 @@ public class ReplicationManager {
                     waiter.resetRetry();
 
                     var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
-                    if (timeSinceLastReplication < WAIT_TIME) {
+                    if (timeSinceLastReplication < WAIT_TIME && continuous) {
                         waiter.sleep(WAIT_TIME - timeSinceLastReplication);
                     }
                 } else {
