@@ -144,15 +144,17 @@ public class ChangesetDB implements IChangesetDB {
                                   SET
                                       created_at = EXCLUDED.created_at,
                                       closed_at = EXCLUDED.closed_at,
+                                      user_id = EXCLUDED.user_id,
+                                      user_name = EXCLUDED.user_name,
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,
                                       hashtags = EXCLUDED.hashtags,
                                       geom = EXCLUDED.geom
-                                  WHERE NOT EXCLUDED.open;
+                                  WHERE changesets.open;
                         """
                 )
         ) {
-            ObjectMapper objectMapper = new ObjectMapper();
+            var objectMapper = new ObjectMapper();
             for (var changeset : changesets) {
                 pstmt.setLong(1, changeset.id());
                 pstmt.setLong(2, changeset.userId());
@@ -167,7 +169,7 @@ public class ChangesetDB implements IChangesetDB {
                 pstmt.setString(6, changeset.user());
 
                 var tags = changeset.tags();
-                PGobject jsonTags = new PGobject();
+                var jsonTags = new PGobject();
                 jsonTags.setType("jsonb");
                 jsonTags.setValue(objectMapper.writeValueAsString(tags));
                 pstmt.setObject(7, jsonTags);

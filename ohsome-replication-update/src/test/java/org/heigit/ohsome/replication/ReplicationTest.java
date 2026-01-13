@@ -7,7 +7,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.replication.state.ContributionStateManager;
 import org.junit.jupiter.api.*;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
@@ -29,7 +29,7 @@ class ReplicationTest {
     private static final Path RESOURCE_PATH = Path.of("src/test/resources/");
 
     @Container
-    private static final PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>(
+    private static final PostgreSQLContainer postgresContainer = new PostgreSQLContainer(
             DockerImageName.parse("postgis/postgis:17-3.5")
                     .asCompatibleSubstituteFor("postgres"))
             .withDatabaseName("testdb")
@@ -113,7 +113,6 @@ class ReplicationTest {
     void testUpdateBothContributionsAndChangesets() throws Exception {
         var ohsomePlanetPath = RESOURCE_PATH.resolve("ohsome-planet");
         var out = RESOURCE_PATH.resolve("out");
-        var replicationElementsUrl = RESOURCE_PATH.resolve("replication/minute").toUri().toURL().toString();
         Files.copy(ohsomePlanetPath.resolve("default-state.txt"), ohsomePlanetPath.resolve("state.txt"), StandardCopyOption.REPLACE_EXISTING);
         if (Files.exists(out)) {
             MoreFiles.deleteRecursively(out);
