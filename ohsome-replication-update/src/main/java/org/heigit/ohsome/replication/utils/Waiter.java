@@ -21,7 +21,7 @@ public class Waiter {
     }
 
     public void sleep(long secondsToWait) throws InterruptedException {
-        logger.debug("--Waiter: Waiting {} seconds until trying again.", secondsToWait);
+        logger.info("Waiting {} seconds until trying again.", secondsToWait);
         for (var i = 0; i < secondsToWait; i++) {
             TimeUnit.SECONDS.sleep(1);
             if (shutdownInitiated.get()) {
