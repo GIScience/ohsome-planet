@@ -6,6 +6,7 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import me.tongfei.progressbar.ProgressBarBuilder;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.Contributions;
@@ -62,6 +63,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
+import static org.heigit.ohsome.changesets.IChangesetDB.NOOP;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
 import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
@@ -113,6 +115,14 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     }
 
+    private static Changesets openChangesets(String changesetDb, int poolSize) {
+        if (changesetDb.startsWith("jdbc")) {
+            var changesets = new ChangesetDB(changesetDb);
+            return changesets;
+        }
+        return NOOP;
+    }
+
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
@@ -151,7 +161,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .orElseGet(SpatialJoiner::noop);
 
         try (var outputLocation = OutputLocationProvider.load(parquetData);
-             var changesetDb = Changesets.open(changesetDbUrl, parallel)) {
+             var changesetDb = openChangesets(changesetDbUrl, parallel)) {
 
             Files.createDirectories(temp);
 

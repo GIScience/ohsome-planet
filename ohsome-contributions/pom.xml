@@ -39,7 +39,7 @@
 
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
-            <artifactId>osm-changesets</artifactId>
+            <artifactId>ohsome-changesets</artifactId>
             <version>${project.version}</version>
         </dependency>
 

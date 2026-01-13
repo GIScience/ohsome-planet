@@ -1,8 +1,5 @@
 package org.heigit.ohsome.osm.changesets;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -21,15 +18,15 @@ public interface Changesets extends AutoCloseable {
         T apply(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor);
     }
 
-    static Changesets open(String changesetDb, int poolSize) {
-        if (changesetDb.startsWith("jdbc")) {
-            var config = new HikariConfig();
-            config.setJdbcUrl(changesetDb);
-            config.setMaximumPoolSize(poolSize);
-            return new ChangesetDb(new HikariDataSource(config));
-        }
-        return NOOP;
-    }
+//    static Changesets open(String changesetDb, int poolSize) {
+//        if (changesetDb.startsWith("jdbc")) {
+//            var config = new HikariConfig();
+//            config.setJdbcUrl(changesetDb);
+//            config.setMaximumPoolSize(poolSize);
+//            return new ChangesetDb(new HikariDataSource(config));
+//        }
+//        return NOOP;
+//    }
 
     @Override
     default void close() throws Exception {
