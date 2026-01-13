@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -111,6 +113,7 @@ public class ContributionStateManager implements IContributionStateManager {
     }
 
     public void updateToRemoteState(AtomicBoolean shutdownInitiated) {
+        logger.debug("Updating to latest contribution state regardless of latest changeset state");
         updateToRemoteState(now(), shutdownInitiated);
     }
 
@@ -118,13 +121,22 @@ public class ContributionStateManager implements IContributionStateManager {
         var local = localState.getSequenceNumber();
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
-        logger.info("updating to remote state {} from {} ({} states)", remote, local, steps);
+        if (steps == 1 && processUntil.isBefore(remoteState.getTimestamp())){
+            logger.debug("");
+            return;
+        }
+        logger.info("Updating towards remote state {} from {} ({} states). {}", remote, local, steps,
+                processUntil.isBefore(remoteState.getTimestamp())
+                        ? "Changeset state is a bit older than Contribution state (" + processUntil + " vs. " + remoteState.getTimestamp() + ") so newer contributions will be delayed."
+                        : ""
+        );
+
         var statesToUpdate = Math.min(steps, maxSize);
         var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
                 .take(maxSize)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
-                .filter((state) -> state.getTimestamp().isBefore(processUntil))
+                .filter(state -> state.getTimestamp().isBefore(processUntil))
                 .takeUntil(state -> shutdownInitiated.get())
                 .index()
                 .concatMap(state -> fromCallable(() -> process(state.getT2(), state.getT1(), statesToUpdate)))
@@ -139,22 +151,22 @@ public class ContributionStateManager implements IContributionStateManager {
 
     private Consumer<AvroUtil.AvroBuilder<Contrib>> config(ReplicationState state) {
         return builder -> builder
-                    .withAdditionalMetadata("replication_base_url", state.getEndpoint())
-                    .withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()))
-                    .withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString())
+                .withAdditionalMetadata("replication_base_url", state.getEndpoint())
+                .withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()))
+                .withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString())
 
-                    .withPageSize(ParquetWriter.DEFAULT_PAGE_SIZE)
+                .withPageSize(ParquetWriter.DEFAULT_PAGE_SIZE)
 //                .withDictionaryPageSize(4 * ParquetWriter.DEFAULT_PAGE_SIZE)
 
-                    .withDictionaryEncoding("osm_id", false)
-                    .withDictionaryEncoding("refs.list.element", false)
-                    .withBloomFilterEnabled("refs.list.element", true)
+                .withDictionaryEncoding("osm_id", false)
+                .withDictionaryEncoding("refs.list.element", false)
+                .withBloomFilterEnabled("refs.list.element", true)
 
-                    .withDictionaryEncoding("members.list.element.id", false)
-                    .withBloomFilterEnabled("members.list.element.id", true)
+                .withDictionaryEncoding("members.list.element.id", false)
+                .withBloomFilterEnabled("members.list.element.id", true)
 
-                    .withMinRowCountForPageSizeCheck(1)
-                    .withMaxRowCountForPageSizeCheck(2);
+                .withMinRowCountForPageSizeCheck(1)
+                .withMaxRowCountForPageSizeCheck(2);
     }
 
     private int process(ReplicationState state, long index, int statesToUpdate) throws Exception {
@@ -164,7 +176,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var timer = Stopwatch.createStarted();
         var changesetIds = new HashSet<Long>();
         var osc = new ArrayList<OSMEntity>();
-        server.getElements(state).forEachRemaining( osm -> {
+        server.getElements(state).forEachRemaining(osm -> {
             changesetIds.add(osm.changeset());
             osc.add(osm);
         });

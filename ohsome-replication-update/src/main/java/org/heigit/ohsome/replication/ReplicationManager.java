@@ -72,7 +72,7 @@ public class ReplicationManager {
                         if (secondsBetween(remoteChangesetState, remoteContributionState) < ACCEPTABLE_DELAY) {
                             contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp(), shutdownInitiated);
                         } else {
-                            contributionManager.updateToRemoteState(now(), shutdownInitiated);
+                            contributionManager.updateToRemoteState(shutdownInitiated);
                         }
                         waiter.resetRetry();
                     }
@@ -123,7 +123,7 @@ public class ReplicationManager {
                 do {
                     var remoteState = contributionManager.fetchRemoteState();
                     if (!remoteState.equals(contributionManager.getLocalState())) {
-                        contributionManager.updateToRemoteState(now(), shutdownInitiated);
+                        contributionManager.updateToRemoteState(shutdownInitiated);
                         waiter.resetRetry();
 
                         var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
