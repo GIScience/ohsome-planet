@@ -17,13 +17,8 @@ import java.util.concurrent.Callable;
         description = ""
 )
 public class Replication implements Callable<Integer> {
-    @Override
-    public Integer call() {
-        CommandLine.usage(this, System.out);
-        return CommandLine.ExitCode.OK;
-    }
 
-    static class ContributionParameters {
+    public static class ContributionParameters {
         @Option(names = {"--country-file"})
         Path countryFilePath;
         @Option(names = {"--parquet-data"}, defaultValue = "out", description = "output directory for parquet files, Default: ${DEFAULT-VALUE}")
@@ -63,31 +58,32 @@ public class Replication implements Callable<Integer> {
 
     @Command(mixinStandardHelpOptions = true)
     int store(
-        @Option(names = {"--directory"}, required = true)
+        @Option(names = {"--data"}, required = true)
         Path directory,
         @CommandLine.Parameters
         List<String> params) throws Exception {
-        UpdateStoreRocksDb.query(directory, params);
+        UpdateStoreRocksDb.query(directory.resolve("replication"), params);
         return 0;
     }
 
-    @Command(mixinStandardHelpOptions = true)
-    public int update(
-            @Option(names = "--continue", defaultValue = "false", description = "continue updates")
-            boolean continuous,
 
-            @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
-            int parallel,
+    @Option(names = "--continue", defaultValue = "false", description = "continue updates")
+    private boolean continuous;
 
-            @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
-            boolean[] verbosity,
+    @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
+    private int parallel;
 
-            @CommandLine.ArgGroup(multiplicity = "1")
-            OptionalContributions optionalContributions,
+    @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
+    private boolean[] verbosity;
 
-            @CommandLine.ArgGroup(multiplicity = "1")
-            OptionalChangesets optionalChangesets
-    ) throws Exception {
+    @CommandLine.ArgGroup(multiplicity = "1")
+    private OptionalContributions optionalContributions;
+
+    @CommandLine.ArgGroup(multiplicity = "1")
+    private OptionalChangesets optionalChangesets;
+
+    @Override
+    public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
         parallel = parallel == 0 ? Math.max(1, Runtime.getRuntime().availableProcessors()) -1 : parallel;
