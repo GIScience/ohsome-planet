@@ -91,7 +91,7 @@ public class ReplicationManager {
 
         if (timeSinceLastChangesetState < WAIT_TIME) {
             waiter.sleep(WAIT_TIME - timeSinceLastChangesetState, "new changeset state");
-        } else if (timeSinceLastContributionState < WAIT_TIME) {
+        } else if (timeSinceLastContributionState < WAIT_TIME && timeSinceLastChangesetState > ACCEPTABLE_DELAY) {
             waiter.sleep(WAIT_TIME - timeSinceLastContributionState, "new contribution state");
         } else {
             waiter.waitForRetry();
