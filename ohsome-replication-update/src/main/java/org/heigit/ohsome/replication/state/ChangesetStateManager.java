@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
 
+import com.google.common.base.Stopwatch;
 import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
@@ -94,6 +95,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
 
     private Set<Long> updateBatch(List<Integer> batch) throws IOException, SQLException, InterruptedException {
         var closed = new HashSet<Long>();
+        var stopwatch = Stopwatch.createStarted();
         for (var changesets : Flux.fromIterable(batch)
                 .flatMap(path -> fromCallable(() -> server.getReplicationFile(path)).subscribeOn(boundedElastic()), 20)
                 .flatMap(file -> fromCallable(() -> server.parseToList(file)).subscribeOn(parallel()))
@@ -109,7 +111,7 @@ public class ChangesetStateManager implements IChangesetStateManager {
 
         var lastReplication = server.getRemoteState(batch.getLast());
         updateLocalState(lastReplication);
-        logger.info("Updated state up to {}", lastReplication);
+        logger.info("Updated state to {} from {} -> {} states in {}", lastReplication.getSequenceNumber() - batch.size(), lastReplication.getSequenceNumber(), batch.size(), stopwatch);
         return closed;
     }
 
