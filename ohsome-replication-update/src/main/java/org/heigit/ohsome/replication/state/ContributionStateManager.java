@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -88,7 +89,7 @@ public class ContributionStateManager implements IContributionStateManager {
         return localState;
     }
 
-    public ReplicationState fetchRemoteState() throws IOException, InterruptedException {
+    public ReplicationState fetchRemoteState() throws IOException {
         remoteState = server.getLatestRemoteState();
         return remoteState;
     }
@@ -119,17 +120,24 @@ public class ContributionStateManager implements IContributionStateManager {
 
     public void updateToRemoteState(Instant processUntil, AtomicBoolean shutdownInitiated) {
         var local = localState.getSequenceNumber();
-        var remote = remoteState.getSequenceNumber();
+        var targetRemoteState = remoteState;
+
+        while (processUntil.isBefore(targetRemoteState.getTimestamp()) && localState.getSequenceNumber() < targetRemoteState.getSequenceNumber()) {
+            try {
+                server.getRemoteState(targetRemoteState.getSequenceNumber() - 1);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        var remote = targetRemoteState.getSequenceNumber();
         var steps = remote - local;
-        if (steps == 1 && processUntil.isBefore(remoteState.getTimestamp())){
-            logger.debug("Updating to latest remote contribution state regardless of changeset state age.");
+
+        if(steps == 0) {
             return;
         }
-        logger.info("Updating towards remote state {} from {} ({} states). {}", remote, local, steps,
-                processUntil.isBefore(remoteState.getTimestamp())
-                        ? "Changeset state is a bit older than Contribution state (" + processUntil + " vs. " + remoteState.getTimestamp() + ") so newer contributions will be delayed."
-                        : ""
-        );
+
+        logger.info("Updating towards remote state {} from {} ({} states).", remote, local, steps);
 
         var statesToUpdate = Math.min(steps, maxSize);
         var timer = Stopwatch.createStarted();

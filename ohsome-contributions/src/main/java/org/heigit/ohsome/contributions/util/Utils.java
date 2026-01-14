@@ -60,7 +60,7 @@ public class Utils {
                         .build());
         changesetBuilder
                 .setCreatedAt(Instant.ofEpochSecond(0))
-                .clearClosedAt().clearTags().clearHashtags().clearEditor().clearNumChanges();
+                .clearClosedAt().clearTags().clearHashtags().clearEditor();
         ids.forEach(id -> changesets.computeIfAbsent(id, x -> changesetBuilder.setId(id).build()));
         return changesets;
     }

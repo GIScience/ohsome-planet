@@ -159,12 +159,6 @@
             ],
             "default": null,
             "doc": "editing software used to upload this OSM changeset, derived from the changeset tag key `created_by`"
-          },
-          {
-            "name": "numChanges",
-            "type": "int",
-            "default": -1,
-            "doc": "number of edits contained by this OSM changeset"
           }
         ]
       }
@@ -344,11 +338,6 @@
                   "adjust-to-utc": true
                 },
                 "doc": "timstamp when this version of the OSM feature was uploaded, adjusted to UTC"
-              },
-              {
-                "name": "changeset_id",
-                "type": "long",
-                "doc": "identifier of the OSM changeset"
               },
               {
                 "name": "role",

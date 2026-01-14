@@ -109,7 +109,7 @@ public class Server<T> {
         return targetUrl;
     }
 
-    private static InputStream getResponse(URL url, String cookie, int backoff) throws InterruptedException, IOException {
+    private static InputStream getResponse(URL url, String cookie, int backoff) throws  IOException {
         while (true) {
             try {
                 var connection = url.openConnection();
@@ -124,46 +124,43 @@ public class Server<T> {
                 throw e;
             } catch (Exception e) {
                 logger.debug("Retrieval of {} failed, waiting {} seconds before trying again", url, backoff);
-                TimeUnit.SECONDS.sleep(backoff);
+                try {
+                    TimeUnit.SECONDS.sleep(backoff);
+                } catch (InterruptedException ignored) { }
                 backoff = Math.min(backoff * 2, 60);
             }
         }
     }
 
-    public static InputStream getFileStream(URL url) throws IOException, InterruptedException {
+    public static InputStream getFileStream(URL url) throws IOException {
         return getFileStream(url, null);
     }
-    public static InputStream getFileStream(URL url, String cookie) throws IOException, InterruptedException {
+    public static InputStream getFileStream(URL url, String cookie) throws IOException {
         return getResponse(url, cookie, 2);
     }
 
-    public static byte[] getFile(URL url) throws IOException, InterruptedException {
+    public static byte[] getFile(URL url) throws IOException {
         return getFileStream(url).readAllBytes();
     }
 
-    protected byte[] getFile(String replicationPath) throws IOException, InterruptedException {
-        return getFile(create(this.targetUrl + replicationPath + this.replicationFileName).toURL());
-    }
-
-
-    public ReplicationState getLatestRemoteState() throws IOException, InterruptedException {
+    public ReplicationState getLatestRemoteState() throws IOException {
         return getRemoteState(create(this.targetUrl + topLevelFile).toURL());
     }
 
 
-    public ReplicationState getRemoteState(int sequenceNumber) throws IOException, InterruptedException {
+    public ReplicationState getRemoteState(int sequenceNumber) throws IOException {
         var url = create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + ".state.txt").toURL();
         return getRemoteState(url);
     }
 
-    public ReplicationState getRemoteState(URL url) throws IOException, InterruptedException {
+    public ReplicationState getRemoteState(URL url) throws IOException {
         var input = getFileStream(url, cookie);
         var props = new Properties();
         props.load(input);
         return new ReplicationState(props, sequenceKey, timestampKey, timestampParser);
     }
 
-    public byte[] getReplicationFile(int sequenceNumber) throws IOException, InterruptedException {
+    public byte[] getReplicationFile(int sequenceNumber) throws IOException {
         return new GZIPInputStream(getFileStream(create(this.targetUrl + ReplicationState.sequenceNumberAsPath(sequenceNumber) + this.replicationFileName).toURL(), cookie)).readAllBytes();
     }
 
@@ -193,7 +190,7 @@ public class Server<T> {
 
     // Logic from https://github.com/osmcode/pyosmium/blob/b73e223b909cb82486ec09d4cee91215595beb96/src/osmium/replication/server.py#L324
     // # Copyright (C) 2025 Sarah Hoffmann <lonvia@denofr.de> and others.
-    public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException, InterruptedException {
+    public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException {
         var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
         logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.getLeft(), surroundingStates.getRight());
@@ -227,7 +224,7 @@ public class Server<T> {
     private Pair<ReplicationState, ReplicationState> getReplicationStatesAroundTargetTimestamp(
             ReplicationState upperReplication,
             Instant targetTimestamp
-    ) throws InterruptedException {
+    ) {
         var lowerReplication = estimateLowerReplicationState(upperReplication);
         logger.trace("Available replication: {}", lowerReplication);
 
@@ -247,7 +244,7 @@ public class Server<T> {
         }
     }
 
-    private ReplicationState estimateLowerReplicationState(ReplicationState upperReplication) throws InterruptedException {
+    private ReplicationState estimateLowerReplicationState(ReplicationState upperReplication) {
         var lowerReplication = new ReplicationState(null, 0);
 
         while (lowerReplication.getTimestamp() == null) {
