@@ -15,7 +15,7 @@ class WaiterTest {
     void waitXSecondsActuallyWaitsXSeconds() throws InterruptedException {
         var waiter = new Waiter(new AtomicBoolean(false));
         var now = Instant.now();
-        waiter.sleep(1);
+        waiter.sleep(1, "test");
         var nowNow = Instant.now();
         assertTrue(now.plusSeconds(1).isBefore(nowNow));
     }
