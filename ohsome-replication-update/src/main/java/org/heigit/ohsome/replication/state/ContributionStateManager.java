@@ -122,7 +122,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var remote = remoteState.getSequenceNumber();
         var steps = remote - local;
         if (steps == 1 && processUntil.isBefore(remoteState.getTimestamp())){
-            logger.debug("");
+            logger.debug("Updating to latest remote contribution state regardless of changeset state age.");
             return;
         }
         logger.info("Updating towards remote state {} from {} ({} states). {}", remote, local, steps,
