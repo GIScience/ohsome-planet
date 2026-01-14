@@ -20,8 +20,8 @@ public class Waiter {
         this.shutdownInitiated = shutdownInitiated;
     }
 
-    public void sleep(long secondsToWait) throws InterruptedException {
-        logger.info("Waiting {} seconds until trying again.", secondsToWait);
+    public void sleep(long secondsToWait, String reason) throws InterruptedException {
+        logger.info("Waiting {} seconds for {} until trying again.", secondsToWait, reason);
         for (var i = 0; i < secondsToWait; i++) {
             TimeUnit.SECONDS.sleep(1);
             if (shutdownInitiated.get()) {
@@ -37,7 +37,7 @@ public class Waiter {
     }
 
     public void waitForRetry() throws InterruptedException {
-        sleep(retrySeconds);
+        sleep(retrySeconds, "any state to change");
         retrySeconds = Math.min(60, retrySeconds * 2);
     }
 

@@ -90,9 +90,9 @@ public class ReplicationManager {
         var timeSinceLastContributionState = now().getEpochSecond() - remoteContributionState.getTimestamp().getEpochSecond();
 
         if (timeSinceLastChangesetState < WAIT_TIME) {
-            waiter.sleep(WAIT_TIME - timeSinceLastChangesetState);
+            waiter.sleep(WAIT_TIME - timeSinceLastChangesetState, "new changeset state");
         } else if (timeSinceLastContributionState < WAIT_TIME) {
-            waiter.sleep(WAIT_TIME - timeSinceLastContributionState);
+            waiter.sleep(WAIT_TIME - timeSinceLastContributionState, "new contribution state");
         } else {
             waiter.waitForRetry();
         }
@@ -123,7 +123,7 @@ public class ReplicationManager {
 
                         var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
                         if (timeSinceLastReplication < WAIT_TIME  && continuous) {
-                            waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                            waiter.sleep(WAIT_TIME - timeSinceLastReplication, "new contribution state");
                         }
                     } else {
                         waiter.waitForRetry();
@@ -157,7 +157,7 @@ public class ReplicationManager {
 
                     var timeSinceLastReplication = now().getEpochSecond() - remoteState.getTimestamp().getEpochSecond();
                     if (timeSinceLastReplication < WAIT_TIME && continuous) {
-                        waiter.sleep(WAIT_TIME - timeSinceLastReplication);
+                        waiter.sleep(WAIT_TIME - timeSinceLastReplication, "new changeset state");
                     }
                 } else {
                     waiter.waitForRetry();
