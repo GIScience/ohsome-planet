@@ -5,9 +5,8 @@
 [![LICENSE](https://img.shields.io/github/license/GIScience/ohsome-planet)](LICENSE)
 [![status: active](https://github.com/GIScience/badges/raw/master/status/active.svg)](https://github.com/GIScience/badges#active)
 
-The ohsome-planet tool can be used to transforms OSM (history) PBF files into Parquet format with native GEO support.
-Second, you can use it to turn an OSM changeset file (osm.bz2) into a PostgreSQL database table.
-Finally, with ohsome-planet you can maintain an always up-to-date version of the OSM (contributions and changesets) data.
+The ohsome-planet tool can be used to transforms OSM (history) PBF files and OSM replication OSC files into Parquet format with native GEO support.
+Second, you can use it to turn an OSM changeset file (osm.bz2) into a PostgreSQL database table and maintain an always up-to-date version.
 
 It creates the actual OSM elements geometries for nodes, ways and relations.
 The tool can join information from OSM changesets such as hashtags, OSM editor or usernames.
