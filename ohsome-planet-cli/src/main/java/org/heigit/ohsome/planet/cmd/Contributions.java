@@ -17,42 +17,88 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 @CommandLine.Command(name = "contributions",
         mixinStandardHelpOptions = true,
         versionProvider = ManifestVersionProvider.class,
-        description = "generates parquet files")
+        usageHelpWidth = 120,
+        sortSynopsis = false,
+        requiredOptionMarker = '*',
+        description = """
+                Transform OSM (history/latest) .pbf file into parquet format.
+                """
+)
 public class Contributions implements Callable<Integer> {
 
-    @CommandLine.Option(names = {"--pbf"}, required = true)
+    @CommandLine.Option(names = {"--pbf"}, required = true,
+            paramLabel = "path/to/osm.pbf",
+            description = "OSM (history/latest) .pbf file path.")
     private Path pbfPath;
 
-    @CommandLine.Option(names = {"--data"}, required = true)
+    @CommandLine.Option(names = {"--data"}, required = true,
+            paramLabel = "path/to/ohsome-planet-data",
+            description = """
+                    ohsome-planet working directory for parquet-data (contributions), temp files (temp) and optional replication-store (replication).""")
     private Path data;
 
-    @CommandLine.Option(names = {"--parquet-data"})
+    @CommandLine.Option(names = {"--parquet-data"},
+            paramLabel = "s3://BUCKET/PATH",
+            description = """
+                    Write parquet files into separate output directory in your filesystem or S3 cloud storage.
+                    For S3 cloud storage set environment variables (S3_ENDPOINT, S3_KEY_ID, S3_SECRET, S3_REGION).
+                    """)
     private String parquetData;
 
-    @CommandLine.Option(names = {"--overwrite"})
+    @CommandLine.Option(names = {"--overwrite"},
+            description = "Remove all files in data directory if exists."
+    )
     private boolean overwrite = false;
 
-    @CommandLine.Option(names = {"--keep-temp-data"})
+    @CommandLine.Option(names = {"--keep-temp-data"},
+            description = "Do not remove temp folder in data directory after processing. For debug purposes only!")
     private boolean keepTempData = false;
 
-    @CommandLine.Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
+    @CommandLine.Option(names = {"--parallel"},
+            description = """
+                Number of threads used for processing.
+                Defaults to all available cpus minus 1.
+                Dictates the number of output parquet files which will created.""")
     private int parallel = Runtime.getRuntime().availableProcessors() - 1;
 
-    @CommandLine.Option(names = {"--country-file"})
+    @CommandLine.Option(names = {"--country-file"},
+            paramLabel = "path/to/countries.csv",
+            description = """
+                    Enrich osm-contributions with country-codes.
+                    csv format (id;wkt):
+                     id = country-code
+                     wkt = geometry in wkt format
+                    """)
     private Path countryFilePath;
 
-    @CommandLine.Option(names = {"--changeset-db"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
+    @CommandLine.Option(names = {"--changeset-db"},
+            paramLabel = "jdbc:postgresql://HOST[:PORT]/DATABASE",
+            description = """
+                    Enrich osm-contributions with osm-changeset information.
+                    Connection url to ohsome-planet changeset database.
+                    Set connections parameters including credentials via jdbc:url "jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD"
+                    or via environment variables (OHSOME_PLANET_DB_USER, OHSOME_PLANET_DB_PASSWORD, OHSOME_PLANET_DB_SCHEMA, OHSOME_PLANET_DB_POOLSIZE (default 10)).
+                    """)
     private String changesetDbUrl = "";
 
-    @CommandLine.Option(names = {"--replication-endpoint", "--endpoint" },
+    @CommandLine.Option(names = {"--replication-endpoint"},
             converter = UrlConverter.class,
-            description = "url to replication endpoint e.g. https://planet.openstreetmap.org/replication/minute/")
+            paramLabel = "https://planet.openstreetmap.org/replication/minute/",
+            description = """
+                    Url to replication endpoint from osm-planet-server (planet.openstreetmap.org) or alternatives.
+                    Use this if you plan to derive replication updates later.
+                    """)
     private URL replicationEndpoint;
 
-    @CommandLine.Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
+    @CommandLine.Option(names = {"--filter-relation-tag-keys"},
+            paramLabel = "highway,building,landuse",
+            description = """
+                    Filter osm relations with comma separated list of osm tag keys.
+                    """)
     private String includeTags = "";
 
-    @CommandLine.Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
+    @CommandLine.Option(names = {"-v"},
+            description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
 
 

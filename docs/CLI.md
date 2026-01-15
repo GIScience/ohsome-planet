@@ -209,7 +209,16 @@ This is useful when checking for an individual OSM element in replication store 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication-store \
   --data path/to/data \
-  n270418052 w721933838   
+  n/270418052 w/721933838   
 ```
 
 Specify the OSM elements like `n/270418052` `w/721933838`.
+```
+n/270418052:
+  OSMNode[id=270418052, version=7, timestamp=2013-01-06T10:34:49Z, changeset=-1, userId=-1, user=, visible=true, tags={}, lon=8.6761206, lat=49.4193076]
+  ways:[34126010, 849049869, 721933838]
+  rels:null
+w/721933838:
+  OSMWay[id=721933838, version=7, timestamp=2023-08-11T11:14:42Z, changeset=-1, userId=-1, user=, visible=true, tags={sidewalk=separate, surface=asphalt, zone:traffic=DE:urban, maxspeed=50, name:etymology:wikidata=Q64, cycleway:left=no, oneway=yes, zone:maxspeed=DE:urban, smoothness=good, cycleway:right=separate, lit=yes, name=Berliner Straße, lanes=2, highway=primary, parking:lane:both=no, priority_road=designated}, refs=[270418052, 6772131501], minorVersion=0, edits=7, lons=null, lats=null]
+  rels:[3003370, 3123494, 399048]
+```

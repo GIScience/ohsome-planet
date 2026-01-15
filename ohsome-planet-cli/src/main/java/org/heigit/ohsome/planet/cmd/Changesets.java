@@ -14,19 +14,37 @@ import java.util.concurrent.Callable;
 @CommandLine.Command(name = "changesets",
         mixinStandardHelpOptions = true,
         versionProvider = ManifestVersionProvider.class,
-        description = "initial database for updates"
+        sortSynopsis = false,
+        requiredOptionMarker = '*',
+        usageHelpWidth = 120,
+        description = """
+            Import OSM changesets .bz2 file to PostgreSQL.
+            """
 )
 public class Changesets implements Callable<Integer> {
-    @Option(paramLabel = "path_to_changeset.osm.bz2", names = {"--bz2"}, required = true, description = "initial changeset.osm.bz2 from planet. You can e.g. download it from from https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2")
-    Path changesetsPath;
-    @Option(paramLabel = "conn_url", names = {"--changeset-db"}, required = true, description = "full read/write jdbc:url for changeset database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
-    String changesetDbUrl;
+    @Option(paramLabel = "path/to/changeset.osm.bz2",
+            names = {"--bz2"}, required = true,
+            description = "Path to osm changeset bz2 file. You can e.g. download it from from https://planet.openstreetmap.org/planet/changesets-latest.osm.bz2 .")
+    private Path changesetsPath;
+
+    @CommandLine.Option(names = {"--changeset-db"},
+            required = true,
+            paramLabel = "jdbc:postgresql://HOST[:PORT]/DATABASE",
+            description = """
+                    Connection url to ohsome-planet changeset database.
+                    Set connections parameters including credentials via jdbc:url "jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD"
+                    or via environment variables (OHSOME_PLANET_DB_USER, OHSOME_PLANET_DB_PASSWORD, OHSOME_PLANET_DB_SCHEMA, OHSOME_PLANET_DB_POOLSIZE (default 10)).
+                    """)
+    private String changesetDbUrl;
+
     @Option(paramLabel = "overwrite", names = {"--overwrite"}, description = "If set, truncate changeset and changeset_state tables before refilling.")
-    boolean overwrite;
-    @Option(names = {"-v", "--verbose"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
-    boolean[] verbosity;
-    @Option(names = {"--create-tables", "-c"}, description = "Set this flag if you do not have configured the changeset table schema yet.")
-    boolean createSchema;
+    private boolean overwrite;
+
+    @Option(names = {"-v"}, description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
+    private boolean[] verbosity;
+
+    @Option(names = {"--create-tables", "-c"}, description = "Set this flag if you do not have created the changeset table schema yet.")
+    private boolean createSchema;
 
     @Override
     public Integer call() throws IOException, SQLException {

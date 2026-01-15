@@ -144,7 +144,6 @@ public class ContributionStateManager implements IContributionStateManager {
         var statesUpdated = Flux.range(local + 1, steps)
                 .take(maxSize)
                 .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
-                .filter(state -> state.getTimestamp().isBefore(processUntil))
                 .takeUntil(state -> shutdownInitiated.get())
                 .index()
                 .concatMap(state -> fromCallable(() -> process(state.getT2(), state.getT1(), statesToUpdate)))
@@ -197,7 +196,7 @@ public class ContributionStateManager implements IContributionStateManager {
             }
         }
 
-        logger.info("update {} / {} ({}/{}) with  {} changes in {}({} open) changesets ...", state.getSequenceNumber(), state.getTimestamp(), index + 1, statesToUpdate, osc.size(), changesets.size(), openChangesets.size());
+        logger.info("update {} / {} ({}/{}) with  {} changes in {}({} open) changesets ...", state.getSequenceNumber(), state.getTimestamp(), index + 1, statesToUpdate, osc.size(), changesets.size() -1, openChangesets.size() -1);
         var updater = new ContributionUpdater(updateStore, changesets, countryJoiner, parallel);
         var counter = 0;
         var pendingCounter = 0;
