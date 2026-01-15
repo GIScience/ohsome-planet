@@ -209,5 +209,7 @@ This is useful when checking for an individual OSM element in replication store 
 ```shell
 java -jar ohsome-planet-cli/target/ohsome-planet.jar replication-store \
   --data path/to/data \
-  -n  
+  n270418052 w721933838   
 ```
+
+Specify the OSM elements like `n/270418052` `w/721933838`.
