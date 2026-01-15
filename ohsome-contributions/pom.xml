@@ -76,6 +76,21 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-instrumentation-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-exporter-httpserver</artifactId>
+        </dependency>
+
         <!-- TEST DEPENDENCIES -->
         <dependency>
             <groupId>org.openstreetmap.pbf</groupId>

@@ -1,6 +1,8 @@
 package org.heigit.ohsome.planet.cmd;
 
 import com.google.common.io.MoreFiles;
+import io.prometheus.metrics.exporter.httpserver.HTTPServer;
+import io.prometheus.metrics.instrumentation.jvm.JvmMetrics;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
@@ -97,6 +99,10 @@ public class Contributions implements Callable<Integer> {
                     """)
     private String includeTags = "";
 
+    @CommandLine.Option(names = {"--metrics-port"}, description = """
+            """)
+    private Integer metricsPort;
+
     @CommandLine.Option(names = {"-v"},
             description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
@@ -124,16 +130,22 @@ public class Contributions implements Callable<Integer> {
             parquetData = data.resolve("contributions").toString();
         }
 
-        var contributionsToParquet = new Contributions2Parquet(
-                pbfPath, data, parquetData, parallel,
-                changesetDbUrl, countryFilePath,
-                replicationEndpoint,
-                includeTags);
+        try (var ignored = (metricsPort != null ) ?
+                HTTPServer.builder().port(metricsPort).buildAndStart() : null ) {
 
-        if (!keepTempData) {
-            MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
+            JvmMetrics.builder().register();
+
+            var contributionsToParquet = new Contributions2Parquet(
+                    pbfPath, data, parquetData, parallel,
+                    changesetDbUrl, countryFilePath,
+                    replicationEndpoint,
+                    includeTags);
+
+            if (!keepTempData) {
+                MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
+            }
+
+            return contributionsToParquet.call();
         }
-
-        return contributionsToParquet.call();
     }
 }

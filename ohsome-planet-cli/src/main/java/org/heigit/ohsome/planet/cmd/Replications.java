@@ -1,5 +1,7 @@
 package org.heigit.ohsome.planet.cmd;
 
+import io.prometheus.metrics.exporter.httpserver.HTTPServer;
+import io.prometheus.metrics.instrumentation.jvm.JvmMetrics;
 import org.heigit.ohsome.planet.utils.CliUtils;
 import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import org.heigit.ohsome.replication.ReplicationManager;
@@ -22,7 +24,7 @@ import java.util.concurrent.Callable;
                 Keep changeset PostgreSQL database up-to-date.
                 """
 )
-public class Replication implements Callable<Integer> {
+public class Replications implements Callable<Integer> {
 
     public static class ContributionParameters {
         @CommandLine.Option(names = {"--country-file"},
@@ -121,6 +123,10 @@ public class Replication implements Callable<Integer> {
             """)
     private boolean[] verbosity;
 
+    @Option(names = {"--metrics-port"}, description = """
+            """)
+    private Integer metricsPort;
+
     @CommandLine.ArgGroup(multiplicity = "1")
     private OptionalContributions optionalContributions;
 
@@ -137,45 +143,50 @@ public class Replication implements Callable<Integer> {
             throw new InvalidParameterException("Either just-contributions or just-changesets can be specified");
         }
 
-        if (optionalChangesets.justContributions) {
+        try (var ignored = (metricsPort != null ) ?
+                HTTPServer.builder().port(metricsPort).buildAndStart() : null ) {
 
+            JvmMetrics.builder().register();
+
+            if (optionalChangesets.justContributions) {
+
+                var parquetData = optionalContributions.contributionParameters.parquetData;
+                if (parquetData == null) {
+                    parquetData = optionalContributions.contributionParameters.data.resolve("updates").toString();
+                }
+
+                return ReplicationManager.updateContributions(
+                        optionalContributions.contributionParameters.countryFilePath,
+                        optionalContributions.contributionParameters.data,
+                        parquetData,
+                        optionalContributions.contributionParameters.size,
+                        parallel,
+                        continuous
+                );
+            }
+
+            if (optionalContributions.justChangesets) {
+                return ReplicationManager.updateChangesets(
+                        optionalChangesets.changesetParameters.changesetDbUrl,
+                        optionalChangesets.changesetParameters.replicationChangesetsUrl,
+                        continuous
+                );
+            }
 
             var parquetData = optionalContributions.contributionParameters.parquetData;
             if (parquetData == null) {
                 parquetData = optionalContributions.contributionParameters.data.resolve("updates").toString();
             }
 
-            return ReplicationManager.updateContributions(
+            return ReplicationManager.update(
                     optionalContributions.contributionParameters.countryFilePath,
                     optionalContributions.contributionParameters.data,
                     parquetData,
                     optionalContributions.contributionParameters.size,
-                    parallel,
-                    continuous
-            );
-        }
-
-        if (optionalContributions.justChangesets) {
-            return ReplicationManager.updateChangesets(
                     optionalChangesets.changesetParameters.changesetDbUrl,
                     optionalChangesets.changesetParameters.replicationChangesetsUrl,
                     continuous
             );
         }
-
-        var parquetData = optionalContributions.contributionParameters.parquetData;
-        if (parquetData == null) {
-            parquetData = optionalContributions.contributionParameters.data.resolve("updates").toString();
-        }
-
-        return ReplicationManager.update(
-                optionalContributions.contributionParameters.countryFilePath,
-                optionalContributions.contributionParameters.data,
-                parquetData,
-                optionalContributions.contributionParameters.size,
-                optionalChangesets.changesetParameters.changesetDbUrl,
-                optionalChangesets.changesetParameters.replicationChangesetsUrl,
-                continuous
-        );
     }
 }
