@@ -124,7 +124,7 @@ public class ContributionStateManager implements IContributionStateManager {
 
         while (processUntil.isBefore(targetRemoteState.getTimestamp()) && localState.getSequenceNumber() < targetRemoteState.getSequenceNumber()) {
             try {
-                server.getRemoteState(targetRemoteState.getSequenceNumber() - 1);
+                targetRemoteState = server.getRemoteState(targetRemoteState.getSequenceNumber() - 1);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
