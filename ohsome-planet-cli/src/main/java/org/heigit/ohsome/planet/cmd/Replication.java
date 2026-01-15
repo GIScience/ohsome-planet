@@ -1,6 +1,7 @@
 package org.heigit.ohsome.planet.cmd;
 
 import org.heigit.ohsome.planet.utils.CliUtils;
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import org.heigit.ohsome.replication.ReplicationManager;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import picocli.CommandLine;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 
 @Command(name = "replication",
+        versionProvider = ManifestVersionProvider.class,
         mixinStandardHelpOptions = true,
         description = ""
 )

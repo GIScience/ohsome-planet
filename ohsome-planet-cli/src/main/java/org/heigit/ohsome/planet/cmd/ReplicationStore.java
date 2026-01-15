@@ -1,5 +1,6 @@
 package org.heigit.ohsome.planet.cmd;
 
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import org.heigit.ohsome.replication.rocksdb.UpdateStoreRocksDb;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -11,6 +12,7 @@ import java.util.concurrent.Callable;
 
 @Command(name = "replication-store",
         mixinStandardHelpOptions = true,
+        versionProvider = ManifestVersionProvider.class,
         description = ""
 )
 public class ReplicationStore implements Callable<Integer> {

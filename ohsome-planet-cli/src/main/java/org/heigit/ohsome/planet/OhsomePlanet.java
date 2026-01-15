@@ -4,6 +4,7 @@ import org.heigit.ohsome.planet.cmd.Changesets;
 import org.heigit.ohsome.planet.cmd.Contributions;
 import org.heigit.ohsome.planet.cmd.Replication;
 import org.heigit.ohsome.planet.cmd.ReplicationStore;
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -16,7 +17,7 @@ import static picocli.CommandLine.Command;
 
 @Command(name = "ohsome-planet",
         mixinStandardHelpOptions = true,
-        version = "ohsome-planet 1.0.0",
+        versionProvider = ManifestVersionProvider.class,
         description = "Transform OSM (history) PBF files into GeoParquet. Enrich with OSM changeset metadata and country information.%n",
         subcommands = {
                 Contributions.class,

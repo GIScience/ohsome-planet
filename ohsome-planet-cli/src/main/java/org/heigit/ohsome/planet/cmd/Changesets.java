@@ -2,6 +2,7 @@ package org.heigit.ohsome.planet.cmd;
 
 import org.heigit.ohsome.changesets.Changesets2DB;
 import org.heigit.ohsome.planet.utils.CliUtils;
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 
@@ -12,6 +13,7 @@ import java.util.concurrent.Callable;
 
 @CommandLine.Command(name = "changesets",
         mixinStandardHelpOptions = true,
+        versionProvider = ManifestVersionProvider.class,
         description = "initial database for updates"
 )
 public class Changesets implements Callable<Integer> {

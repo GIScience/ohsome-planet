@@ -3,6 +3,7 @@ package org.heigit.ohsome.planet.cmd;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import picocli.CommandLine;
 
 import java.net.URL;
@@ -12,7 +13,7 @@ import java.util.concurrent.Callable;
 
 @CommandLine.Command(name = "contributions", aliases = {"contribs"},
         mixinStandardHelpOptions = true,
-        version = "ohsome-planet contribution 1.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
+        versionProvider = ManifestVersionProvider.class,
         description = "generates parquet files")
 public class Contributions implements Callable<Integer> {
 
