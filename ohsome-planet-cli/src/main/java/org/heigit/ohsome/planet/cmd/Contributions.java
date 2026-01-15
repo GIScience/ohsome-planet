@@ -1,5 +1,6 @@
 package org.heigit.ohsome.planet.cmd;
 
+import com.google.common.io.MoreFiles;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
 import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
@@ -11,7 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 
-@CommandLine.Command(name = "contributions", aliases = {"contribs"},
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+
+@CommandLine.Command(name = "contributions",
         mixinStandardHelpOptions = true,
         versionProvider = ManifestVersionProvider.class,
         description = "generates parquet files")
@@ -29,7 +32,7 @@ public class Contributions implements Callable<Integer> {
     @CommandLine.Option(names = {"--overwrite"})
     private boolean overwrite = false;
 
-    @CommandLine.Option(names = {"--keep-temp-data"}, required = false)
+    @CommandLine.Option(names = {"--keep-temp-data"})
     private boolean keepTempData = false;
 
     @CommandLine.Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
@@ -57,7 +60,19 @@ public class Contributions implements Callable<Integer> {
     public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
+        if (Files.exists(data)) {
+            if (overwrite) {
+                MoreFiles.deleteRecursively(data, ALLOW_INSECURE);
+            } else {
+                System.out.println("Directory already exists. To overwrite use --overwrite");
+                System.exit(0);
+            }
+        }
+
+
+        var tempDir = data.resolve("temp");
         Files.createDirectories(data);
+        Files.createDirectories(tempDir);
 
         if (parquetData == null) {
             parquetData = data.resolve("contributions").toString();
@@ -68,6 +83,10 @@ public class Contributions implements Callable<Integer> {
                 changesetDbUrl, countryFilePath,
                 replicationEndpoint,
                 includeTags);
+
+        if (!keepTempData) {
+            MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
 
         return contributionsToParquet.call();
     }

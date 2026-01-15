@@ -14,7 +14,10 @@ public class ManifestVersionProvider implements CommandLine.IVersionProvider {
         try (var stream = url.openStream()){
             var props = new Properties();
             props.load(stream);
-            return new String[]{"%s %s (rev: %s)".formatted(props.getProperty("application"), props.getProperty("version"), props.getProperty("buildnumber"))};
+            return new String[]{"%s %s (rev: %s)".formatted(
+                    props.getProperty("application"),
+                    props.getProperty("version"),
+                    props.getProperty("buildnumber"))};
         }
     }
 }

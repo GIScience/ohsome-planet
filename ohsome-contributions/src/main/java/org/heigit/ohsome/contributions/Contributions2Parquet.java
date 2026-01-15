@@ -115,10 +115,9 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     }
 
-    private static Changesets openChangesets(String changesetDb, int poolSize) {
+    private static Changesets openChangesets(String changesetDb) {
         if (changesetDb.startsWith("jdbc")) {
-            var changesets = new ChangesetDB(changesetDb);
-            return changesets;
+            return new ChangesetDB(changesetDb);
         }
         return NOOP;
     }
@@ -126,7 +125,6 @@ public class Contributions2Parquet implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
-
 
         var latestState = (ReplicationState) null;
         var server = (Server<OSMEntity>) null;
@@ -161,7 +159,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .orElseGet(SpatialJoiner::noop);
 
         try (var outputLocation = OutputLocationProvider.load(parquetData);
-             var changesetDb = openChangesets(changesetDbUrl, parallel)) {
+             var changesetDb = openChangesets(changesetDbUrl)) {
 
             Files.createDirectories(temp);
 
@@ -196,7 +194,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     .max().orElseThrow();
             System.out.println("replicationTimestamp = " + replicationTimestamp);
 
-            if (replicationEndpoint != null && server != null) {
+            if (replicationEndpoint != null) {
                 var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
                 System.out.println("replicationState = " + replicationState);
                 var replicationStateData = replicationState.toBytes(server.endpoint());
