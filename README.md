@@ -128,13 +128,11 @@ The parameters `--create-tables` and `--overwrite` are optional. Find more detai
 ### Replications (Parquet / PostgreSQL)
 
 > Transform OSM replication .osc files into parquet format. 
-> Keep changeset PostgreSQL database up-to-date.*
+> Keep changeset PostgreSQL database up-to-date.
 
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
 [OSM Planet server](https://planet.openstreetmap.org/replication/).
 GeoFabrik also provides updates for regional extracts.
-Contributions will be written as Parquet files matching those found in the replication source.
-Changesets are updated in the PostgreSQL database.
 
 If you want to update both datasets your command should look like this: 
 
@@ -154,6 +152,26 @@ If you want to only update changesets you can use the `--just-changesets` flag. 
 
 Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#replication). To see all available parameters, call the tool with `--help` parameter.
 
+Contributions will be written as Parquet files matching those found in the replication source.
+This mimics the structure of the [OSM Planet Server](https://planet.osm.org/replication/minute/).
+You can use the top level state files (`state.txt` or `state.csv`) to find the most recent sequence number.
+
+```text
+/data/ohsome-planet/berlin
+└── updates
+    ├── 006
+    │   ├── 942
+    │   │   ├── 650.opc.parquet
+    │   │   ├── 650.state.txt
+    │   │   ├── ...
+    │   │   ├── 001.opc.parquet
+    │   │   └── 001.state.txt
+    │   ├── 941
+    │   ├── ...
+    │   └── 001
+    ├── state.csv
+    └── state.txt
+```
 
 ## Inspect Results
 You can inspect your results easily using [DuckDB](https://duckdb.org/docs/installation).
