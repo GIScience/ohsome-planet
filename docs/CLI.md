@@ -48,16 +48,15 @@ ITA;POLYGON ((10.766602 41.211722, 14.985352 41.211722, 14.985352 44.024422, 10.
 By passing the parameter `--changeset-db` you can join OSM changeset information.
 
 ```shell
-export OHSOME_PLANET_DB=
-export OHSOME_PLANET_DB_USER=
-export OHSOME_PLANET_DB_PASSWORD=
-export OHSOME_PLANET_DB_SCHEMA=
-export OHSOME_PLANET_DB_POOLSIZE=
+export OHSOME_PLANET_DB_USER=your_user
+export OHSOME_PLANET_DB_PASSWORD=your_password
+export OHSOME_PLANET_DB_SCHEMA=public
+export OHSOME_PLANET_DB_POOLSIZE=100
 
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
     --data /data/ohsome-planet/berlin \
     --pbf /data/osm/berlin-internal.osh.pbf \
-    --changeset-db "jdbc:postgresql://localhost:5432"
+    --changeset-db "jdbc:postgresql://localhost:5432/postgres"
 ```
 
 You can pass the database connection also as JDBC URL including the credentials, e.g. `jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password`.
@@ -134,7 +133,7 @@ By passing the `--include-tags` parameter you can specify a comma separated list
 java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
     --data /data/ohsome-planet/berlin \
     --pbf /data/osm/berlin-internal.osh.pbf \
-    --include-tags "highway,building,landuse"
+    --filter-relation-tag-keys "highway,building,landuse"
 ```
 
 These tag keys will be used to filter OSM relations only.
@@ -172,17 +171,17 @@ The changesets table schema looks like this:
 ```
 
 
-## Replication
-The `replication` command can be used to either update changesets or contributions individually, or update both at the same time.
+## Replications
+The `replications` command can be used to either update changesets or contributions individually, or update both at the same time.
 If you want to only update changesets you need to supply all arguments that concern changesets and use the flag `--just-changeset`,
 similarly you can do the same for contributions and use `--just-contribution`.
 
 Update only changesets:
 ```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replications \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
     --just-changesets \
-    --verbose
+    -v
 ```
 
 
@@ -190,11 +189,11 @@ Before running replication for contributions you need to make sure to initialize
 Then, update only contributions (no changeset join happens here) with this command:
 
 ```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replications \
     --data path/to/data \
     --just-contributions \
     --size 60 \
-    --verbose
+    -v
 ```
 
 The optional `--size` parameter can be useful in the non-continue mode.
@@ -202,18 +201,58 @@ The parameter defines the number of `.osc` files that will be batched.
 For example, `--size=60` will update 60 files (usually 60 minutes) and then stop the process.
 
 
-## Replication-Store
-The `replication-store` command can be used to show the latest state from the individual replication RocksDBs.
-This is useful when checking for an individual OSM element in replication store which you can pass by OSM id and OSM type.
+## Debug
+
+### PBF file information
+
+You can use `debug fileinfo` to print the header for an OSM .pbf file.
+This mimics the functionality of Osmium's `fileinfo` command.
 
 ```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar replication-store \
+java -jar ohsome-planet-cli/target/ohsome-planet.jar debug fileinfo \
+  --pbf /data/osm/berlin-internal.osh.pbf
+```
+
+Will produce something like this.
+
+````text
+File:
+  Name: /data/osm/berlin-internal.osh.pbf
+  Size: 390367622
+Header:
+  Bounding_Boxes: BBox{left=13.08283, right=13.762245, top=52.6783, bottom=52.33446}
+  History: true
+  Generator: osmium/1.16.0
+  Replication:
+    Base_Url: null
+    Sequence_Number: 0
+    Timestamp: 1970-01-01T00:00:00Z
+  Features:
+  - HistoricalInformation
+  - OsmSchema-V0.6
+  - DenseNodes
+  - Sort.Type_then_ID
+read blocks 100% │█████████████████████████████████│ 372/372 MiB (0:00:00 / 0:00:00) 2905 blocks
+Blobs by type:
+  Nodes: 2163 | Ways: 674 | Relations: 68
+````
+
+### Inspect Replication Store
+The `debug replication-store` command can be used to show the latest state from the individual replication RocksDBs.
+This is useful when checking for an individual OSM element in replication store which you can pass by OSM id and OSM type. Use `n/OSM_ID` for nodes, `w/OSM_ID` for ways and `r/OSM_ID` for relations.
+
+```shell
+java -jar ohsome-planet-cli/target/ohsome-planet.jar debug replication-store \
   --data path/to/data \
   n/270418052 w/721933838   
 ```
 
-Specify the OSM elements like `n/270418052` `w/721933838`.
-```
+Specify the OSM elements like `n/270418052` or `w/721933838`. 
+
+The result will show all available information in the replication-store for these elements.
+If a value is `-1`, then this means that no information is stored, e.g. for changeset or user ID.
+
+```text
 n/270418052:
   OSMNode[id=270418052, version=7, timestamp=2013-01-06T10:34:49Z, changeset=-1, userId=-1, user=, visible=true, tags={}, lon=8.6761206, lat=49.4193076]
   ways:[34126010, 849049869, 721933838]
@@ -222,3 +261,4 @@ w/721933838:
   OSMWay[id=721933838, version=7, timestamp=2023-08-11T11:14:42Z, changeset=-1, userId=-1, user=, visible=true, tags={sidewalk=separate, surface=asphalt, zone:traffic=DE:urban, maxspeed=50, name:etymology:wikidata=Q64, cycleway:left=no, oneway=yes, zone:maxspeed=DE:urban, smoothness=good, cycleway:right=separate, lit=yes, name=Berliner Straße, lanes=2, highway=primary, parking:lane:both=no, priority_road=designated}, refs=[270418052, 6772131501], minorVersion=0, edits=7, lons=null, lats=null]
   rels:[3003370, 3123494, 399048]
 ```
+

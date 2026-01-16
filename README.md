@@ -89,13 +89,12 @@ you can set it up like this.
 ```shell
 export OHSOME_PLANET_DB_USER=your_password
 export OHSOME_PLANET_DB_PASSWORD=your_user
-export OHSOME_PLANET_DB_PORT=5432
 
 docker run -d \
     --name ohsome_planet_changeset_db \
     -e POSTGRES_PASSWORD=$OHSOME_PLANET_DB_PASSWORD \
     -e POSTGRES_USER=$OHSOME_PLANET_DB_USER \
-    -p $OHSOME_PLANET_DB_PORT:5432 \
+    -p 5432:5432 \
     postgis/postgis
 ```
 
@@ -121,7 +120,7 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar changesets \
 The parameters `--create-tables` and `--overwrite` are optional. Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#changesets). To see all available parameters, call the tool with `--help` parameter.
 
 
-### Replication (Parquet / PostgreSQL)
+### Replications (Parquet / PostgreSQL)
 
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
 [OSM Planet server](https://planet.openstreetmap.org/replication/).
@@ -132,7 +131,7 @@ Changesets are updated in the PostgreSQL database.
 If you want to update both datasets your command should look like this: 
 
 ```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar replication \
+java -jar ohsome-planet-cli/target/ohsome-planet.jar replications \
     --data path/to/data \
     --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
     --parallel 8 \
