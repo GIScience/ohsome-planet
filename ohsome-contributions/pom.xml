@@ -20,7 +20,11 @@
             <artifactId>osm-pbf</artifactId>
             <version>${project.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-replication</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
             <artifactId>ohsome-parquet</artifactId>
@@ -35,7 +39,13 @@
 
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
-            <artifactId>osm-changesets</artifactId>
+            <artifactId>ohsome-changesets</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-output</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -56,33 +66,29 @@
         </dependency>
 
         <dependency>
-            <groupId>info.picocli</groupId>
-            <artifactId>picocli</artifactId>
-            <version>4.7.6</version>
-        </dependency>
-
-        <dependency>
             <groupId>me.tongfei</groupId>
             <artifactId>progressbar</artifactId>
             <version>0.10.1</version>
         </dependency>
 
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.16</version>
-        </dependency>
-
-        <!-- -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>2.0.16</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-instrumentation-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-exporter-httpserver</artifactId>
         </dependency>
 
         <!-- TEST DEPENDENCIES -->

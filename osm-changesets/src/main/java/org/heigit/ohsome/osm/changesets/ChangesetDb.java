@@ -1,5 +1,6 @@
 package org.heigit.ohsome.osm.changesets;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -12,8 +13,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+// todo: merge with changesetDB?
 public class ChangesetDb implements Changesets {
 
+    private final ObjectMapper mapper = new ObjectMapper();
     private final HikariDataSource dataSource;
 
     public ChangesetDb(HikariDataSource dataSource) {
@@ -22,8 +25,17 @@ public class ChangesetDb implements Changesets {
 
     @Override
     public <T> Map<Long, T> changesets(Set<Long> ids, Factory<T> factory) throws Exception {
+        return changesets(ids, "changesets", factory);
+    }
+
+    @Override
+    public void close() throws Exception {
+        dataSource.close();
+    }
+
+    public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, num_changes from osm_changeset where id = any(?)");
+             var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, hashtags from %s where id = any(?)".formatted(table));
              var array = ClosableSqlArray.createArray(conn, "int", ids)) {
             pstmt.setArray(1, array.array());
             var map = Maps.<Long, T>newHashMapWithExpectedSize(ids.size());
@@ -33,11 +45,10 @@ public class ChangesetDb implements Changesets {
                     var createdAt = Optional.ofNullable(rst.getTimestamp(2)).map(Timestamp::toInstant).orElse(null);
                     var closedAt = Optional.ofNullable(rst.getTimestamp(3)).map(Timestamp::toInstant).orElse(null);
                     @SuppressWarnings("unchecked")
-                    var tags = (Map<String, String>) rst.getObject(4);
-                    var numChanges = rst.getInt(5);
+                    var tags = (Map<String, String>) mapper.readValue(rst.getString(4), Map.class);
                     var hashTags = ChangesetHashtags.hashTags(tags);
                     var editor = tags.get("created_by");
-                    map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor, numChanges));
+                    map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor));
                 }
                 return map;
             }

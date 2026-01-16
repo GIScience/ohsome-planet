@@ -1,7 +1,10 @@
 package org.heigit.ohsome.planet;
 
-import org.heigit.ohsome.contributions.Contributions2Parquet;
-import org.heigit.ohsome.contributions.FileInfo;
+import org.heigit.ohsome.planet.cmd.Changesets;
+import org.heigit.ohsome.planet.cmd.Contributions;
+import org.heigit.ohsome.planet.cmd.Debug;
+import org.heigit.ohsome.planet.cmd.Replications;
+import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
@@ -10,11 +13,18 @@ import static picocli.CommandLine.Command;
 
 @Command(name = "ohsome-planet",
         mixinStandardHelpOptions = true,
-        version = "ohsome-planet 1.0.0",
-        description = "Transform OSM (history) PBF files into GeoParquet. Enrich with OSM changeset metadata and country information.%n",
+        versionProvider = ManifestVersionProvider.class,
+        usageHelpWidth = 120,
+        description = """
+               
+               The ohsome-planet tool can be used to transforms OSM (history) PBF files and OSM replication OSC files into Parquet format with native GEO support.
+               Second, you can use it to turn an OSM changeset file (osm.bz2) into a PostgreSQL database table and keep it up-to-date with the OSM planet replication changeset files.
+               """,
         subcommands = {
-            FileInfo.class,
-            Contributions2Parquet.class
+                Contributions.class,
+                Changesets.class,
+                Replications.class,
+                Debug.class
         })
 public class OhsomePlanet implements Callable<Integer> {
 
@@ -23,6 +33,8 @@ public class OhsomePlanet implements Callable<Integer> {
         CommandLine.usage(this, System.out);
         return 0;
     }
+
+
 
     public static void main(String[] args) {
         var main = new OhsomePlanet();

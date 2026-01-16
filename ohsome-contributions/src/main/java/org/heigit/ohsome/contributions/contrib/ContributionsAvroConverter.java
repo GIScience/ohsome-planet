@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
 
-import static java.util.function.Predicate.not;
 import static org.heigit.ohsome.contributions.util.GeometryTools.areaOf;
 import static org.heigit.ohsome.contributions.util.GeometryTools.lengthOf;
 
@@ -163,7 +162,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         } else if (!entityBefore.map(OSMEntity::visible).orElse(false)) {
             contribTypes.add("CREATION");
         } else {
-            if (entityBefore.map(OSMEntity::tags).filter(not(entity.tags()::equals)).isEmpty()) {
+            if (!entity.tags().equals(entityBefore.get().tags())) {
                 contribTypes.add("TAG");
             }
             if (!Objects.equals(geometryBefore, geometry)) {
@@ -174,11 +173,17 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
         builder.clearRefs();
         builder.clearMembers();
+        builder.clearRefsCount();
+        builder.clearMembersCount();
 
         if (type == OSMType.WAY) {
-            builder.setRefs(((OSMEntity.OSMWay) entity).refs());
+            var refs = ((OSMEntity.OSMWay) entity).refs();
+            builder.setRefsCount(refs.size());
+            builder.setRefs(refs);
         } else if (type == OSMType.RELATION) {
-            builder.setMembers(contribution.members().stream().map(this::member).toList());
+            var members = contribution.members().stream().map(this::member).toList();
+            builder.setMembersCount(members.size());
+            builder.setMembers(members);
         }
         geometryBefore = geometry;
         return Optional.of(builder.setBuildTime(System.nanoTime() - buildTime).build());
@@ -207,10 +212,12 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         var contrib = contribMember.contrib();
         if (contrib != null) {
             memberBuilder
+                    .setTimestamp(contrib.timestamp())
                     .setGeometryType(geometry(contrib).getGeometryType())
                     .setGeometry(wkb(contrib));
         } else {
             memberBuilder
+                    .setTimestamp(Instant.EPOCH)
                     .setGeometryType(null)
                     .setGeometry(null);
         }
@@ -231,5 +238,10 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
     private ByteBuffer wkb(Geometry geometry) {
         return ByteBuffer.wrap(wkb.write(geometry));
+    }
+
+    public void setMinorAndEdits(int minorVersion, int edits) {
+        this.minorVersion = minorVersion;
+        this.edits = edits;
     }
 }

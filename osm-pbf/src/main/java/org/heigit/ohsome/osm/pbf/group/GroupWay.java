@@ -64,7 +64,7 @@ public class GroupWay extends GroupPrimitive<OSMWay> {
         if (!members.equals(refs)) {
             members = List.copyOf(refs);
         }
-        return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags(), members, lons, lats);
+        return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags(), members, 0, 0, lons, lats);
     }
 
 }

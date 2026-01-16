@@ -4,11 +4,11 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import me.tongfei.progressbar.ProgressBarBuilder;
+import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
+import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.Contributions;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsRelation;
@@ -17,37 +17,55 @@ import org.heigit.ohsome.contributions.minor.MinorWay;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialGridJoiner;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
+import org.heigit.ohsome.contributions.transformer.Transformer;
 import org.heigit.ohsome.contributions.util.RocksMap;
 import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
+import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.Blob;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
+import org.heigit.ohsome.output.OutputLocation;
+import org.heigit.ohsome.output.OutputLocationProvider;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.replication.ReplicationEntity;
+import org.heigit.ohsome.replication.ReplicationState;
+import org.heigit.ohsome.replication.Server;
+import org.heigit.ohsome.replication.UpdateStore;
+import org.heigit.ohsome.util.io.Output;
 import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
+import org.rocksdb.StringAppendOperator;
+import org.rocksdb.WriteBatch;
+import org.rocksdb.WriteOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
-import picocli.CommandLine.Option;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static java.nio.file.StandardOpenOption.READ;
+import static org.heigit.ohsome.changesets.IChangesetDB.NOOP;
+import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.defaultOptions;
+import static org.heigit.ohsome.contributions.rocksdb.RocksUtil.open;
 import static org.heigit.ohsome.contributions.transformer.TransformerNodes.processNodes;
 import static org.heigit.ohsome.contributions.transformer.TransformerWays.processWays;
 import static org.heigit.ohsome.contributions.util.Utils.*;
@@ -58,51 +76,69 @@ import static org.heigit.ohsome.osm.pbf.ProtoZero.decodeMessage;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.parallel;
 
-@CommandLine.Command(name = "contributions", aliases = {"contribs"},
-        mixinStandardHelpOptions = true,
-        version = "ohsome-planet contribution 1.0.1", //TODO version should be automatically set see picocli.CommandLine.IVersionProvider
-        description = "generates parquet files")
 public class Contributions2Parquet implements Callable<Integer> {
 
-    @Option(names = {"--pbf"}, required = true)
-    private Path pbfPath;
+    private static final Logger logger = LoggerFactory.getLogger(Contributions2Parquet.class);
 
-    @Option(names = {"--output"})
-    private Path out = Path.of("out");
+    public static final boolean WRITE_PARQUET = true;
 
-    @Option(names = {"--overwrite"})
-    private boolean overwrite = false;
+    private final Path pbfPath;
+    private final Path temp;
+    private final String parquetData;
+    private final int parallel;
+    private final String changesetDbUrl;
+    private final Path countryFilePath;
+    private final Path replication;
+    private final String includeTags;
 
-    @Option(names = {"--parallel"}, description = "number of threads used for processing. Dictates the number of files which will created.")
-    private int parallel = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
 
-    @Option(names = {"--country-file"})
-    private Path countryFilePath;
-
-    @Option(names = {"--changeset-db"}, description = "full jdbc:url to changesetmd database e.g. jdbc:postgresql://HOST[:PORT]/changesets?user=USER&password=PASSWORD")
-    private String changesetDbUrl = "";
-
-    @Option(names = {"--debug"}, description = "Print debug information.")
-    private boolean debug = false;
-
-    @Option(names = {"--include-tags"}, description = "OSM keys of relations that should be built")
-    private String includeTags = "";
-
+    private final URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
+
+    public Contributions2Parquet(Path pbfPath, Path data, String parquetData, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
+        this.pbfPath = pbfPath;
+        this.temp = data.resolve("temp");
+        this.parquetData = parquetData;
+        this.parallel = parallel;
+        this.changesetDbUrl = changesetDbUrl;
+        this.countryFilePath = countryFilePath;
+        this.replicationEndpoint = replicationEndpoint;
+        this.includeTags = includeTags;
+
+        Files.createDirectories(temp);
+        if (replicationEndpoint != null) {
+            this.replication = data.resolve("replication");
+            Files.createDirectories(replication);
+        } else {
+            this.replication = null;
+        }
+
+    }
+
+    private static Changesets openChangesets(String changesetDb) {
+        if (changesetDb.startsWith("jdbc")) {
+            return new ChangesetDB(changesetDb);
+        }
+        return NOOP;
+    }
 
     @Override
     public Integer call() throws Exception {
         var pbf = OSMPbf.open(pbfPath);
-        if (debug) {
-            FileInfo.printInfo(pbf);
-        }
 
-        if (Files.exists(out)) {
-            if (overwrite) {
-                MoreFiles.deleteRecursively(out, RecursiveDeleteOption.ALLOW_INSECURE);
-            } else {
-                System.out.println("Directory already exists. To overwrite use --overwrite");
-                System.exit(0);
+        var latestState = (ReplicationState) null;
+        var server = (Server<OSMEntity>) null;
+
+        if (replicationEndpoint != null) {
+            logger.debug("using replication_endpoint {}", replicationEndpoint);
+            try {
+                server = Server.osmEntityServer(replicationEndpoint + "/");
+                latestState = server.getLatestRemoteState();
+                System.out.println("latest replication state: " + latestState);
+            } catch (IOException e) {
+                System.err.println(e.getMessage());
+                System.err.println("could not retrieve latest state for replication. " + replicationEndpoint);
+                return 1;
             }
         }
 
@@ -118,38 +154,77 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
         }
 
-        if (debug) {
-            printBlobInfo(blobTypes);
-        }
-
         countryJoiner = Optional.ofNullable(countryFilePath)
                 .map(SpatialGridJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
-        var changesetDb = Changesets.open(changesetDbUrl, parallel);
+        try (var outputLocation = OutputLocationProvider.load(parquetData);
+             var changesetDb = openChangesets(changesetDbUrl)) {
 
-        Files.createDirectories(out);
+            Files.createDirectories(temp);
 
-        RocksDB.loadLibrary();
-        var minorNodesPath = out.resolve("minorNodes");
-        processNodes(pbf, blobTypes, out, parallel, minorNodesPath, countryJoiner, changesetDb);
-        var minorWaysPath = out.resolve("minorWays");
-        try (var options = RocksUtil.defaultOptions().setCreateIfMissing(false);
-             var minorNodes = RocksDB.open(options, minorNodesPath.toString())) {
-            processWays(pbf, blobTypes, out, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb);
+            RocksDB.loadLibrary();
+            var summaryNodes = Transformer.Summary.EMPTY;
+            var summaryWays = Transformer.Summary.EMPTY;
+
+
+            var minorNodesPath = temp.resolve("minorNodes");
+
+            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
+            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+            var minorWaysPath = temp.resolve("minorWays");
+            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
+            try (var options = defaultOptions(false);
+                 var minorNodes = open(options, minorNodesPath);
+                 var optionsWithMerge = defaultOptions(true)
+                         .setMergeOperator(new StringAppendOperator((char) 0));
+                 var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
+                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+            }
+
+            var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb);
+
+            System.out.println("summaryNodes = " + summaryNodes);
+            System.out.println("summaryWays = " + summaryWays);
+            System.out.println("summaryRelations = " + summaryRelations);
+
+            var replicationTimestamp = Stream.of(summaryNodes, summaryWays, summaryRelations)
+                    .map(Transformer.Summary::replicationTimestamp)
+                    .mapToLong(Instant::getEpochSecond)
+                    .max().orElseThrow();
+            System.out.println("replicationTimestamp = " + replicationTimestamp);
+
+            if (replicationEndpoint != null) {
+                var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
+                System.out.println("replicationState = " + replicationState);
+                var replicationStateData = replicationState.toBytes(server.endpoint());
+                Files.write(replication.resolve("state.txt"), replicationStateData);
+                outputLocation.write(outputLocation.resolve("state.txt"), replicationStateData);
+            }
+
+            System.out.println("done in " + total);
+            return CommandLine.ExitCode.OK;
         }
-
-        processRelations(pbfPath, out, parallel, blobTypes, keyFilter, changesetDb);
-
-        System.out.println("done in " + total);
-        return 0;
     }
 
-    private void processRelations(Path pbfPath, Path output, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws IOException, InterruptedException, RocksDBException {
+    private Transformer.Summary processRelations(Path pbfPath, Path temp, OutputLocation output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws Exception {
+        var replicationPath = (Path) null;
+        if (replication != null) {
+            replicationPath = UpdateStore.updatePath(replication, RELATION);
+            Files.createDirectories(replicationPath);
+        }
+
         try (var ch = FileChannel.open(pbfPath, READ);
-             var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
-             var minorNodesDb = RocksDB.open(options, output.resolve("minorNodes").toString());
-             var minorWaysDb = RocksDB.open(options, output.resolve("minorWays").toString());
+             var options = defaultOptions(true);
+             var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
+             var minorWaysDb = RocksDB.open(options, temp.resolve("minorWays").toString());
+
+             var optionsWithMerge = defaultOptions(true)
+                     .setMergeOperator(new StringAppendOperator((char) 0));
+             var replicationDb = replicationPath != null ? RocksDB.open(options, replicationPath.toString()) : null;
+             var nodeRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_RELATION)) : null;
+             var wayRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.WAY_RELATION)) : null;
+
              var progress = new ProgressBarBuilder()
                      .setTaskName("process %8s".formatted(RELATION))
                      .setInitialMax(blobTypes.get(RELATION).size())
@@ -159,7 +234,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
 
-            var writers = getWriters(output, numFiles);
+            var writers = getWriters(temp, output, numFiles);
 
             var blocks = Flux.fromIterable(blobTypes.get(RELATION))
                     // read blob from file
@@ -177,25 +252,87 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
-            var canceled = new AtomicBoolean(false);
-            while (entities.hasNext() && !canceled.get()) {
-                var osh = getNextOSH(entities);
+            var replicationLatestTimestamp = 0L;
+            var replicationElementsCount = 0L;
+            var backRefsNodeRelation = new HashMap<Long, Set<Long>>();
+            var backRefsWayRelation = new HashMap<Long, Set<Long>>();
+            var outputBackRefs = new Output(4 << 10);
 
-                if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
-                    continue;
+            var canceled = new AtomicBoolean(false);
+            var batch = new ArrayList<List<OSMEntity>>(1_000);
+
+
+            while (entities.hasNext() && !canceled.get()) {
+                batch.clear();
+                backRefsNodeRelation.clear();
+                backRefsWayRelation.clear();
+                while (entities.hasNext() && !canceled.get() && batch.size() < 1_000) {
+                    var osh = getNextOSH(entities);
+                    batch.add(osh);
+                    if (replicationPath != null) {
+                        var last = (OSMRelation) osh.getLast();
+                        if (!last.visible()) {
+                            continue;
+                        }
+
+                        for (var member : last.members()) {
+                            switch (member.type()) {
+                                case NODE ->
+                                        backRefsNodeRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                case WAY ->
+                                        backRefsWayRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                default -> {
+                                }
+                            }
+                        }
+                    }
                 }
 
-                var writer = writers.take();
-                contribWorkers.execute(() -> {
-                    try {
-                        processRelation(osh, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, debug);
-                    } catch (Exception e) {
-                        canceled.set(true);
-                        System.err.println(e.getMessage());
-                    } finally {
-                        writers.add(writer);
+                if (replicationPath != null) {
+                    try (var writeOpts = new WriteOptions()) {
+                        try (var writeBatch = new WriteBatch()) {
+                            for (var entry : backRefsNodeRelation.entrySet()) {
+                                outputBackRefs.reset();
+                                var key = RocksUtil.key(entry.getKey());
+                                var set = entry.getValue();
+                                ReplicationEntity.serialize(set, outputBackRefs);
+                                writeBatch.merge(key, outputBackRefs.array());
+                            }
+                            nodeRelationBackRefs.write(writeOpts, writeBatch);
+                        }
+
+                        try (var writeBatch = new WriteBatch()) {
+                            for (var entry : backRefsWayRelation.entrySet()) {
+                                outputBackRefs.reset();
+                                var key = RocksUtil.key(entry.getKey());
+                                var set = entry.getValue();
+                                ReplicationEntity.serialize(set, outputBackRefs);
+                                writeBatch.merge(key, outputBackRefs.array());
+                            }
+                            wayRelationBackRefs.write(writeOpts, writeBatch);
+                        }
                     }
-                });
+                }
+
+                for (var osh : batch) {
+
+                    if (osh.getLast().visible()) {
+                        replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
+                        replicationElementsCount++;
+                    }
+
+                    var writer = writers.take();
+                    contribWorkers.execute(() -> {
+                        try {
+                            processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
+                        } catch (Exception e) {
+                            canceled.set(true);
+                            System.err.println(e.getMessage());
+                        } finally {
+                            writers.add(writer);
+                        }
+                    });
+                }
             }
 
             if (canceled.get()) {
@@ -205,6 +342,8 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var writer = writers.take();
                 writer.close(canceled.get());
             }
+
+            return new Transformer.Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
         }
     }
 
@@ -217,10 +356,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         return osh;
     }
 
-    private static ArrayBlockingQueue<Writer> getWriters(Path output, int numFiles) {
+    private static ArrayBlockingQueue<Writer> getWriters(Path temp, OutputLocation output, int numFiles) {
         var writers = new ArrayBlockingQueue<Writer>(numFiles);
         for (var i = 0; i < numFiles; i++) {
-            writers.add(new Writer(i, RELATION, output, Contributions2Parquet::relationParquetConfig));
+            writers.add(new Writer(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
         }
         return writers;
     }
@@ -230,8 +369,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(List<OSMEntity> entities, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, boolean debug) throws Exception {
-        var id = entities.getFirst().id();
+    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
@@ -250,49 +388,57 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         var minorWays = RocksMap.get(minorWaysDb, minorMemberIds.get(WAY), MinorWay::deserialize);
         minorWays.values().stream()
-                .<OSMEntity.OSMWay>mapMulti(Iterable::forEach)
-                .forEach(osm -> {
-                    minorNodeIds.addAll(osm.refs());
-                    changesetIds.add(osm.changeset());
-                });
+                .<OSMWay>mapMulti(Iterable::forEach)
+                .map(OSMWay::refs)
+                .forEach(minorNodeIds::addAll);
 
         var minorNodes = RocksMap.get(minorNodesDb, minorNodeIds, MinorNode::deserialize);
-        minorNodes.values().stream()
-                .<OSMEntity.OSMNode>mapMulti(Iterable::forEach)
-                .map(OSMEntity.OSMNode::changeset)
-                .forEach(changesetIds::add);
+
+        {
+            var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
+            var edits = 0;
+            var minorVersion = 0;
+            var before = (Contribution) null;
+            while (contributions.hasNext()) {
+                var contrib = contributions.next();
+                edits++;
+                changesetIds.add(contrib.changeset());
+                var entity = contrib.entity();
+                if (before == null || entity.version() != before.entity().version()) {
+                    minorVersion = 0;
+                } else {
+                    minorVersion++;
+                }
+                before = contrib;
+            }
+
+            if (replicationDb != null) {
+                if (osh.getLast().visible()) {
+                    var last = osh.getLast().withMinorAndEdits(minorVersion, edits);
+
+                    var replicationOutput = new Output(4 << 10);
+                    replicationOutput.reset();
+                    ReplicationEntity.serialize(last.withMinorAndEdits(minorVersion, edits), replicationOutput);
+                    var key = RocksUtil.key(last.id());
+                    replicationDb.put(key, replicationOutput.array());
+                }
+            }
+
+        }
+
+        if (hasNoTags(osh) || filterOut(osh, keyFilter)) {
+            return;
+        }
 
         var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
-
-        var time = System.nanoTime();
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
         var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
-        var versions = 0;
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
                 writer.write(contrib.get());
-                versions++;
             }
         }
-
-        if (debug) {
-            writer.log("%s,%s,%s".formatted(id, versions, System.nanoTime() - time));
-        }
-    }
-
-    private void printBlobInfo(Map<OSMType, List<BlobHeader>> blobTypes) {
-        System.out.println("Blobs by type:");
-        System.out.println("  Nodes: " + blobTypes.get(OSMType.NODE).size() +
-                           " | Ways: " + blobTypes.get(OSMType.WAY).size() +
-                           " | Relations: " + blobTypes.get(OSMType.RELATION).size()
-        );
-    }
-
-    public static void main(String[] args) {
-        var main = new Contributions2Parquet();
-        var exit = new CommandLine(main).execute(args);
-        System.exit(exit);
     }
 
 }

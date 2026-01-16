@@ -1,6 +1,7 @@
 package org.heigit.ohsome.util.io;
 
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class FastByteArrayOutputStream extends OutputStream {
@@ -55,8 +56,16 @@ public class FastByteArrayOutputStream extends OutputStream {
         return array;
     }
 
+    public int size() {
+        return position;
+    }
+
     public byte[] array() {
         return Arrays.copyOf(array, position);
+    }
+
+    public ByteBuffer toByteBuffer() {
+        return ByteBuffer.wrap(array, 0, position);
     }
 }
 

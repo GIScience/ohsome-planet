@@ -1,25 +1,28 @@
 package org.heigit.ohsome.contributions;
 
 import com.google.common.collect.Streams;
+import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.concurrent.Callable;
+import java.util.List;
+import java.util.Map;
 
-@Command(name = "fileinfo",
-        description = "print header for osm pbf file")
-public class FileInfo implements Callable<Integer> {
-    @Option(names = {"--pbf"}, required = true)
-    private Path path;
+import static org.heigit.ohsome.contributions.util.Utils.getBlobHeaders;
 
-    @Override
-    public Integer call() throws Exception {
+public class FileInfo {
+
+
+    public static void printInfo(Path path) throws IOException {
         var pbf = OSMPbf.open(path);
         printInfo(pbf);
-        return 0;
+
+        var blobHeaders = getBlobHeaders(pbf);
+        var blobTypes = pbf.blobsByType(blobHeaders);
+        printBlobInfo(blobTypes);
     }
 
     public static void printInfo(OSMPbf pbf) {
@@ -47,5 +50,13 @@ public class FileInfo implements Callable<Integer> {
         Streams.concat(header.requiredFeatures().stream(), header.optionalFeatures().stream())
                 .forEach(feature -> System.out.println("  - " + feature));
 
+    }
+
+    private static void printBlobInfo(Map<OSMType, List<BlobHeader>> blobTypes) {
+        System.out.println("Blobs by type:");
+        System.out.println("  Nodes: " + blobTypes.get(OSMType.NODE).size() +
+                           " | Ways: " + blobTypes.get(OSMType.WAY).size() +
+                           " | Relations: " + blobTypes.get(OSMType.RELATION).size()
+        );
     }
 }

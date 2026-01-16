@@ -3,6 +3,7 @@ package org.heigit.ohsome.osm.changesets;
 import java.time.Instant;
 import java.util.Map;
 
+@Deprecated
 public record Changeset(long id,
                         Instant created,
                         Instant closed,

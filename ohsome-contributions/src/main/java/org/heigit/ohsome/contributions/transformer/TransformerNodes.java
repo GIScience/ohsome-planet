@@ -4,7 +4,6 @@ import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsNode;
 import org.heigit.ohsome.contributions.minor.SstWriter;
-import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Progress;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
@@ -13,13 +12,14 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.BlockReader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
-import org.rocksdb.EnvOptions;
+import org.heigit.ohsome.output.OutputLocation;
+import org.heigit.ohsome.replication.ReplicationEntity;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.SstFileWriter;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -27,53 +27,45 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterators.peekingIterator;
+import static org.heigit.ohsome.contributions.Contributions2Parquet.WRITE_PARQUET;
 import static org.heigit.ohsome.contributions.util.Utils.fetchChangesets;
 import static org.heigit.ohsome.contributions.util.Utils.hasNoTags;
 import static org.heigit.ohsome.osm.OSMType.NODE;
 
 public class TransformerNodes extends Transformer {
-    private final Path sstDirectory;
 
-
-    public TransformerNodes(OSMPbf pbf, Path out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb) {
-        super(NODE, pbf, out, parallel, countryJoiner, changesetDb);
-        this.sstDirectory = sstDirectory;
+    public TransformerNodes(OSMPbf pbf, Path temp, OutputLocation out, int parallel, Path sstDirectory, SpatialJoiner countryJoiner, Changesets changesetDb, Path sstReplicationPath) {
+        super(NODE, pbf, temp, out, parallel, countryJoiner, changesetDb, sstDirectory, sstReplicationPath);
     }
 
-    public static void processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb) throws IOException, RocksDBException {
+    public static Summary processNodes(OSMPbf pbf, Map<OSMType, List<BlobHeader>> blobsByType, Path temp, OutputLocation out, int parallel, Path rocksDbPath, SpatialJoiner countryJoiner, Changesets changesetDb, Path replicationPath) throws IOException, RocksDBException {
         Files.createDirectories(rocksDbPath);
-        var transformer = new TransformerNodes(pbf, out, parallel, rocksDbPath.resolve("ingest"), countryJoiner, changesetDb);
-        transformer.process(blobsByType);
+        if (replicationPath != null) {
+            Files.createDirectories(replicationPath);
+        }
+
+        var transformer = new TransformerNodes(pbf, temp, out, parallel, rocksDbPath, countryJoiner, changesetDb, replicationPath);
+        var summary = transformer.process(blobsByType);
+
         moveSstToRocksDb(rocksDbPath);
+        moveSstToRocksDb(replicationPath);
+
+        return summary;
     }
 
 
     @Override
-    protected void process(Processor processor, Progress progress) throws Exception {
-        try (var writer = openWriter(outputDir, osmType, builder -> {
-        })) {
-            process(processor, progress, writer);
-        }
-    }
+    protected Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+        var replicationLatestTimestamp = 0L;
+        var replicationElementsCount = 0L;
 
-    protected void process(Processor processor, Progress progress, Parquet writer) throws Exception {
-        try (var options = RocksUtil.defaultOptions().setCreateIfMissing(true);
-             var env = new EnvOptions();
-             var sstWriter = new SstWriter(
-                     sstDirectory.resolve("nodes-%03d.sst".formatted(processor.id())),
-                     new SstFileWriter(env, options))) {
-            process(processor, progress, writer, sstWriter);
-        }
-
-    }
-
-    private void process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter) throws Exception {
         var ch = processor.ch();
         var blobs = processor.blobs();
         var offset = processor.offset();
         var limit = processor.limit();
         var entities = peekingIterator(BlockReader.readBlock(ch, blobs.get(offset)).entities().iterator());
         var osm = entities.peek();
+
         if (processor.isWithHistory() && offset > 0 && osm.version() > 1) {
             while (entities.hasNext() && entities.peek().id() == osm.id()) {
                 entities.next();
@@ -115,6 +107,15 @@ public class TransformerNodes extends Transformer {
 
                 sstWriter.writeMinorNode(osh);
 
+                if (replicationSSTWriter != null) {
+                    var last = osh.getLast();
+                    if (last.visible()) {
+                        replicationLatestTimestamp = Math.max(last.timestamp().getEpochSecond(), replicationLatestTimestamp);
+                        replicationElementsCount++;
+                        replicationSSTWriter.write(last.id(), output -> ReplicationEntity.serialize(last, output));
+                    }
+                }
+
                 if (hasNoTags(osh)) {
                     continue;
                 }
@@ -122,25 +123,28 @@ public class TransformerNodes extends Transformer {
                 batch.add(osh);
             }
 
-            var changesetIds = batch.stream()
-                    .map(ContributionsNode::new)
-                    .<Contribution>mapMulti(Iterator::forEachRemaining)
-                    .map(Contribution::changeset)
-                    .collect(Collectors.toSet());
+            if (WRITE_PARQUET) {
+                var changesetIds = batch.stream()
+                        .map(ContributionsNode::new)
+                        .<Contribution>mapMulti(Iterator::forEachRemaining)
+                        .map(Contribution::changeset)
+                        .collect(Collectors.toSet());
 
-            var changesets = fetchChangesets(changesetIds, changesetDb);
+                var changesets = fetchChangesets(changesetIds, changesetDb);
 
-            for (var osh : batch) {
-                var contributions = new ContributionsNode(osh);
-                var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
+                for (var osh : batch) {
+                    var contributions = new ContributionsNode(osh);
+                    var converter = new ContributionsAvroConverter(contributions, changesets::get, countryJoiner);
 
-                while (converter.hasNext()) {
-                    var contrib = converter.next();
-                    if(contrib.isPresent()) {
-                        writer.write(processor.id(), contrib.get());
+                    while (converter.hasNext()) {
+                        var contrib = converter.next();
+                        if (contrib.isPresent()) {
+                            writer.write(processor.id(), contrib.get());
+                        }
                     }
                 }
             }
         }
+        return new Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
     }
 }

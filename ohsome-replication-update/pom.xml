@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.heigit.ohsome</groupId>
+        <artifactId>ohsome-planet</artifactId>
+        <version>1.1.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>ohsome-replication-update</artifactId>
+    <version>1.1.1-SNAPSHOT</version>
+    <properties>
+        <mockito.version>5.19.0</mockito.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>osm-changesets</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-replication</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>osm-xml</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-changesets</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.heigit.ohsome</groupId>
+            <artifactId>ohsome-contributions</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-instrumentation-jvm</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-exporter-httpserver</artifactId>
+        </dependency>
+
+        <!-- TEST Dependencies -->
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+<!--            <plugin>-->
+<!--                <groupId>org.apache.avro</groupId>-->
+<!--                <artifactId>avro-maven-plugin</artifactId>-->
+<!--                <version>1.12.0</version>-->
+<!--                <configuration>-->
+<!--                    <imports>-->
+<!--                        <import>${project.basedir}/../ohsome-contributions/src/main/avro/contrib.avsc</import>-->
+<!--                    </imports>-->
+<!--                </configuration>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <phase>generate-sources</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>schema</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
+        </plugins>
+    </build>
+
+</project>

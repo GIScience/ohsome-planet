@@ -5,6 +5,7 @@ COPY .mvn .mvn
 COPY ohsome-contributions/pom.xml ohsome-contributions/pom.xml
 COPY ohsome-parquet/pom.xml ohsome-parquet/pom.xml
 COPY ohsome-planet-cli/pom.xml ohsome-planet-cli/pom.xml
+COPY ohsome-replication/pom.xml ohsome-replication/pom.xml
 COPY osm-changesets/pom.xml osm-changesets/pom.xml
 COPY osm-geometry/pom.xml osm-geometry/pom.xml
 COPY osm-pbf/pom.xml osm-pbf/pom.xml
@@ -16,6 +17,7 @@ RUN ./mvnw dependency:go-offline
 COPY ohsome-contributions/src ohsome-contributions/src
 COPY ohsome-parquet/src ohsome-parquet/src
 COPY ohsome-planet-cli/src ohsome-planet-cli/src
+COPY ohsome-replication/src ohsome-replication/src
 COPY osm-changesets/src osm-changesets/src
 COPY osm-geometry/src osm-geometry/src
 COPY osm-pbf/src osm-pbf/src
@@ -31,7 +33,10 @@ RUN $JAVA_HOME/bin/jlink \
     --add-modules java.base \
     --add-modules java.logging \
     --add-modules java.management \
+    --add-modules java.naming \
+    --add-modules java.sql \
     --add-modules java.xml \
+    --add-modules jdk.crypto.ec \
     --add-modules jdk.unsupported \
     --strip-debug \
     --no-man-pages \

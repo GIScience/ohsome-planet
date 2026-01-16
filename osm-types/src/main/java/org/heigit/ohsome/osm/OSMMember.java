@@ -5,6 +5,11 @@ public record OSMMember(OSMId osmId, String role) {
         this(new OSMId(type, id), role);
     }
 
+    // todo: for ways only?
+    public OSMMember(long id) {
+        this(new OSMId(OSMType.NODE, id), "");
+    }
+
     public OSMType type(){
         return osmId.type();
     }

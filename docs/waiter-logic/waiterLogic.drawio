@@ -1,0 +1,96 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:141.0) Gecko/20100101 Firefox/141.0" version="28.0.7">
+  <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
+    <mxGraphModel dx="1667" dy="938" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-0" />
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-1" parent="WIyWlLk6GJQsqaUBKTNV-0" />
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-2" value="" style="rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="WIyWlLk6GJQsqaUBKTNV-3" target="WIyWlLk6GJQsqaUBKTNV-6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-3" value="getRemoteChangesetState" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#fff2cc;strokeColor=#d6b656;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
+          <mxGeometry x="160" y="80" width="250" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-4" value="No" style="rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="WIyWlLk6GJQsqaUBKTNV-6" target="wfr8JfdILnQaX0h4WJyq-0" edge="1">
+          <mxGeometry y="20" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="285" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-5" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;" parent="WIyWlLk6GJQsqaUBKTNV-1" source="WIyWlLk6GJQsqaUBKTNV-6" target="WIyWlLk6GJQsqaUBKTNV-7" edge="1">
+          <mxGeometry x="-0.1111" y="5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-6" value="&lt;div&gt;remoteChangesetState&lt;/div&gt;&lt;div&gt;&amp;gt; lastChangesetState&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;shadow=0;fontFamily=Helvetica;fontSize=12;align=center;strokeWidth=1;spacing=6;spacingTop=-4;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
+          <mxGeometry x="190" y="190" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="WIyWlLk6GJQsqaUBKTNV-7" value="return false" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#d5e8d4;strokeColor=#82b366;" parent="WIyWlLk6GJQsqaUBKTNV-1" vertex="1">
+          <mxGeometry x="470" y="225" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-0" value="&lt;div&gt;now less than 80 seconds&amp;nbsp;&lt;/div&gt;&lt;div&gt;after remoteChangesetState&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;shadow=0;fontFamily=Helvetica;fontSize=12;align=center;strokeWidth=1;spacing=6;spacingTop=-4;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="190" y="350" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-2" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-0" target="wfr8JfdILnQaX0h4WJyq-3">
+          <mxGeometry x="-0.1111" y="5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="430" y="404.65999999999997" as="sourcePoint" />
+            <mxPoint x="470" y="405" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-3" value="&lt;div&gt;Wait until now is 80 seconds after lastChangesetState&lt;/div&gt;&lt;div&gt;return true&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="470" y="372.5" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-4" value="No, its been longer" style="rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-0" target="wfr8JfdILnQaX0h4WJyq-5">
+          <mxGeometry x="0.0108" y="55" relative="1" as="geometry">
+            <mxPoint y="-6" as="offset" />
+            <mxPoint x="284.65999999999997" y="480" as="sourcePoint" />
+            <mxPoint x="285" y="510" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-5" value="&lt;div&gt;now less than 80 seconds&amp;nbsp;&lt;/div&gt;&lt;div&gt;after remoteContributionState&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;shadow=0;fontFamily=Helvetica;fontSize=12;align=center;strokeWidth=1;spacing=6;spacingTop=-4;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="190" y="520" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-7" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-5" target="wfr8JfdILnQaX0h4WJyq-8">
+          <mxGeometry x="-0.1111" y="5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="420" y="574.66" as="sourcePoint" />
+            <mxPoint x="470" y="575" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-8" value="&lt;div&gt;Wait until now is 80 seconds after lastContributionState&lt;/div&gt;&lt;div&gt;return true&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="470" y="542.5" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-9" value="No, its been longer" style="rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-5" target="wfr8JfdILnQaX0h4WJyq-11">
+          <mxGeometry x="0.0108" y="55" relative="1" as="geometry">
+            <mxPoint y="-6" as="offset" />
+            <mxPoint x="284.65999999999997" y="650" as="sourcePoint" />
+            <mxPoint x="285" y="690" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-10" value="&lt;div&gt;set already_waited to true&lt;/div&gt;&lt;div&gt;Wait one minute return true&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="225" y="840" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-11" value="&lt;div&gt;first time here since&amp;nbsp;&lt;/div&gt;&lt;div&gt;last refresh, or&amp;nbsp;&lt;/div&gt;&lt;div&gt;already_waited&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;shadow=0;fontFamily=Helvetica;fontSize=12;align=center;strokeWidth=1;spacing=6;spacingTop=-4;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="190" y="680" width="190" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-13" value="Yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-11" target="wfr8JfdILnQaX0h4WJyq-14">
+          <mxGeometry x="-0.1111" y="5" relative="1" as="geometry">
+            <mxPoint as="offset" />
+            <mxPoint x="410" y="734.66" as="sourcePoint" />
+            <mxPoint x="470" y="735" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-14" value="&lt;div&gt;set already_waited to false&lt;/div&gt;&lt;div&gt;return false&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=12;glass=0;strokeWidth=1;shadow=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="470" y="702.5" width="120" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="wfr8JfdILnQaX0h4WJyq-16" value="No, its been longer" style="rounded=0;html=1;jettySize=auto;orthogonalLoop=1;fontSize=11;endArrow=block;endFill=0;endSize=8;strokeWidth=1;shadow=0;labelBackgroundColor=none;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="wfr8JfdILnQaX0h4WJyq-11" target="wfr8JfdILnQaX0h4WJyq-10">
+          <mxGeometry x="0.0108" y="55" relative="1" as="geometry">
+            <mxPoint y="-6" as="offset" />
+            <mxPoint x="330" y="820" as="sourcePoint" />
+            <mxPoint x="285" y="850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

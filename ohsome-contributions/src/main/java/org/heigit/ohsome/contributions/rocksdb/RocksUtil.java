@@ -2,8 +2,10 @@ package org.heigit.ohsome.contributions.rocksdb;
 
 import org.rocksdb.*;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Path;
 import java.util.function.Consumer;
 
 import static org.rocksdb.CompactionPriority.MinOverlappingRatio;
@@ -21,6 +23,11 @@ public class RocksUtil {
     public static Options defaultOptions() {
         return defaultOptions((Cache)null);
     }
+
+    public static Options defaultOptions(boolean createIfMissing) {
+        return defaultOptions().setCreateIfMissing(createIfMissing);
+    }
+
     public static Options defaultOptions(Cache blockCache) {
         var options = new Options();
         defaultOptions(options, blockCache);
@@ -100,13 +107,14 @@ public class RocksUtil {
         return writeOptions;
     }
 
-    public static long longFromByteArray(byte[] a) {
-        return ByteBuffer.wrap(a).order(ByteOrder.LITTLE_ENDIAN).getLong(0);
+
+    public static byte[] key(long key) {
+        return keyBuffer(key).array();
     }
-
-    public static byte[] longToByteArray(long l) {
-        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(0, l).array();
-
+    public static ByteBuffer keyBuffer(long key) {
+        return ByteBuffer.allocate(Long.BYTES).order(ByteOrder.BIG_ENDIAN).putLong(key);
     }
-
+    public static RocksDB open(Options options, Path path) throws IOException, RocksDBException {
+        return RocksDB.open(options, path.toString());
+    }
 }

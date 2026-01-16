@@ -159,12 +159,6 @@
             ],
             "default": null,
             "doc": "editing software used to upload this OSM changeset, derived from the changeset tag key `created_by`"
-          },
-          {
-            "name": "numChanges",
-            "type": "int",
-            "default": -1,
-            "doc": "number of edits contained by this OSM changeset"
           }
         ]
       }
@@ -293,6 +287,12 @@
       "doc": "`CREATION`, `DELETION`, `TAG`, `GEOMETRY`, `TAG_GEOMETRY`"
     },
     {
+      "name": "refs_count",
+      "type": "int",
+      "default": 0,
+      "doc": "numbers of node references. Always 0 for types `node`,`relation`."
+    },
+    {
       "name": "refs",
       "type": [
         "null",
@@ -303,6 +303,12 @@
       ],
       "default": null,
       "doc": "only used for `ways`, list of OSM node id references that are part of this `way`"
+    },
+    {
+      "name": "members_count",
+      "type": "int",
+      "default": 0,
+      "doc": "numbers of relations members. Always 0 for types `node`,`way`."
     },
     {
       "name": "members",
@@ -323,6 +329,15 @@
                 "name": "id",
                 "type": "long",
                 "doc": "identifier of the OSM element"
+              },
+              {
+                "name": "timestamp",
+                "type": {
+                  "type": "long",
+                  "logicalType": "timestamp-micros",
+                  "adjust-to-utc": true
+                },
+                "doc": "timstamp when this version of the OSM feature was uploaded, adjusted to UTC"
               },
               {
                 "name": "role",
