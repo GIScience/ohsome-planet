@@ -203,6 +203,8 @@ For example, `--size=60` will update 60 files (usually 60 minutes) and then stop
 
 ## Debug
 
+> Utility commands for debugging purposes.
+
 ### PBF file information
 
 You can use `debug fileinfo` to print the header for an OSM .pbf file.

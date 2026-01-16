@@ -38,6 +38,9 @@ There are three main modes to run ohsome-planet.
 3. **Replication**: OSM Diffs .osc --> Parquet / PostgreSQL
 
 ### Contributions (Parquet)
+
+> Transform OSM (history/latest) .pbf file into parquet format.
+
 You can download the [full latest or history planet](https://planet.openstreetmap.org/pbf/full-history/)
 or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
@@ -83,6 +86,8 @@ The number of threads (`--parallel` parameter) defines the number of files which
 
 ### Changesets (PostgreSQL)
 
+> Import OSM changesets .bz2 file to PostgreSQL.
+
 First, create an empty PostgreSQL database with PostGIS extension or provide a connection to an existing database. For instance, 
 you can set it up like this.
 
@@ -121,6 +126,9 @@ The parameters `--create-tables` and `--overwrite` are optional. Find more detai
 
 
 ### Replications (Parquet / PostgreSQL)
+
+> Transform OSM replication .osc files into parquet format. 
+> Keep changeset PostgreSQL database up-to-date.*
 
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
 [OSM Planet server](https://planet.openstreetmap.org/replication/).

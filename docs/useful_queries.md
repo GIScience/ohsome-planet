@@ -1,7 +1,24 @@
 # Useful DuckDB Queries
 
-## Extract relation member geometries
+## OSM at specific snapshot timestamp
 
+Here we extract all OSM elements as they were visible on OSM as of `2020-01-01`.
+
+```sql
+SELECT
+  osm_type,
+  osm_id,
+  osm_version,
+  tags,
+  geometry
+FROM read_parquet('contributions/**/*.parquet')  -- include latest and history
+WHERE
+  valid_from <= '2020-01-01'
+  AND valid_to > '2020-01-01'
+;
+```
+
+## Extract relation member geometries
 ```
 COPY (
 	select
