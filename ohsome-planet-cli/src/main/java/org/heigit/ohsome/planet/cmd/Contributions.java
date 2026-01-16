@@ -28,6 +28,8 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 )
 public class Contributions implements Callable<Integer> {
 
+    private static final String OHSOME_PLANET_METRICS_PORT = "OHSOME_PLANET_METRICS_PORT";
+
     @CommandLine.Option(names = {"--pbf"}, required = true,
             paramLabel = "path/to/osm.pbf",
             description = "OSM (history/latest) .pbf file path.")
@@ -99,10 +101,6 @@ public class Contributions implements Callable<Integer> {
                     """)
     private String includeTags = "";
 
-    @CommandLine.Option(names = {"--metrics-port"}, description = """
-            """)
-    private Integer metricsPort;
-
     @CommandLine.Option(names = {"-v"},
             description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
@@ -130,8 +128,9 @@ public class Contributions implements Callable<Integer> {
             parquetData = data.resolve("contributions").toString();
         }
 
+        var metricsPort = System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT));
         try (var ignored = (metricsPort != null ) ?
-                HTTPServer.builder().port(metricsPort).buildAndStart() : null ) {
+                HTTPServer.builder().port(Integer.parseInt(metricsPort)).buildAndStart() : null ) {
 
             JvmMetrics.builder().register();
 

@@ -26,6 +26,8 @@ import java.util.concurrent.Callable;
 )
 public class Replications implements Callable<Integer> {
 
+    private static final String OHSOME_PLANET_METRICS_PORT = "OHSOME_PLANET_METRICS_PORT";
+
     public static class ContributionParameters {
         @CommandLine.Option(names = {"--country-file"},
                 paramLabel = "path/to/countries.csv",
@@ -123,10 +125,6 @@ public class Replications implements Callable<Integer> {
             """)
     private boolean[] verbosity;
 
-    @Option(names = {"--metrics-port"}, description = """
-            """)
-    private Integer metricsPort;
-
     @CommandLine.ArgGroup(multiplicity = "1")
     private OptionalContributions optionalContributions;
 
@@ -143,8 +141,9 @@ public class Replications implements Callable<Integer> {
             throw new InvalidParameterException("Either just-contributions or just-changesets can be specified");
         }
 
+        var metricsPort = System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT));
         try (var ignored = (metricsPort != null ) ?
-                HTTPServer.builder().port(metricsPort).buildAndStart() : null ) {
+                HTTPServer.builder().port(Integer.parseInt(metricsPort)).buildAndStart() : null ) {
 
             JvmMetrics.builder().register();
 
