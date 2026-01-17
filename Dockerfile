@@ -1,6 +1,6 @@
 FROM eclipse-temurin:21-jdk-alpine AS app-builder
 
-COPY mvnw pom.xml ./
+COPY .git mvnw pom.xml ./
 COPY .mvn .mvn
 COPY ohsome-contributions/pom.xml ohsome-contributions/pom.xml
 COPY ohsome-parquet/pom.xml ohsome-parquet/pom.xml
