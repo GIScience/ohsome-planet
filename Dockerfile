@@ -1,6 +1,6 @@
 FROM eclipse-temurin:21-jdk-alpine AS app-builder
 
-COPY .git mvnw pom.xml ./
+COPY mvnw pom.xml ./
 COPY .mvn .mvn
 COPY ohsome-contributions/pom.xml ohsome-contributions/pom.xml
 COPY ohsome-parquet/pom.xml ohsome-parquet/pom.xml
@@ -18,6 +18,7 @@ COPY osm-xml/pom.xml osm-xml/pom.xml
 
 RUN ./mvnw dependency:go-offline
 
+COPY .git ./
 COPY ohsome-contributions/src ohsome-contributions/src
 COPY ohsome-parquet/src ohsome-parquet/src
 COPY ohsome-planet-cli/src ohsome-planet-cli/src
