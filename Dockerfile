@@ -1,4 +1,6 @@
 FROM eclipse-temurin:21-jdk-alpine AS app-builder
+RUN apk add --no-cache git
+CMD ["git","--version"]
 
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
