@@ -68,8 +68,8 @@ public class ReplicationManager {
                             contributionManager.updateToRemoteState(remoteChangesetState.getTimestamp(), shutdownInitiated);
                         } else {
                             contributionManager.updateToRemoteState(shutdownInitiated);
+                            waiter.resetRetry();
                         }
-                        waiter.resetRetry();
                     }
 
                     if (continuous) waitForReplication(remoteChangesetState, remoteContributionState, waiter);
