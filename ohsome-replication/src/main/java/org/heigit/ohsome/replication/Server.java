@@ -1,6 +1,5 @@
 package org.heigit.ohsome.replication;
 
-import com.nimbusds.jose.util.Pair;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.xml.osc.OscParser;
 import org.slf4j.Logger;
@@ -193,10 +192,10 @@ public class Server<T> {
     public ReplicationState findStartStateByTimestamp(Instant targetTimestamp, ReplicationState remoteState) throws IOException {
         var surroundingStates = getReplicationStatesAroundTargetTimestamp(remoteState, targetTimestamp);
 
-        logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.getLeft(), surroundingStates.getRight());
+        logger.debug("Surrounding states for target Timestamp {}: Lower: {}, Upper {}", targetTimestamp, surroundingStates.left(), surroundingStates.right());
 
-        var lower = surroundingStates.getLeft();
-        var upper = surroundingStates.getRight();
+        var lower = surroundingStates.left();
+        var upper = surroundingStates.right();
 
         if (lower.getTimestamp() == targetTimestamp) {
             return lower;
@@ -220,8 +219,9 @@ public class Server<T> {
         }
     }
 
+    record Pair(ReplicationState left, ReplicationState right) {}
 
-    private Pair<ReplicationState, ReplicationState> getReplicationStatesAroundTargetTimestamp(
+    private Pair getReplicationStatesAroundTargetTimestamp(
             ReplicationState upperReplication,
             Instant targetTimestamp
     ) {
@@ -230,15 +230,15 @@ public class Server<T> {
 
         if (lowerReplication.getTimestamp().isBefore(targetTimestamp)) {
             logger.debug("Lower bound found: {}", lowerReplication);
-            return Pair.of(lowerReplication, upperReplication);
+            return new  Pair(lowerReplication, upperReplication);
         } else {
             if (lowerReplication.getSequenceNumber() == 0) {
                 logger.warn("Server Replication {}, starts after given timestamp", targetUrl);
-                return Pair.of(lowerReplication, upperReplication);
+                return new Pair(lowerReplication, upperReplication);
             }
             if (lowerReplication.getSequenceNumber() + 1 >= upperReplication.getSequenceNumber()) {
                 logger.debug("Perfect fit found already!");
-                return Pair.of(lowerReplication, upperReplication);
+                return new Pair(lowerReplication, upperReplication);
             }
             return getReplicationStatesAroundTargetTimestamp(lowerReplication, targetTimestamp);
         }

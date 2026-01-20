@@ -41,7 +41,7 @@
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>6.2.1</version>
+            <version>7.0.2</version>
         </dependency>
 
         <dependency>
@@ -53,7 +53,6 @@
         <dependency>
             <groupId>me.tongfei</groupId>
             <artifactId>progressbar</artifactId>
-            <version>0.10.1</version>
         </dependency>
 
         <dependency>

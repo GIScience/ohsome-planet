@@ -77,6 +77,12 @@
             </dependency>
 
             <dependency>
+                <groupId>me.tongfei</groupId>
+                <artifactId>progressbar</artifactId>
+                <version>0.10.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.prometheus</groupId>
                 <artifactId>prometheus-metrics-core</artifactId>
                 <version>${prometheus.version}</version>

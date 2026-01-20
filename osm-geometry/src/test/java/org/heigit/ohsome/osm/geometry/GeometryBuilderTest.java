@@ -4,15 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
-import org.heigit.ohsome.osm.geometry.oshdb.OSHDBGeometryBuilder;
 import org.heigit.ohsome.osm.xml.OSMXmlIterator;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.locationtech.jts.geom.Coordinate;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -23,14 +20,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class GeometryBuilderTest {
   private static Stream<String> testCases(String subdir) {
-    File file = new File(GeometryBuilderTest.class.getResource("/" + subdir).getPath());
-    String[] directories = file.list(new FilenameFilter() {
-      @Override
-      public boolean accept(File current, String name) {
-        return new File(current, name).isDirectory();
-      }
-    });
-
+    var resource = GeometryBuilderTest.class.getResource("/" + subdir);
+    if  (resource == null) {
+      return Stream.empty();
+    }
+    var file = new File(resource.getPath());
+    var directories = file.list((current, name) -> new File(current, name).isDirectory());
+    if (directories == null || directories.length == 0) {
+      return Stream.empty();
+    }
     return Arrays.stream(directories).sorted().map(name -> subdir + "/" + name);
   }
 
@@ -52,13 +50,6 @@ class GeometryBuilderTest {
   @MethodSource("testCasesMod")
   void test7xxMod(String testId) throws Exception {
     test7xx(testId, GeometryBuilder::buildMultiPolygonLegacy);
-  }
-
-  @Disabled
-  @ParameterizedTest
-  @MethodSource("testCasesOsm")
-  void test7xxOSHDB(String testId) throws Exception {
-    test7xx(testId, OSHDBGeometryBuilder::buildMultiPolygon);
   }
 
   void test7xx(String testId, Builder builder) throws Exception {

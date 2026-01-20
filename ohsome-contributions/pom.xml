@@ -62,13 +62,12 @@
         <dependency>
             <groupId>org.rocksdb</groupId>
             <artifactId>rocksdbjni</artifactId>
-            <version>9.7.3</version>
+            <version>10.2.1</version>
         </dependency>
 
         <dependency>
             <groupId>me.tongfei</groupId>
             <artifactId>progressbar</artifactId>
-            <version>0.10.1</version>
         </dependency>
 
         <dependency>
@@ -95,7 +94,7 @@
         <dependency>
             <groupId>org.openstreetmap.pbf</groupId>
             <artifactId>osmpbf</artifactId>
-            <version>1.5.0</version>
+            <version>1.6.1</version>
             <scope>test</scope>
         </dependency>
 
@@ -118,6 +117,5 @@
             </plugin>
         </plugins>
     </build>
-
 
 </project>
