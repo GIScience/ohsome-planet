@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions.transformer;
 
+import org.heigit.ohsome.contributions.ContribWriter;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
 import org.heigit.ohsome.contributions.contrib.ContributionsWay;
@@ -69,7 +70,7 @@ public class TransformerWays extends Transformer {
 
 
     @Override
-    protected Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
+    protected Summary process(Processor processor, Progress progress, ContribWriter writer, SstWriter sstWriter, SstWriter replicationSSTWriter) throws Exception {
         var replicationLatestTimestamp = 0L;
         var replicationElementsCount = 0L;
 
@@ -198,7 +199,7 @@ public class TransformerWays extends Transformer {
                     while (converter.hasNext()) {
                         var contrib = converter.next();
                         if (contrib.isPresent()) {
-                            writer.write(processor.id(), contrib.get());
+                            writer.write(contrib.get());
                         }
                     }
                 }
