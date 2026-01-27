@@ -5,15 +5,15 @@
 [![LICENSE](https://img.shields.io/github/license/GIScience/ohsome-planet)](LICENSE)
 [![status: active](https://github.com/GIScience/badges/raw/master/status/active.svg)](https://github.com/GIScience/badges#active)
 
-The ohsome-planet tool can be used to transform OSM (history) PBF files and OSM replication OSC files into Parquet format with native GEO support.
-Second, you can use it to turn an OSM changeset file (osm.bz2) into a PostgreSQL database table and keep it up-to-date with the OSM planet replication changeset files.
+The ohsome-planet tool can be used to:
+1. Transform OSM (history) PBF files into Parquet format with native GEO support.
+2. Turn an OSM changeset file (`osm.bz2`) into a PostgreSQL database table.
+3. Keep both datasets up-to-date by ingesting OSM planet replication files.
 
-It creates the actual OSM elements geometries for nodes, ways and relations.
-The tool can join information from OSM changesets such as hashtags, OSM editor or usernames.
-You can join country codes to every OSM element by passing a boundary dataset as additional input.
+ohsome-planet creates the actual OSM elements geometries for nodes, ways and relations.
+It enriches each element with changeset data such as hastags, OSM editor or username to the elements. Additionaly it is possibly to add country codes to each element by providing a boundary dataset.
 
-You can use the ohsome-planet data to perform a wide range of geospatial analyses, e.g. using DuckDB, GeoPandas or QGIS.
-Display the data directly on a map and start playing around!
+The output of ohsome-planet can be used to perform a wide range of geospatial analyses with tools such as DuckDB, Python GeoPandas or QGIS. Its also possible to display the data directly on a map and explore it.
 
 
 ## Installation
@@ -31,18 +31,18 @@ cd ohsome-planet
 
 ## Usage
 
-There are three main modes to run ohsome-planet.
+There are three modes to run ohsome-planet.
 
-1. **Contributions**: OSM .pbf --> Parquet
-2. **Changesets**: OSM Changesets .bz2 --> PostgreSQL
-3. **Replication**: OSM Diffs .osc --> Parquet / PostgreSQL
+1. **Contributions**: OSM Extract (`.pbf`) 󰁔 Parquet
+2. **Changesets**: OSM Changesets (`.bz2`) 󰁔 PostgreSQL
+3. **Replication**: OSM Replication Files (`.osc`) 󰁔 Parquet / PostgreSQL
+
 
 ### Contributions (Parquet)
 
-> Transform OSM (history/latest) .pbf file into parquet format.
+> Transform OSM (history/latest) `.pbf` file into Parquet format.
 
-You can download the [full latest or history planet](https://planet.openstreetmap.org/pbf/full-history/)
-or download PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
+You can download the latest or history OSM extract (`osm.pbf`) for the whole planet from the [OSM Planet server](https://planet.openstreetmap.org/pbf/full-history/) or for small regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
 To process a given `.pbf` file, provide it in the `--pbf` parameter in the following example.
 Here we use a history file for Berlin obtained from GeoFabrik. 
@@ -86,10 +86,9 @@ The number of threads (`--parallel` parameter) defines the number of files which
 
 ### Changesets (PostgreSQL)
 
-> Import OSM changesets .bz2 file to PostgreSQL.
+> Import OSM changesets `.bz2` file to PostgreSQL.
 
-First, create an empty PostgreSQL database with PostGIS extension or provide a connection to an existing database. For instance, 
-you can set it up like this.
+First, create an empty PostgreSQL database with PostGIS extension or provide a connection to an existing database. For instance, you can set it up like this.
 
 ```shell
 export OHSOME_PLANET_DB_USER=your_password
@@ -103,7 +102,7 @@ docker run -d \
     postgis/postgis
 ```
 
-Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM planet server. If you want to clip the extent to a smaller region, you can use the `changeset-filter` command of the [osmium library](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset file extracts. 
+Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM Planet server. If you want to clip the extent to a smaller region, you can use the `changeset-filter` command of the [osmium library](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset file extracts. 
 
 ```shell
 osmium changeset-filter \
@@ -128,6 +127,7 @@ The parameters `--create-tables` and `--overwrite` are optional. Find more detai
 ### Replications (Parquet / PostgreSQL)
 
 > Transform OSM replication .osc files into parquet format. 
+>
 > Keep changeset PostgreSQL database up-to-date.
 
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
@@ -173,7 +173,9 @@ You can use the top level state files (`state.txt` or `state.csv`) to find the m
     └── state.txt
 ```
 
+
 ## Inspect Results
+
 You can inspect your results easily using [DuckDB](https://duckdb.org/docs/installation).
 Take a look at our collection of [useful queries](docs/useful_queries.md) to find many analysis examples.
 
@@ -220,15 +222,17 @@ DESCRIBE FROM read_parquet('contributions/*/*.parquet');
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
+
 ## Getting Started as Developer
+
 This is a list of resources that you might want to take a look at to get a better understanding of the core concepts used for this project. 
 In general, you should gain some understanding of the raw OSM (history) data format and know how to build geometries from nodes, ways and relations.
 Furthermore, knowledge about (Geo)Parquet files is useful as well.
 
 What is the OSM PBF File Format?
 * https://wiki.openstreetmap.org/wiki/PBF_Format
-* you can download history PBF files for smaller regions from [Geofabrik](https://osm-internal.download.geofabrik.de/)
-* full planet downloads: https://planet.openstreetmap.org/planet/full-history/
+* History PBF files for smaller regions: [Geofabrik](https://osm-internal.download.geofabrik.de/)
+* History or latest PBF files for the whole planet: [OSM Planet](https://planet.openstreetmap.org/planet/full-history/)
 
 What is parquet?
 * https://parquet.apache.org/docs/file-format/
@@ -246,5 +250,6 @@ How to build OSM geometries (for multipolygons)?
 
 
 ## Further Notes
+
 * For relations that consist of more than 500 members we skip `MultiPolygon` geometry building and fall back to `GeometryCollection`. Check `MEMBERS_THRESHOLD` in `ohsome-contributions/src/main/java/org/heigit/ohsome/contributions/contrib/ContributionGeometry.java`.
 * For contributions with status `deleted` we use the geometry of the previous version. This allows you to spatially filter also for deleted elements, e.g. by bounding box. In the sense of OSM deleted elements do not have any geometry.
