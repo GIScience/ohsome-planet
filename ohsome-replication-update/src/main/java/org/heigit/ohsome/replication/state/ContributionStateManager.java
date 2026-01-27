@@ -3,13 +3,13 @@ package org.heigit.ohsome.replication.state;
 import com.google.common.base.Stopwatch;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.changesets.IChangesetDB;
+import org.heigit.ohsome.contributions.ContribUtil;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.Utils;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.output.OutputLocation;
-import org.heigit.ohsome.parquet.ParquetUtil;
-import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.parquet.AvroGeoParquetWriter;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
 import org.heigit.ohsome.replication.UpdateStore;
@@ -156,21 +156,18 @@ public class ContributionStateManager implements IContributionStateManager {
                 statesToRemote == 0 ? "we are up-to-date with remote." : "%d states left to remote.".formatted(statesToRemote));
     }
 
-    private Consumer<AvroUtil.AvroBuilder<Contrib>> config(ReplicationState state) {
+    private Consumer<AvroGeoParquetWriter.AvroGeoParquetBuilder<Contrib>> config(ReplicationState state) {
         return builder -> builder
                 .withAdditionalMetadata("replication_base_url", state.getEndpoint())
                 .withAdditionalMetadata("replication_sequence_number", Integer.toString(state.getSequenceNumber()))
                 .withAdditionalMetadata("replication_timestamp", state.getTimestamp().toString())
 
+                .withRowGroupSize((long) ParquetWriter.DEFAULT_BLOCK_SIZE)
                 .withPageSize(ParquetWriter.DEFAULT_PAGE_SIZE)
-//                .withDictionaryPageSize(4 * ParquetWriter.DEFAULT_PAGE_SIZE)
 
-                .withDictionaryEncoding("osm_id", false)
-                .withDictionaryEncoding("refs.list.element", false)
-                .withBloomFilterEnabled("refs.list.element", true)
-
-                .withDictionaryEncoding("members.list.element.id", false)
-                .withBloomFilterEnabled("members.list.element.id", true)
+                .withBloomFilterEnabled("refs.list.element", false)
+                .withBloomFilterEnabled("user.id", false)
+                .withBloomFilterEnabled("changeset.id", false)
 
                 .withMinRowCountForPageSizeCheck(1)
                 .withMaxRowCountForPageSizeCheck(2);
@@ -200,7 +197,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var updater = new ContributionUpdater(updateStore, changesets, countryJoiner, parallel);
         var counter = 0;
         var pendingCounter = 0;
-        try (var writer = ParquetUtil.openWriter(tmpParquetFile, Contrib.getClassSchema(), config(state))) {
+        try (var writer = ContribUtil.openWriter(tmpParquetFile, config(state))){
             for (var contrib : updater.update(osc).toIterable()) {
                 if (contrib.getTags().isEmpty() && contrib.getTagsBefore().isEmpty()) {
                     continue;

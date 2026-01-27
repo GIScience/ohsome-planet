@@ -11,14 +11,16 @@ import static java.util.stream.Collectors.joining;
 public class GeoParquet<T> {
 
     public static class GeoParquetBuilder<T> {
-        private final String primaryColumn;
+        private String primaryColumn;
         private final List<Column<T>> columns = new ArrayList<>();
 
-        public GeoParquetBuilder(String  primaryColumn) {
-            this.primaryColumn =  primaryColumn;
+        public GeoParquetBuilder() {
         }
 
         public GeoParquetBuilder<T> column(String name, Encoding encoding, EnumSet<GeometryType> geometryTypes, Function<T, Envelope> bbox) {
+            if (primaryColumn == null) {
+                primaryColumn = name;
+            }
             return column(name, encoding, geometryTypes, null, bbox);
         }
 
@@ -34,8 +36,8 @@ public class GeoParquet<T> {
         }
     }
 
-    public static <T> GeoParquetBuilder<T> builder(String  primaryColumn) {
-        return new GeoParquetBuilder<>(primaryColumn);
+    public static <T> GeoParquetBuilder<T> builder() {
+        return new GeoParquetBuilder<>();
     }
 
     // "^(WKB|point|linestring|polygon|multipoint|multilinestring|multipolygon)$"
@@ -62,14 +64,7 @@ public class GeoParquet<T> {
     }
 
     public record Column<T>(String name, Encoding encoding, Set<GeometryType> geometryTypes, String covering,
-                            Envelope bbox, Function<T, Envelope> extend) {
-        public Column(String name, Encoding encoding, Set<GeometryType> geometryTypes, String covering, Function<T, Envelope> extend) {
-            this(name, encoding, geometryTypes, covering, new Envelope(), extend);
-        }
-
-        void extend(T record) {
-            bbox.expandToInclude(extend.apply(record));
-        }
+                            Function<T, Envelope> extend) {
 
         private String coveringString() {
             var bbox = Stream.of("xmin", "ymin", "xmax", "ymax")
@@ -84,7 +79,7 @@ public class GeoParquet<T> {
                     .collect(joining(", ", "[", "]"));
         }
 
-        public String print() {
+        public String print(Envelope bbox) {
             return "\"%s\": { \"encoding\": \"%s\", \"bbox\": %s%s, \"geometry_types\": %s }".formatted(
                     name,
                     encoding.schema(),
@@ -102,22 +97,18 @@ public class GeoParquet<T> {
         this.columns = columns;
     }
 
-
-    public void update(T record) {
-        columns.forEach(column -> column.extend(record));
-    }
-
     public List<Column<T>> getColumns() {
         return columns;
     }
 
-    private String columnsSchema() {
+    private String columnsSchema(Map<String, Envelope> columnBBox) {
+        var empty = new Envelope();
         return columns.stream()
-                .map(Column::print)
+                .map(column -> column.print(columnBBox.getOrDefault(column.name(), empty)))
                 .collect(joining(",\n    "));
     }
 
-    public String schema() {
+    public String schema(Map<String, Envelope> columnBBox) {
         return """
                 {
                   "version": "1.1.0",
@@ -125,7 +116,7 @@ public class GeoParquet<T> {
                   "columns": {
                     %s
                   }
-                }""".formatted(primaryColumn, columnsSchema());
+                }""".formatted(primaryColumn, columnsSchema(columnBBox));
     }
 }
 
