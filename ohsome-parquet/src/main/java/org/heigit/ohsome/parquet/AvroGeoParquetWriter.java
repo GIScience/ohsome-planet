@@ -13,6 +13,7 @@ import org.apache.parquet.io.LocalOutputFile;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
+import org.locationtech.jts.geom.Envelope;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -53,6 +54,11 @@ public class AvroGeoParquetWriter {
             this.schema = schema;
         }
 
+        public AvroGeoParquetBuilder<T> withAdditionalMetadata(String key, String value) {
+            extraMetadata.put(key, value);
+            return this;
+        }
+
         @Override
         protected AvroGeoParquetBuilder<T> self() {
             return this;
@@ -71,7 +77,9 @@ public class AvroGeoParquetWriter {
 
 
     public static class AvroGeoParquetWriterSupport<T> extends AvroWriteSupport<T> {
+
         private final GeoParquet<T> geoParquet;
+        private final Map<String, Envelope> columnBBox = new HashMap<>();
         private final Map<String, String> extraMetadata;
 
         private static GenericData model() {
@@ -114,13 +122,13 @@ public class AvroGeoParquetWriter {
         @Override
         public void write(T record) {
             super.write(record);
-            geoParquet.update(record);
+            geoParquet.getColumns().forEach(column -> columnBBox.computeIfAbsent(column.name(), x -> new Envelope()).expandToInclude(column.extend().apply(record)));
         }
 
         @Override
         public FinalizedWriteContext finalizeWrite() {
             var extraMetaData = new HashMap<>(extraMetadata);
-            extraMetaData.put("geo", geoParquet.schema());
+            extraMetaData.put("geo", geoParquet.schema(columnBBox));
             return new FinalizedWriteContext(extraMetaData);
         }
     }
