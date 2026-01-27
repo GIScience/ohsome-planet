@@ -33,9 +33,9 @@ cd ohsome-planet
 
 There are three modes to run ohsome-planet.
 
-1. **Contributions**: OSM Extract (`.pbf`) 󰁔 Parquet
-2. **Changesets**: OSM Changesets (`.bz2`) 󰁔 PostgreSQL
-3. **Replication**: OSM Replication Files (`.osc`) 󰁔 Parquet / PostgreSQL
+1. **Contributions**: OSM Extract (`.pbf`) --> Parquet
+2. **Changesets**: OSM Changesets (`.bz2`) --> PostgreSQL
+3. **Replication**: OSM Replication Files (`.osc`) --> Parquet / PostgreSQL
 
 
 ### Contributions (Parquet)
