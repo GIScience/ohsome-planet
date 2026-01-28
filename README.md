@@ -109,7 +109,7 @@ Second, download the [full changeset file](https://planet.openstreetmap.org/plan
 osmium changeset-filter \
     --bbox=8.319,48.962,8.475,49.037 \
     changesets-latest.osm.bz2 \
-    changesets-latest-karlsruhe.osm.bz2 
+    -o changesets-latest-karlsruhe.osm.bz2 
 ```
 
 Then, process the OSM changesets `.bz2` file like in the following example.
