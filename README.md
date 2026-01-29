@@ -38,26 +38,34 @@ There are three modes to run ohsome-planet.
 3. **Replication**: OSM Replication Files (`.osc`) --> Parquet / PostgreSQL
 
 
+To see the help page of the ohsome-planet CLI run:
+```sh
+java -jar ohsome-planet-cli/target/ohsome-planet.jar --help
+```
+
 ### Contributions (Parquet)
 
 > Transform OSM (history/latest) `.pbf` file into Parquet format.
 
 You can download the latest or history OSM extract (`osm.pbf`) for the whole planet from the [OSM Planet server](https://planet.openstreetmap.org/pbf/full-history/) or for small regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
-To process a given `.pbf` file, provide it in the `--pbf` parameter in the following example.
-Here we use a history file for Berlin obtained from GeoFabrik. 
+To process any given `.pbf` file, you need to run ohsome-planet with the `contributions` command and at least the `--pbf` and `data` (data output directory) arguments: 
 
-```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar contributions \
-    --data /data/ohsome-planet/berlin \
-    --pbf /data/osm/berlin-internal.osh.pbf \
-    --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
-    --country-file /data/world.csv \
-    --parallel 8 \
-    --overwrite 
+```sh
+# Minimal example w/ required arguments
+java -jar ohsome-planet-cli/target/ohsome-planet.jar \
+    contributions \
+    --data data/ \
+    --pbf osm.pbf
 ```
 
-The parameters `--parallel`, `--country-file`, `--changeset-db` and `--overwrite` are optional. Find more detailed information on usage here: [docs/CLI.md](docs/CLI.md#contributions). To see all available parameters, call the tool with `--help` parameter.
+Additional arguments like `--parallel`, `--country-file`, `--changeset-db` and `--overwrite` are optional. Find out more about these on the [documentation site of the CLI](docs/CLI.md#contributions) or the help text of the CLI:.
+
+```sh
+java -jar ohsome-planet-cli/target/ohsome-planet.jar \
+    contributions \
+    --help
+```
 
 When using a history PBF file, the output files are split into `history` and `latest` contributions.
 All contributions which are a) not deleted and b) visible in OSM at the timestamp of the extract are considered as `latest`.
@@ -65,21 +73,21 @@ The remaining contributions, e.g. deleted or old versions, are considered as `hi
 The number of threads (`--parallel` parameter) defines the number of files which will be created.
 
 ```text
-/data/ohsome-planet/berlin
+data/
 └── contributions
     ├── history
-    │   ├── node-0-history.parquet
+    │   ├── node-0-history-contribs.parquet
     │   ├── ...
-    │   ├── way-0-history.parquet
+    │   ├── way-0-history-contribs.parquet
     │   ├── ...
-    │   ├── relation-0-history.parquet
+    │   ├── relation-0-history-contribs.parquet
     │   └── ...
     └── latest
-        ├── node-0-latest.parquet
+        ├── node-0-latest-contribs.parquet
         ├── ...
-        ├── way-0-latest.parquet
+        ├── way-0-latest-contribs.parquet
         ├── ...
-        ├── relation-0-latest.parquet
+        ├── relation-0-latest-contribs.parquet
         └── ...
 ```
 
