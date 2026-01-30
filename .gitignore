@@ -47,3 +47,5 @@ LOG**
 
 data
 .envrc
+.bz2
+.pbf
