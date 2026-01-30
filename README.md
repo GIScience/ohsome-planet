@@ -11,7 +11,8 @@ The ohsome-planet tool can be used to:
 3. Keep both datasets up-to-date by ingesting OSM planet replication files.
 
 ohsome-planet creates the actual OSM elements geometries for nodes, ways and relations.
-It enriches each element with changeset data such as hastags, OSM editor or username to the elements. Additionaly it is possibly to add country codes to each element by providing a boundary dataset.
+It enriches each element with changeset data such as hastags, OSM editor or username.
+Additionally it is possibly to add country ISO codes to each element by providing a boundary dataset.
 
 The output of ohsome-planet can be used to perform a wide range of geospatial analyses with tools such as DuckDB, Python GeoPandas or QGIS. Its also possible to display the data directly on a map and explore it.
 
@@ -31,17 +32,18 @@ cd ohsome-planet
 
 ## Usage
 
-There are three modes to run ohsome-planet.
-
-1. **Contributions**: OSM Extract (`.pbf`) --> Parquet
-2. **Changesets**: OSM Changesets (`.bz2`) --> PostgreSQL
-3. **Replication**: OSM Replication Files (`.osc`) --> Parquet / PostgreSQL
-
-
 To see the help page of the ohsome-planet CLI run:
 ```sh
 java -jar ohsome-planet-cli/target/ohsome-planet.jar --help
 ```
+
+## Tutorial
+
+In this tutorial we will run the three main modes of ohsome-planet:
+
+1. **Contributions**: OSM Extract (`.pbf`) --> Parquet
+2. **Changesets**: OSM Changesets (`.bz2`) --> PostgreSQL
+3. **Replication**: OSM Replication Files (`.osc`) --> Parquet / PostgreSQL
 
 ### Contributions (Parquet)
 
@@ -49,17 +51,18 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar --help
 
 You can download the latest or history OSM extract (`osm.pbf`) for the whole planet from the [OSM Planet server](https://planet.openstreetmap.org/pbf/full-history/) or for small regions from [Geofabrik](https://osm-internal.download.geofabrik.de/).
 
+Throughout this tutorial we are going to use a [small extract of OSM for Karlsruhe from Geofabrik](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/karlsruhe-regbez.html) (`karlsruhe-regbez-latest.osm.pbf`). Karlsruhe is a city in Germany.
+
 To process any given `.pbf` file, you need to run ohsome-planet with the `contributions` command and at least the `--pbf` and `data` (data output directory) arguments: 
 
 ```sh
-# Minimal example w/ required arguments
 java -jar ohsome-planet-cli/target/ohsome-planet.jar \
     contributions \
     --data data/ \
-    --pbf osm.pbf
+    --pbf karlsruhe-regbez-latest.osm.pbf
 ```
 
-Additional arguments like `--parallel`, `--country-file`, `--changeset-db` and `--overwrite` are optional. Find out more about these on the [documentation site of the CLI](docs/CLI.md#contributions) or the help text of the CLI:.
+Additional arguments like `--parallel`, `--country-file`, `--changeset-db` and `--overwrite` are optional. Find out more about these on the [documentation site of the CLI](docs/CLI.md#contributions) or the help text of the CLI:
 
 ```sh
 java -jar ohsome-planet-cli/target/ohsome-planet.jar \
@@ -69,38 +72,80 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar \
 
 When using a history PBF file, the output files are split into `history` and `latest` contributions.
 All contributions which are a) not deleted and b) visible in OSM at the timestamp of the extract are considered as `latest`.
-The remaining contributions, e.g. deleted or old versions, are considered as `history`.
+The remaining contributions (deleted or old versions) are considered as `history`.
+
 The number of threads (`--parallel` parameter) defines the number of files which will be created.
 
-```text
-data/
-└── contributions
-    ├── history
-    │   ├── node-0-history-contribs.parquet
-    │   ├── ...
-    │   ├── way-0-history-contribs.parquet
-    │   ├── ...
-    │   ├── relation-0-history-contribs.parquet
-    │   └── ...
-    └── latest
-        ├── node-0-latest-contribs.parquet
-        ├── ...
-        ├── way-0-latest-contribs.parquet
-        ├── ...
-        ├── relation-0-latest-contribs.parquet
-        └── ...
+To see the files created and the directory structure run:
+
+```sh
+tree data/contributions
+data/contributions/
+├── history
+│   ├── relation-0-history-contribs.parquet
+│   └── ...
+└── latest
+    ├── node-0-latest-contribs.parquet
+    ├── relation-0-latest-contribs.parquet
+    ├── way-0-latest-contribs.parquet
+    └── ...
 ```
 
+To explore the data with DuckDB run:
+```sh
+duckdb -s "DESCRIBE FROM read_parquet('data/contributions/*/*.parquet');"
+┌───────────────────┬─────────────────────────────────────────────────────────┐
+│    column_name    │                       column_type                       │
+│      varchar      │                         varchar                         │
+├───────────────────┼─────────────────────────────────────────────────────────┤
+│ status            │ VARCHAR                                                 │
+│ valid_from        │ TIMESTAMP WITH TIME ZONE                                │
+│ valid_to          │ TIMESTAMP WITH TIME ZONE                                │
+│ osm_type          │ VARCHAR                                                 │
+│ osm_id            │ BIGINT                                                  │
+│ osm_version       │ INTEGER                                                 │
+│ osm_minor_version │ INTEGER                                                 │
+│ osm_edits         │ INTEGER                                                 │
+│ osm_last_edit     │ TIMESTAMP WITH TIME ZONE                                │
+│ user              │ STRUCT(id INTEGER, "name" VARCHAR)                      │
+│ tags              │ MAP(VARCHAR, VARCHAR)                                   │
+│ tags_before       │ MAP(VARCHAR, VARCHAR)                                   │
+│ changeset         │ STRUCT(id BIGINT, created_at TIMESTAMP WITH TIME ZONE…  │
+│ bbox              │ STRUCT(xmin DOUBLE, ymin DOUBLE, xmax DOUBLE, ymax DO…  │
+│ centroid          │ STRUCT(x DOUBLE, y DOUBLE)                              │
+│ xzcode            │ STRUCT("level" INTEGER, code BIGINT)                    │
+│ geometry_type     │ VARCHAR                                                 │
+│ geometry          │ BLOB                                                    │
+│ area              │ DOUBLE                                                  │
+│ area_delta        │ DOUBLE                                                  │
+│ length            │ DOUBLE                                                  │
+│ length_delta      │ DOUBLE                                                  │
+│ contrib_type      │ VARCHAR                                                 │
+│ refs_count        │ INTEGER                                                 │
+│ refs              │ BIGINT[]                                                │
+│ members_count     │ INTEGER                                                 │
+│ members           │ STRUCT("type" VARCHAR, id BIGINT, "timestamp" TIMESTA…  │
+│ countries         │ VARCHAR[]                                               │
+│ build_time        │ BIGINT                                                  │
+├───────────────────┴─────────────────────────────────────────────────────────┤
+│ 29 rows                                                                     │
+```
+
+To explore the data with QGIS run:
+```sh
+qgis data/contributions/latest/
+```
 
 ### Changesets (PostgreSQL)
 
 > Import OSM changesets `.bz2` file to PostgreSQL.
 
-First, create an empty PostgreSQL database with PostGIS extension or provide a connection to an existing database. For instance, you can set it up like this.
+First, create an empty PostgreSQL database with PostGIS extension or provide a
+connection to an existing database. For instance, you can set it up like this.
 
-```shell
-export OHSOME_PLANET_DB_USER=your_password
-export OHSOME_PLANET_DB_PASSWORD=your_user
+```sh
+export OHSOME_PLANET_DB_USER=ohsomedb
+export OHSOME_PLANET_DB_PASSWORD=mysecretpassword
 
 docker run -d \
     --name ohsome_planet_changeset_db \
@@ -110,21 +155,22 @@ docker run -d \
     postgis/postgis
 ```
 
-Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM Planet server. If you want to clip the extent to a smaller region, you can use the `changeset-filter` command of the [osmium library](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset file extracts. 
+Second, download the [full changeset file](https://planet.openstreetmap.org/planet/) from the OSM Planet server. If you want to clip the extent to a smaller region, you can use the [`changeset-filter`](https://docs.osmcode.org/osmium/latest/osmium-changeset-filter.html) command of the [osmium library](https://osmcode.org/osmium-tool/). This might take a few minutes. Currently, there is no provider for pre-processed or regional changeset file extracts. 
 
-```shell
+```sh
 osmium changeset-filter \
     --bbox=8.319,48.962,8.475,49.037 \
-    changesets-latest.osm.bz2 \
-    changesets-latest-karlsruhe.osm.bz2 
+    --output=changesets-latest-karlsruhe-regbez.osm.bz2 \
+    changesets-latest.osm.bz2
 ```
 
 Then, process the OSM changesets `.bz2` file like in the following example.
 
-```shell
-java -jar ohsome-planet-cli/target/ohsome-planet.jar changesets \
-    --bz2 data/changesets-latest-karlsruhe.osm.bz2 \
-    --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=your_user&password=your_password" \
+```sh
+java -jar ohsome-planet-cli/target/ohsome-planet.jar \
+    changesets \
+    --bz2 changesets-latest-karlsruhe-regbez.osm.bz2 \
+    --changeset-db "jdbc:postgresql://localhost:5432/postgres?user=$OHSOME_PLANET_DB_USER&password=$OHSOME_PLANET_DB_PASSWORD" \
     --create-tables \
     --overwrite
 ```
@@ -140,7 +186,7 @@ The parameters `--create-tables` and `--overwrite` are optional. Find more detai
 
 The ohsome-planet tool can also be used to generate updates from the replication files provided by the 
 [OSM Planet server](https://planet.openstreetmap.org/replication/).
-GeoFabrik also provides updates for regional extracts.
+Geofabrik also provides updates for regional extracts.
 
 If you want to update both datasets your command should look like this: 
 
