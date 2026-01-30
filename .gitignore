@@ -44,3 +44,8 @@ LOG**
 **MANIFEST**
 **OPTIONS**
 /ohsome-replication-update/src/test/resources/ohsome-planet/
+
+data
+.envrc
+.bz2
+.pbf
