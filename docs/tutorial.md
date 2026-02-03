@@ -4,11 +4,11 @@ In this tutorial, we will first create (Geo)Parquet files from OSM PBF files.
 After that, we will look into how to enrich those Parquet with changeset data.
 
 
-## 1. Create Parquet files with OSM contributions
+## I Create Parquet files with OSM contributions
 
 In this section, we will create Parquet files with OSM data and explore this data with [DuckDB](https://duckdb.org/) and [QGIS](https://qgis.org/).
 
-*First*, we need OSM data in PBF format.
+**First**, we need OSM data in PBF format.
 
 We can get an OSM PBF extract from [Geofabrik](https://www.geofabrik.de/).
 Let us download the [district of Karlsruhe](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/karlsruhe-regbez.html), a city in Germany, to `karlsruhe-regbez-latest.osm.pbf`.
@@ -16,7 +16,7 @@ Let us download the [district of Karlsruhe](https://download.geofabrik.de/europe
 > [!NOTE]
 > We can also download the OSM PBF file for the whole planet with history and without (latest) from the Planet [OSM server](https://planet.openstreetmap.org/).
 
-*Second*, we run ohsome-planet to transform the downloaded PBF file into Parquet files.
+**Second**, we run ohsome-planet to transform the downloaded PBF file into Parquet files.
 
 ```sh
 mkdir data
@@ -44,7 +44,7 @@ data/contributions/
 
 Notice ... (TODO: Explain files created, TODO: Why history)
 
-With DuckDB, qwe can explore the data schema.
+With DuckDB, we can explore the data schema.
 
 ```sh
 duckdb -s "DESCRIBE FROM read_parquet('data/contributions/*/*.parquet');"
@@ -93,7 +93,7 @@ qgis data/contributions/latest/
 ```
 
 
-## Contributions enriched with changeset information
+## II Enriche Parquet files with changeset information
 
 In this section we will enriche our parquet files with user and changeset information.
 
@@ -124,7 +124,7 @@ We notice that although user and changeset attributes are present, they do not h
 
 To enrich the parquet files with changeset informations we will need to re-create the Parquet files, but this time provide user and changeset information through a database.
 
-*First*, we create an empty PostGIS database with PostGIS extension enabled.
+**First**, we create an empty PostGIS database with PostGIS extension enabled.
 
 ```sh
 # We need those environment variables later on as well
@@ -143,9 +143,9 @@ docker run -d \
     postgis/postgis
 ```
 
-*Second*, we download the [changeset file](https://planet.openstreetmap.org/planet/) from the Planet OSM server to `changesets-latest.osm.bz2`. This changeset file covers the etire globe.
+**Second**, we download the [changeset file](https://planet.openstreetmap.org/planet/) from the Planet OSM server to `changesets-latest.osm.bz2`. This changeset file covers the etire globe.
 
-*Third*, since we are only intrested in the district Karlsruhe let use use the tool [osmium](https://osmcode.org/osmium-tool/) to create an extract for Karlsruhe from the changeset file.
+**Third**, since we are only intrested in the district Karlsruhe let use use the tool [osmium](https://osmcode.org/osmium-tool/) to create an extract for Karlsruhe from the changeset file.
 
 ```sh
 osmium changeset-filter \
@@ -154,7 +154,7 @@ osmium changeset-filter \
     changesets-latest.osm.bz2
 ```
 
-*Fourth*, we use ohsome-planet to parse the changeset file and import it into our PostGIS database.
+**Fourth**, we use ohsome-planet to parse the changeset file and import it into our PostGIS database.
 
 ```sh
 java -jar ohsome-planet-cli/target/ohsome-planet.jar \
@@ -190,7 +190,7 @@ Indexes:
     "changesets_id_key" UNIQUE CONSTRAINT, btree (id)
 ```
 
-*Fifth*, we run ohsome-planet again to transform the previously downloaded PBF file (see section 1) into Parquet files. But this time we provide it with the above create changeset database. Aditionaly, we tell ohsome-planet that it is okay to overwrite existing data.
+**Fifth**, we run ohsome-planet again to transform the previously downloaded PBF file (see section 1) into Parquet files. But this time we provide it with the above create changeset database. Aditionaly, we tell ohsome-planet that it is okay to overwrite existing data.
 
 ```sh
 mkdir data
