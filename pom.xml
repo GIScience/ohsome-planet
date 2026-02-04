@@ -46,6 +46,7 @@
         <module>ohsome-replication</module>
         <module>ohsome-output-minio</module>
         <module>ohsome-output</module>
+        <module>ohsome-planet-common</module>
     </modules>
 
     <dependencyManagement>
