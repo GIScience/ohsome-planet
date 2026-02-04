@@ -1,6 +1,4 @@
 FROM eclipse-temurin:21-jdk-alpine AS app-builder
-RUN apk add --no-cache git
-CMD ["git","--version"]
 
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
@@ -65,4 +63,5 @@ COPY --from=jre-builder /javaruntime $JAVA_HOME
 
 COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet.jar /ohsome-planet.jar
 
-ENTRYPOINT ["java","-jar","/ohsome-planet.jar"]
+ENV JAVA_OPTS=""
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /ohsome-planet.jar $0 $@"]
