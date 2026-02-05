@@ -1,37 +1,36 @@
 # Tutorial
 
-In this tutorial, we will first create (Geo)Parquet files from OSM PBF files.
-After that, we will look into how to enrich those Parquet with changeset data.
+In this tutorial we will use `ohsome-planet` to transform OSM data containing [OSM elements](https://wiki.openstreetmap.org/wiki/Element) (`node`, `way` and `relation`) into an ohsome-planet data containing [Simple Feature](https://en.wikipedia.org/wiki/Simple_Features) compliend geometries (E.g. `Point`, `Line` and `Polygon`). OSM provides data in PBF file format. `ohsome-planet` generates Parquet files.
 
+In the first section, we will download an OSM data extract (PBF), use the `ohsome-planet` command-line-interface (CLI) to generate an ohsome-planet dataset (Parquet) and explore those with [DuckDB](https://duckdb.org/) and [QGIS](https://qgis.org/).
 
-## I Create Parquet files with OSM contributions
+In the second section (II) we will enrich our ohsome-planet dataset (Parquet files) with user and changeset information.
 
-In this section, we will create Parquet files with OSM data and explore this data with [DuckDB](https://duckdb.org/) and [QGIS](https://qgis.org/).
+## I. Create Parquet files containing OSM data
+
+In this section, we will download an OSM data extract (PBF), use the `ohsome-planet` command-line-interface (CLI) to generate an ohsome-planet dataset (Parquet) and explore those with [DuckDB](https://duckdb.org/) and [QGIS](https://qgis.org/).
 
 **First**, we need OSM data in PBF format.
 
-We can get an OSM PBF extract from [Geofabrik](https://www.geofabrik.de/).
+We can get an OSM PBF etract from [Geofabrik](https://www.geofabrik.de/).
 Let us download the [district of Karlsruhe](https://download.geofabrik.de/europe/germany/baden-wuerttemberg/karlsruhe-regbez.html), a city in Germany, to `karlsruhe-regbez-latest.osm.pbf`.
 
-> [!NOTE]
-> We can also download the OSM PBF file for the whole planet with history and without (latest) from the Planet [OSM server](https://planet.openstreetmap.org/).
+> [!NOTE] We can also download the OSM PBF file for the whole planet with history and without (latest) from the Planet [OSM server](https://planet.openstreetmap.org/). But processing this files takes a considerable amount of time.
 
 **Second**, we run ohsome-planet to transform the downloaded PBF file into Parquet files.
 
 ```sh
-mkdir data
 java -jar ohsome-planet-cli/target/ohsome-planet.jar \
     contributions \
-    --data data/ \
     --pbf karlsruhe-regbez-latest.osm.pbf
 ```
 
 Let us see the directory structure and files created by the previous command.
 
 ```sh
-tree data/contributions
+tree ohsome-planet/contributions
 
-data/contributions/
+ohsome-planet/contributions/
 ├── history
 │   ├── relation-0-history-contribs.parquet
 │   └── ...
@@ -42,12 +41,10 @@ data/contributions/
     └── ...
 ```
 
-Notice ... (TODO: Explain files created, TODO: Why history)
-
 With DuckDB, we can explore the data schema.
 
 ```sh
-duckdb -s "DESCRIBE FROM read_parquet('data/contributions/*/*.parquet');"
+duckdb -s "DESCRIBE FROM read_parquet('ohsome-planet/contributions/*/*.parquet');"
 
 ┌───────────────────┬─────────────────────────────────────────────────────────┐
 │    column_name    │                       column_type                       │
@@ -89,13 +86,13 @@ duckdb -s "DESCRIBE FROM read_parquet('data/contributions/*/*.parquet');"
 With QGIS we can explore the data on a map:
 
 ```sh
-qgis data/contributions/latest/
+qgis ohsome-planet/contributions/latest/
 ```
 
 
 ## II Enriche Parquet files with changeset information
 
-In this section we will enriche our parquet files with user and changeset information.
+In this section (II) we will enrich our ohsome-planet dataset (Parquet files) with user and changeset information.
 
 In previous section we create Parquet files with OSM contributions. Let us look at the `user` and `changeset` attributes of those Parquet files a bit closer.
 
@@ -110,7 +107,7 @@ duckdb -s "SELECT DISTINCT unnest(user) FROM read_parquet('data/contributions/*/
 └───────┴─────────┘
 
 
-duckdb -s "SELECT DISTINCT unnest(changeset) FROM read_parquet('data/contributions/*/*.parquet') LIMIT 1"
+duckdb -s "SELECT DISTINCT unnest(changeset) FROM read_parquet('data/contributions/*/*.parquet')"
 
 ┌───────┬──────────────────────────┬──────────────────────────┬───────────────────────┬───────────┬─────────┐
 │  id   │        created_at        │        closed_at         │         tags          │ hashtags  │ editor  │
@@ -122,7 +119,7 @@ duckdb -s "SELECT DISTINCT unnest(changeset) FROM read_parquet('data/contributio
 
 We notice that although user and changeset attributes are present, they do not have any values (or meaningless default values).
 
-To enrich the parquet files with changeset informations we will need to re-create the Parquet files, but this time provide user and changeset information through a database.
+To enrich the parquet files with changeset information we will need to re-create the Parquet files, but this time provide user and changeset information in a database.
 
 **First**, we create an empty PostGIS database with PostGIS extension enabled.
 
@@ -145,7 +142,7 @@ docker run -d \
 
 **Second**, we download the [changeset file](https://planet.openstreetmap.org/planet/) from the Planet OSM server to `changesets-latest.osm.bz2`. This changeset file covers the etire globe.
 
-**Third**, since we are only intrested in the district Karlsruhe let use use the tool [osmium](https://osmcode.org/osmium-tool/) to create an extract for Karlsruhe from the changeset file.
+**Third**, since we are only intrested in the district Karlsruhe let us use the tool [osmium](https://osmcode.org/osmium-tool/) to create an extract for Karlsruhe from the changeset file.
 
 ```sh
 osmium changeset-filter \
@@ -164,7 +161,7 @@ java -jar ohsome-planet-cli/target/ohsome-planet.jar \
     --create-tables
 ```
 
-With psql we can explore the schema.
+With psql we can explore the schema and check if data import has been successful.
 
 ```sh
 PGPASSWORD=$OHSOME_PLANET_DB_PASSWORD psql \
@@ -188,6 +185,13 @@ PGPASSWORD=$OHSOME_PLANET_DB_PASSWORD psql \
  geom       | geometry(Polygon,4326)   |           |          |
 Indexes:
     "changesets_id_key" UNIQUE CONSTRAINT, btree (id)
+
+PGPASSWORD=$OHSOME_PLANET_DB_PASSWORD psql \
+    -h localhost \
+    -p 5432 \
+    -d $OHSOME_PLANET_DB \
+    -U $OHSOME_PLANET_DB_USER \
+    -c "SELECT COUNT(*) FROM changesets;"
 ```
 
 **Fifth**, we run ohsome-planet again to transform the previously downloaded PBF file (see section 1) into Parquet files. But this time we provide it with the above create changeset database. Aditionaly, we tell ohsome-planet that it is okay to overwrite existing data.
