@@ -17,8 +17,7 @@ pipeline {
         RELEASE_DEPLOY = false
         SNAPSHOT_DEPLOY = false
 
-        DOCKER_REGISTRY = 'https://repo.heigit.org'
-        DOCKER_CREDENTIALS_ID = 'docker-heigit-ci-service'
+        DOCKER_CREDENTIALS_ID = 'DockerHubHeiGITCredentials'
         DOCKER_REPOSITORY = 'heigit/ohsome-planet'
     }
 

@@ -1,9 +1,8 @@
 FROM eclipse-temurin:21-jdk-alpine AS app-builder
-RUN apk add --no-cache git
-CMD ["git","--version"]
 
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
+COPY ohsome-planet-common/pom.xml ohsome-planet-common/pom.xml
 COPY ohsome-contributions/pom.xml ohsome-contributions/pom.xml
 COPY ohsome-parquet/pom.xml ohsome-parquet/pom.xml
 COPY ohsome-planet-cli/pom.xml ohsome-planet-cli/pom.xml
@@ -20,7 +19,7 @@ COPY osm-xml/pom.xml osm-xml/pom.xml
 
 RUN ./mvnw dependency:go-offline
 
-COPY .git ./
+COPY ohsome-planet-common/src ohsome-planet-utils/common
 COPY ohsome-contributions/src ohsome-contributions/src
 COPY ohsome-parquet/src ohsome-parquet/src
 COPY ohsome-planet-cli/src ohsome-planet-cli/src
@@ -64,4 +63,5 @@ COPY --from=jre-builder /javaruntime $JAVA_HOME
 
 COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet.jar /ohsome-planet.jar
 
-ENTRYPOINT ["java","-jar","/ohsome-planet.jar"]
+ENV JAVA_OPTS=""
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /ohsome-planet.jar $0 $@"]

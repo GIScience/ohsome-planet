@@ -18,6 +18,7 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.output.OutputLocation;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.planet.utils.VersionProvider;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -160,6 +161,7 @@ public abstract class Transformer {
         var builder = AvroUtil.<Contrib>openWriter(Contrib.getClassSchema(), path)
                 .withDataModel(model)
                 .withAdditionalMetadata("geo", GEO_SCHEMA)
+                .withAdditionalMetadata("version", VersionProvider.OHSOME_PLANET_VERSION)
                 .withCompressionCodec(CompressionCodecName.ZSTD)
                 .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_2_0)
                 .config(AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE, "false")
