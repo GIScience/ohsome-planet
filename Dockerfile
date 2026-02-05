@@ -19,7 +19,7 @@ COPY osm-xml/pom.xml osm-xml/pom.xml
 
 RUN ./mvnw dependency:go-offline
 
-COPY ohsome-planet-common/src ohsome-planet-utils/common
+COPY ohsome-planet-common/src ohsome-planet-common/src
 COPY ohsome-contributions/src ohsome-contributions/src
 COPY ohsome-parquet/src ohsome-parquet/src
 COPY ohsome-planet-cli/src ohsome-planet-cli/src
