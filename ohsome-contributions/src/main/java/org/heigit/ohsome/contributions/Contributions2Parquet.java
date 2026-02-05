@@ -84,7 +84,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     private final Path pbfPath;
     private final Path temp;
-    private final String parquetData;
+    private final OutputLocation outputLocation;
     private final int parallel;
     private final String changesetDbUrl;
     private final Path countryFilePath;
@@ -95,10 +95,10 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
 
-    public Contributions2Parquet(Path pbfPath, Path data, String parquetData, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
+    public Contributions2Parquet(Path pbfPath, Path data, OutputLocation outputLocation, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
         this.pbfPath = pbfPath;
         this.temp = data.resolve("temp");
-        this.parquetData = parquetData;
+        this.outputLocation = outputLocation;
         this.parallel = parallel;
         this.changesetDbUrl = changesetDbUrl;
         this.countryFilePath = countryFilePath;
@@ -158,8 +158,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .map(SpatialGridJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
-        try (var outputLocation = OutputLocationProvider.load(parquetData);
-             var changesetDb = openChangesets(changesetDbUrl)) {
+        try (var changesetDb = openChangesets(changesetDbUrl)) {
 
             Files.createDirectories(temp);
 

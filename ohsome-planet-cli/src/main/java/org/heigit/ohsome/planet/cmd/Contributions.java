@@ -4,6 +4,7 @@ import com.google.common.io.MoreFiles;
 import io.prometheus.metrics.exporter.httpserver.HTTPServer;
 import io.prometheus.metrics.instrumentation.jvm.JvmMetrics;
 import org.heigit.ohsome.contributions.Contributions2Parquet;
+import org.heigit.ohsome.output.OutputLocationProvider;
 import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
 import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
@@ -12,6 +13,7 @@ import picocli.CommandLine;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -35,11 +37,11 @@ public class Contributions implements Callable<Integer> {
             description = "OSM (history/latest) .pbf file path.")
     private Path pbfPath;
 
-    @CommandLine.Option(names = {"--data"}, required = true,
+    @CommandLine.Option(names = {"--data"},
             paramLabel = "path/to/ohsome-planet-data",
             description = """
-                    ohsome-planet working directory for parquet-data (contributions), temp files (temp) and optional replication-store (replication).""")
-    private Path data;
+                    ohsome-planet working directory, defaults to ohsome-planet, for parquet-data (contributions), temp files (temp) and optional replication-store (replication).""")
+    private Path data = Path.of("ohsome-planet");
 
     @CommandLine.Option(names = {"--parquet-data"},
             paramLabel = "s3://BUCKET/PATH",
@@ -48,11 +50,6 @@ public class Contributions implements Callable<Integer> {
                     For S3 cloud storage set environment variables (S3_ENDPOINT, S3_KEY_ID, S3_SECRET, S3_REGION).
                     """)
     private String parquetData;
-
-    @CommandLine.Option(names = {"--overwrite"},
-            description = "Remove all files in data directory if exists."
-    )
-    private boolean overwrite = false;
 
     @CommandLine.Option(names = {"--keep-temp-data"},
             description = "Do not remove temp folder in data directory after processing. For debug purposes only!")
@@ -110,32 +107,43 @@ public class Contributions implements Callable<Integer> {
     public Integer call() throws Exception {
         CliUtils.setVerbosity(verbosity);
 
-        if (Files.exists(data)) {
-            if (overwrite) {
-                MoreFiles.deleteRecursively(data, ALLOW_INSECURE);
-            } else {
-                System.out.println("Directory already exists. To overwrite use --overwrite");
-                System.exit(0);
-            }
-        }
-
-
         var tempDir = data.resolve("temp");
-        Files.createDirectories(data);
-        Files.createDirectories(tempDir);
+        var replicationDir = data.resolve("replication");
 
         if (parquetData == null) {
-            parquetData = data.resolve("contributions").toString();
+            parquetData = data.toAbsolutePath().resolve("contributions").toString();
         }
 
-        var metricsPort = System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT));
-        try (var ignored = (metricsPort != null ) ?
-                HTTPServer.builder().port(Integer.parseInt(metricsPort)).buildAndStart() : null ) {
+        var httpServer = Optional.ofNullable(System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT)))
+                .map(Integer::parseInt)
+                .map(port -> HTTPServer.builder().port(port));
+        try (var ignored = (httpServer.isPresent()) ? httpServer.get().buildAndStart() : null;
+             var outputLocation = OutputLocationProvider.load(parquetData)) {
+
+
+            if (outputLocation.exists()){
+                System.out.println("parquet-data directory is not empty!");
+                System.exit(0);
+            }
+            if (Files.exists(replicationDir)) {
+                try (var files = Files.list(replicationDir)) {
+                    if (files.iterator().hasNext()) {
+                        System.out.println("replication directory is not empty!");
+                        System.exit(0);
+                    }
+                }
+            }
+
+            Files.createDirectories(data);
+            if (Files.exists(tempDir)) {
+                MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
+            }
+            Files.createDirectories(tempDir);
 
             JvmMetrics.builder().register();
 
             var contributionsToParquet = new Contributions2Parquet(
-                    pbfPath, data, parquetData, parallel,
+                    pbfPath, data, outputLocation, parallel,
                     changesetDbUrl, countryFilePath,
                     replicationEndpoint,
                     includeTags);

@@ -85,6 +85,11 @@ public class MinioOutputLocation implements OutputLocation {
     }
 
     @Override
+    public boolean exists() {
+        return client.listObjects(ListObjectsArgs.builder().bucket(bucket).prefix(path.toString()).build()).iterator().hasNext();
+    }
+
+    @Override
     public void close() throws Exception {
         this.client.close();
     }
