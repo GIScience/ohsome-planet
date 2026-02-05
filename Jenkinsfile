@@ -51,7 +51,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.withRegistry(DOCKER_REGISTRY, DOCKER_CREDENTIALS_ID) {
+                    docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage = docker.build(DOCKER_REPOSITORY + ':' + env.BRANCH_NAME)
                         dockerImage.push()
                     }
@@ -72,7 +72,7 @@ pipeline {
             }
             steps {
                 script {
-                    docker.withRegistry(DOCKER_REGISTRY, DOCKER_CREDENTIALS_ID) {
+                    docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage = docker.build(DOCKER_REPOSITORY + ':' + VERSION)
                         dockerImage.push()
                         dockerImage.push('latest')
