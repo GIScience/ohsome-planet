@@ -44,3 +44,7 @@ LOG**
 **MANIFEST**
 **OPTIONS**
 /ohsome-replication-update/src/test/resources/ohsome-planet/
+
+data
+.bz2
+.pbf
