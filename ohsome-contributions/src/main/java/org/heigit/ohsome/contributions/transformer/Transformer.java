@@ -251,7 +251,6 @@ public abstract class Transformer {
                     var newPath = outputDir
                             .resolve(status)
                             .resolve(writerPath.path().getFileName());
-                    Files.createDirectories(newPath.toAbsolutePath().getParent());
                     outputDir.move(writerPath.path(), newPath);
                 } catch (Exception e) {
                     suppressed.add(e);
