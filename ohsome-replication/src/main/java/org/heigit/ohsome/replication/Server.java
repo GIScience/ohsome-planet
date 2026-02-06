@@ -112,7 +112,7 @@ public class Server<T> {
         while (true) {
             try {
                 var connection = url.openConnection();
-                if (cookie != null) {
+                if (cookie != null && !cookie.isBlank()) {
                     connection.addRequestProperty("Cookie", cookie);
                 }
                 connection.setReadTimeout(10 * 60 * 1000); // timeout 10 minutes

@@ -47,7 +47,7 @@ public class LocalOutputLocation implements OutputLocation {
 
     @Override
     public boolean exists() throws IOException {
-        if (Files.notExists(path)) {
+        if (Files.exists(path)) {
             try (var files = Files.list(path)) {
                 return files.iterator().hasNext();
             }

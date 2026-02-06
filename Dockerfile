@@ -47,6 +47,7 @@ RUN $JAVA_HOME/bin/jlink \
     --add-modules java.sql \
     --add-modules java.xml \
     --add-modules jdk.crypto.ec \
+    --add-modules jdk.httpserver \
     --add-modules jdk.unsupported \
     --strip-debug \
     --no-man-pages \

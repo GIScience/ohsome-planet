@@ -62,25 +62,25 @@ public class MinioOutputLocation implements OutputLocation {
     @Override
     public void delete(Path dest) throws Exception {
         client.removeObject(RemoveObjectArgs.builder()
-                        .bucket(bucket)
-                        .object(dest.toString())
+                .bucket(bucket)
+                .object(dest.toString())
                 .build());
     }
 
     @Override
     public void write(Path dest, byte[] data) throws Exception {
         client.putObject(PutObjectArgs.builder()
-                        .bucket(bucket)
-                        .object(dest.toString())
-                        .stream(new ByteArrayInputStream(data), data.length, -1)
+                .bucket(bucket)
+                .object(dest.toString())
+                .stream(new ByteArrayInputStream(data), data.length, -1)
                 .build());
     }
 
     @Override
     public InputStream read(Path dest) throws Exception {
         return client.getObject(GetObjectArgs.builder()
-                        .bucket(bucket)
-                        .object(dest.toString())
+                .bucket(bucket)
+                .object(dest.toString())
                 .build());
     }
 

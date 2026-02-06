@@ -30,7 +30,6 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.output.OutputLocation;
-import org.heigit.ohsome.output.OutputLocationProvider;
 import org.heigit.ohsome.parquet.avro.AvroUtil;
 import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.replication.ReplicationState;

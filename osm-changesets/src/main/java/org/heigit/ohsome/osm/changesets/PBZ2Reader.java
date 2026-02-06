@@ -129,7 +129,7 @@ public class PBZ2Reader implements Iterator<byte[]> {
         if (data.length == 0) {
             return null;
         }
-        logger.debug("Buffer = ... %s (%d)%n", Arrays.toString(end), data.length);
+        logger.debug("Buffer = ... {} ({})", Arrays.toString(end), data.length);
         output.reset();
         output.write(end);
         return data;
