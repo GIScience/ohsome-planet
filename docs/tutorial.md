@@ -214,6 +214,11 @@ The previously downloaded PBF file does not contain user and changeset ID. The r
 
 To get an OSM extract for the district of Karlsruhe with metadata (user and changeset ID), we need to [log in to Geofabrik](https://osm-internal.download.geofabrik.de/index.html) with our OSM account. Then [downlaod this PBF file](https://osm-internal.download.geofabrik.de/europe/germany/baden-wuerttemberg/karlsruhe-regbez.html) to `karlsruhe-regbez-latest-internal.osm.pbf`
 
+> [!NOTE]
+> There exists another variant of the OSM extract for the district of Karlsruhe with metadata (user and changeset ID) and all historic OSM edits.
+> The **history file** `karlsruhe-regbez-latest-internal.osh.pbf` can also be used by ohsome-planet.
+
+
 **Finally**, we can run `ohsome-planet contributions` again to create our dataset:
 
 ```sh
