@@ -154,8 +154,9 @@ docker run -d \
 ```sh
 osmium changeset-filter \
     --bbox=7.959,48.300,9.604,49.664,
-    --output=karlsruhe-regbez-changesets-latest.osm.bz2 \
-    changesets-latest.osm.bz2
+    --output-format=xml \
+    changesets-latest.osm.bz2 \
+    | pbzip2 > karlsruhe-regbez-changesets-latest.osm.bz2
 ```
 
 **Fourth**, we use ohsome-planet to parse the changeset file and import it into our PostGIS database.
