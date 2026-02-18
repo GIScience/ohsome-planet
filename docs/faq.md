@@ -13,4 +13,4 @@ To configure this threshold (e.g. 500 members) check the `MEMBERS_THRESHOLD` var
 
 ## Are there any examples of how to query the ohsome-planet dataset with DuckDB?
 
-Yes, there are! Please [have a look at those](docs/usefule_queries).
+Yes, there are! Please [have a look at those](useful_queries.md).
