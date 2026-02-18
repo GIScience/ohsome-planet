@@ -1,29 +1,24 @@
 package org.heigit.ohsome.contributions;
 
 import java.util.function.Function;
+
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.contributions.avro.Contrib;
-import org.heigit.ohsome.contributions.transformer.Transformer;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.output.OutputLocation;
-import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.parquet.AvroGeoParquetWriter.AvroGeoParquetBuilder;
 import org.heigit.ohsome.util.io.Output;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-class Writer implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(Writer.class);
+public class ContribWriter implements AutoCloseable {
+    private static final Logger logger = LoggerFactory.getLogger(ContribWriter.class);
 
     private final Map<String, ParquetWriter<Contrib>> writers = new HashMap<>();
 
@@ -31,19 +26,16 @@ class Writer implements AutoCloseable {
     private final OSMType type;
     private final Path temp;
     private final OutputLocation outputDir;
-    private final Consumer<AvroUtil.AvroBuilder<Contrib>> config;
+    private final Consumer<AvroGeoParquetBuilder<Contrib>> additionalConfig;
 
     final Output output = new Output(4 << 10);
-    final ByteBuffer keyBuffer = ByteBuffer.allocateDirect(Long.BYTES).order(ByteOrder.BIG_ENDIAN);
-    ByteBuffer valBuffer = ByteBuffer.allocateDirect(4 << 10);
-    private PrintWriter logWriter;
 
-    Writer(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
+    public ContribWriter(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroGeoParquetBuilder<Contrib>> config) {
         this.writerId = writerId;
         this.type = type;
         this.temp = temp;
         this.outputDir = outputDir;
-        this.config = config;
+        this.additionalConfig = config;
     }
 
     public void write(Contrib contrib) throws IOException {
@@ -51,42 +43,14 @@ class Writer implements AutoCloseable {
         writers.computeIfAbsent(status, this::openWriter).write(contrib);
     }
 
-    public void log(String message) {
-        if (logWriter == null) {
-            logWriter = openLogWriter();
-
-        }
-        logWriter.println(message);
-    }
-
-    private PrintWriter openLogWriter() {
-        var path = logPath();
-        try {
-            Files.createDirectories(path.getParent());
-            return new PrintWriter(Files.newOutputStream(path), true);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     private ParquetWriter<Contrib> openWriter(String status) {
         var path = progressPath(status);
-        try {
-            Files.createDirectories(path.getParent());
-            return Transformer.openWriter(path, config);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return ContribUtil.openWriter(path, additionalConfig);
     }
 
     private Path progressPath(String status) {
         return temp.resolve("progress")
                 .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
-    }
-
-    private Path logPath() {
-        return temp.resolve("log")
-                .resolve("writer-%s-%d.log".formatted(type, writerId));
     }
 
     private Path finalPath(String status) {
@@ -104,17 +68,6 @@ class Writer implements AutoCloseable {
     @Override
     public void close() {
         close(this::finalPath);
-    }
-
-    public ByteBuffer keyBuffer(long id) {
-        return keyBuffer.clear().putLong(id).flip();
-    }
-
-    public ByteBuffer valBuffer(int length) {
-        if (valBuffer.capacity() < length) {
-            valBuffer = ByteBuffer.allocateDirect(length);
-        }
-        return valBuffer.clear();
     }
 
     public Output output() {
@@ -148,8 +101,5 @@ class Writer implements AutoCloseable {
                 // ignore exception
             }
         });
-        if (logWriter != null) {
-            logWriter.close();
-        }
     }
 }

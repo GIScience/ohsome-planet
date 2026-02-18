@@ -30,7 +30,7 @@ import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.output.OutputLocation;
-import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.parquet.AvroGeoParquetWriter.AvroGeoParquetBuilder;
 import org.heigit.ohsome.replication.ReplicationEntity;
 import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
@@ -354,20 +354,19 @@ public class Contributions2Parquet implements Callable<Integer> {
         return osh;
     }
 
-    private static ArrayBlockingQueue<Writer> getWriters(Path temp, OutputLocation output, int numFiles) {
-        var writers = new ArrayBlockingQueue<Writer>(numFiles);
+    private static ArrayBlockingQueue<ContribWriter> getWriters(Path temp, OutputLocation output, int numFiles) {
+        var writers = new ArrayBlockingQueue<ContribWriter>(numFiles);
         for (var i = 0; i < numFiles; i++) {
-            writers.add(new Writer(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
+            writers.add(new ContribWriter(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
         }
         return writers;
     }
 
-    private static void relationParquetConfig(AvroUtil.AvroBuilder<Contrib> config) {
-        config.withMinRowCountForPageSizeCheck(1)
-                .withMaxRowCountForPageSizeCheck(2);
+    private static void relationParquetConfig(AvroGeoParquetBuilder<Contrib> config) {
+        config.withMinRowCountForPageSizeCheck(1).withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, Writer writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
+    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, ContribWriter writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,

@@ -1,12 +1,7 @@
 package org.heigit.ohsome.contributions.transformer;
 
 import me.tongfei.progressbar.ProgressBarBuilder;
-import org.apache.avro.data.TimeConversions.TimestampMicrosConversion;
-import org.apache.avro.specific.SpecificData;
-import org.apache.parquet.avro.AvroWriteSupport;
-import org.apache.parquet.column.ParquetProperties;
-import org.apache.parquet.hadoop.ParquetWriter;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.heigit.ohsome.contributions.ContribWriter;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.minor.SstWriter;
 import org.heigit.ohsome.contributions.rocksdb.RocksUtil;
@@ -17,7 +12,7 @@ import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.osm.pbf.BlobHeader;
 import org.heigit.ohsome.osm.pbf.OSMPbf;
 import org.heigit.ohsome.output.OutputLocation;
-import org.heigit.ohsome.parquet.avro.AvroUtil;
+import org.heigit.ohsome.parquet.AvroGeoParquetWriter.AvroGeoParquetBuilder;
 import org.heigit.ohsome.planet.utils.VersionProvider;
 import org.rocksdb.IngestExternalFileOptions;
 import org.rocksdb.RocksDB;
@@ -81,7 +76,7 @@ public abstract class Transformer {
 
     }
 
-    protected abstract Summary process(Processor processor, Progress progress, Parquet writer, SstWriter sstWriter, SstWriter sstWriterReplication) throws Exception;
+    protected abstract Summary process(Processor processor, Progress progress, ContribWriter writer, SstWriter sstWriter, SstWriter sstWriterReplication) throws Exception;
 
     public record Chunk(int start, int limit) {
 
@@ -135,7 +130,7 @@ public abstract class Transformer {
         }
     }
 
-    protected void avroConfig(AvroUtil.AvroBuilder<Contrib> builder) {
+    protected void avroConfig(AvroGeoParquetBuilder<Contrib> config) {
     }
 
 
@@ -144,54 +139,18 @@ public abstract class Transformer {
         return new Processor(id, pbf, ch, blobs, chunk.start(), chunk.limit());
     }
 
-    private static final String GEO_SCHEMA = """
-            {"version":"1.0.0","primary_column":"geometry","columns": {
-            "geometry":{"encoding":"WKB","geometry_types":["Point","LineString","Polygon","Multipolygon","GeometryCollection"]}}}
-            """.replace("\n", "");
-
-    public static Parquet openWriter(Path tempDir, OutputLocation outputDir, OSMType type,
-                                     Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
-        return new Parquet(tempDir, outputDir, type, config);
-    }
-
-    public static ParquetWriter<Contrib> openWriter(Path path,
-                                                    Consumer<AvroUtil.AvroBuilder<Contrib>> config) throws IOException {
-        var model = SpecificData.get();
-        model.addLogicalTypeConversion(new TimestampMicrosConversion());
-        var builder = AvroUtil.<Contrib>openWriter(Contrib.getClassSchema(), path)
-                .withDataModel(model)
-                .withAdditionalMetadata("geo", GEO_SCHEMA)
-                .withAdditionalMetadata("version", VersionProvider.OHSOME_PLANET_VERSION)
-                .withCompressionCodec(CompressionCodecName.ZSTD)
-                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_2_0)
-                .config(AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE, "false")
-
-                .withRowGroupSize(32L * 1024 * 1024)
-                .withPageSize(ParquetWriter.DEFAULT_PAGE_SIZE)
-//                .withDictionaryPageSize(4 * ParquetWriter.DEFAULT_PAGE_SIZE)
-
-                .withDictionaryEncoding("osm_id", false)
-                .withDictionaryEncoding("refs.list.element", false)
-                .withBloomFilterEnabled("refs.list.element", true)
-
-                .withBloomFilterEnabled("user.id", true)
-
-                .withBloomFilterEnabled("changeset.id", true)
-
-                .withDictionaryEncoding("members.list.element.id", false)
-                .withBloomFilterEnabled("members.list.element.id", true);
-
-        config.accept(builder);
-        return builder.build();
+    public static ContribWriter openWriter(int writerId, Path tempDir, OutputLocation outputDir, OSMType type,
+                                           Consumer<AvroGeoParquetBuilder<Contrib>> config) {
+        return new ContribWriter(writerId, type, tempDir, outputDir, config);
     }
 
     protected Summary process(Processor processor, Progress progress) throws Exception {
-        try (var writer = openWriter(tempDir, outputDir, osmType, this::avroConfig)) {
+        try (var writer = openWriter(processor.id(), tempDir, outputDir, osmType, this::avroConfig)) {
             return process(processor, progress, writer);
         }
     }
 
-    protected Summary process(Processor processor, Progress progress, Parquet writer) throws Exception {
+    protected Summary process(Processor processor, Progress progress, ContribWriter writer) throws Exception {
         var minorSSTPath = minorSstDirectory.resolve("%03d.sst".formatted(processor.id()));
         try ( var option = RocksUtil.defaultOptions(true);
               var minorSSTWriter = new SstWriter(minorSSTPath, option);
@@ -220,62 +179,4 @@ public abstract class Transformer {
     }
 
 
-    public static class Parquet implements Closeable {
-
-        record WriterPath(ParquetWriter<Contrib> writer, Path path) {
-
-        }
-
-        private final Path tempDir;
-        private final OutputLocation outputDir;
-        private final OSMType type;
-        private final Consumer<AvroUtil.AvroBuilder<Contrib>> config;
-
-        private final Map<String, WriterPath> writers = new HashMap<>();
-
-        public Parquet(Path tempDir, OutputLocation outputDir, OSMType type, Consumer<AvroUtil.AvroBuilder<Contrib>> config) {
-            this.tempDir = tempDir;
-            this.outputDir = outputDir;
-            this.type = type;
-            this.config = config;
-        }
-
-        @Override
-        public void close() throws IOException {
-            var suppressed = new ArrayList<Exception>();
-            for (var entry : writers.entrySet()) {
-                var status = entry.getKey();
-                var writerPath = entry.getValue();
-                try {
-                    writerPath.writer().close();
-                    var newPath = outputDir
-                            .resolve(status)
-                            .resolve(writerPath.path().getFileName());
-                    outputDir.move(writerPath.path(), newPath);
-                } catch (Exception e) {
-                    suppressed.add(e);
-                }
-            }
-
-            if (!suppressed.isEmpty()) {
-                var exceptions = new IOException("error closing parquet writers!");
-                suppressed.forEach(exceptions::addSuppressed);
-                throw exceptions;
-            }
-        }
-
-        public void write(long processorId, Contrib contrib) throws IOException {
-            var status = "latest".contentEquals(contrib.getStatus()) ? "latest" : "history";
-            var writerPath = writers.get(status);
-
-            if (writerPath == null) {
-                var path = tempDir.resolve("progress")
-                        .resolve("%s-%d-%s-contribs.parquet".formatted(type, processorId, status));
-                Files.createDirectories(path.getParent());
-                writerPath = new WriterPath(openWriter(path, config), path);
-                writers.put(status, writerPath);
-            }
-            writerPath.writer().write(contrib);
-        }
-    }
 }
