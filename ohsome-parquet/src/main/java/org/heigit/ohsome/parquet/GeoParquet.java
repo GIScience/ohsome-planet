@@ -11,16 +11,12 @@ import static java.util.stream.Collectors.joining;
 public class GeoParquet<T> {
 
     public static class GeoParquetBuilder<T> {
-        private String primaryColumn;
         private final List<Column<T>> columns = new ArrayList<>();
 
         public GeoParquetBuilder() {
         }
 
         public GeoParquetBuilder<T> column(String name, Encoding encoding, EnumSet<GeometryType> geometryTypes, Function<T, Envelope> bbox) {
-            if (primaryColumn == null) {
-                primaryColumn = name;
-            }
             return column(name, encoding, geometryTypes, null, bbox);
         }
 
@@ -29,7 +25,7 @@ public class GeoParquet<T> {
             return this;
         }
 
-        public GeoParquet<T> build() {
+        public GeoParquet<T> build(String primaryColumn) {
             return new GeoParquet<>(primaryColumn, columns.stream()
                     .map(column -> new Column<>(column.name, column.encoding, column.geometryTypes, column.covering, column.extend))
                     .toList());

@@ -15,11 +15,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.EnumSet;
 import java.util.function.Consumer;
 
 import static java.util.EnumSet.allOf;
-import static org.heigit.ohsome.parquet.GeoParquet.Encoding.*;
 
 public class ContribUtil {
 
@@ -28,9 +26,9 @@ public class ContribUtil {
     }
 
     public static final GeoParquet<Contrib> GEO_PARQUET = GeoParquet.<Contrib>builder()
-            .column("geometry", WKB, allOf(GeometryType.class), "bbox", ContribUtil::geometryEnv)
-            .column("centroid", Encoding.Point, EnumSet.of(GeometryType.Point), ContribUtil::centroidEnv)
-            .build();
+            .column("geometry", Encoding.WKB, allOf(GeometryType.class), "bbox", ContribUtil::geometryEnv)
+//            .column("centroid", Encoding.Point, EnumSet.of(GeometryType.Point), ContribUtil::centroidEnv)
+            .build("geometry");
 
 
     public static ParquetWriter<Contrib> openWriter(Path path, Consumer<AvroGeoParquetWriter.AvroGeoParquetBuilder<Contrib>> configuration) {
