@@ -17,8 +17,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class MinioOutputLocationProvider implements OutputLocationProvider {
-    private static final Logger logger = LoggerFactory.getLogger(MinioOutputLocationProvider.class);
+public class S3OutputLocationProvider implements OutputLocationProvider {
+    private static final Logger logger = LoggerFactory.getLogger(S3OutputLocationProvider.class);
 
     public static final String MINIO_S3_KEY_ID = "S3_KEY_ID";
     public static final String MINIO_S3_SECRET = "S3_SECRET";
@@ -62,7 +62,7 @@ public class MinioOutputLocationProvider implements OutputLocationProvider {
                 throw new Exception("bucket " + bucket + " does not exist");
             }
             checkReadWritePermissions(minioPath, client, bucket);
-            return new MinioOutputLocation(client, bucket, minioPath);
+            return new S3OutputLocation(client, bucket, minioPath);
         } catch (Exception e) {
             if (client != null) {
                 client.close();

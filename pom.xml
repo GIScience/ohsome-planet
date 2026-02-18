@@ -44,7 +44,7 @@
         <module>osm-changesets</module>
         <module>ohsome-changesets</module>
         <module>ohsome-replication</module>
-        <module>ohsome-output-minio</module>
+        <module>ohsome-output-s3</module>
         <module>ohsome-output</module>
         <module>ohsome-planet-common</module>
     </modules>
