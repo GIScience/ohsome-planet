@@ -68,7 +68,3 @@ How to build OSM geometries (for multipolygons)?
 * https://wiki.openstreetmap.org/wiki/Relation:multipolygon#Examples_in_XML
 * https://osmcode.org/osm-testdata/
 * https://github.com/GIScience/oshdb/blob/a196cc990a75fa35841ca0908f323c3c9fc06b9a/oshdb-util/src/main/java/org/heigit/ohsome/oshdb/util/geometry/OSHDBGeometryBuilderInternal.java#L469
-
-## Further Notes
-
-* For contributions with status `deleted` we use the geometry of the previous version. This allows you to spatially filter also for deleted elements, e.g. by bounding box. In the sense of OSM deleted elements do not have any geometry.
