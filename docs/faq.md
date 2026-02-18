@@ -14,3 +14,12 @@ To configure this threshold (e.g. 500 members) check the `MEMBERS_THRESHOLD` var
 ## Are there any examples of how to query the ohsome-planet dataset with DuckDB?
 
 Yes, there are! Please [have a look at those](useful_queries.md).
+
+
+## How can I filter for deleted OSM elements?
+
+The raw OSM data does not provide any geometry for deleted elements, but ohsome-planet does.
+For contributions with status `deleted` we use the geometry of the previous version.
+This allows you to spatially filter also for deleted elements, e.g. by bounding box.
+
+
