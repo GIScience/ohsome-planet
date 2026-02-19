@@ -9,7 +9,7 @@ COPY ohsome-planet-cli/pom.xml ohsome-planet-cli/pom.xml
 COPY ohsome-replication/pom.xml ohsome-replication/pom.xml
 COPY ohsome-changesets/pom.xml ohsome-changesets/pom.xml
 COPY ohsome-replication-update/pom.xml ohsome-replication-update/pom.xml
-COPY ohsome-output-minio/pom.xml ohsome-output-minio/pom.xml
+COPY ohsome-output-s3/pom.xml ohsome-output-s3/pom.xml
 COPY ohsome-output/pom.xml ohsome-output/pom.xml
 COPY osm-changesets/pom.xml osm-changesets/pom.xml
 COPY osm-geometry/pom.xml osm-geometry/pom.xml
@@ -26,7 +26,7 @@ COPY ohsome-planet-cli/src ohsome-planet-cli/src
 COPY ohsome-replication/src ohsome-replication/src
 COPY ohsome-changesets/src ohsome-changesets/src
 COPY ohsome-replication-update/src ohsome-replication-update/src
-COPY ohsome-output-minio/src ohsome-output-minio/src
+COPY ohsome-output-s3/src ohsome-output-s3/src
 COPY ohsome-output/src ohsome-output/src
 COPY osm-changesets/src osm-changesets/src
 COPY osm-geometry/src osm-geometry/src
