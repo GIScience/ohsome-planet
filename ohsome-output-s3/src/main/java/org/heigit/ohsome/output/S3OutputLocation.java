@@ -9,9 +9,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class MinioOutputLocation implements OutputLocation {
+public class S3OutputLocation implements OutputLocation {
 
-    private static final Logger logger = LoggerFactory.getLogger(MinioOutputLocation.class);
+    private static final Logger logger = LoggerFactory.getLogger(S3OutputLocation.class);
 
     private final static int MAX_RETRIES = 3;
 
@@ -19,7 +19,7 @@ public class MinioOutputLocation implements OutputLocation {
     private final String bucket;
     private final Path path;
 
-    public MinioOutputLocation(MinioClient client, String bucket, Path path) {
+    public S3OutputLocation(MinioClient client, String bucket, Path path) {
         this.client = client;
         this.bucket = bucket;
         this.path = path;
@@ -32,7 +32,7 @@ public class MinioOutputLocation implements OutputLocation {
 
     @Override
     public String location(Path path) {
-        return "%s%s/%s".formatted(MinioOutputLocationProvider.protocol, bucket, path);
+        return "%s%s/%s".formatted(S3OutputLocationProvider.protocol, bucket, path);
     }
 
     @Override

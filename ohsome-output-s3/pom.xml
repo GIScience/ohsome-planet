@@ -9,7 +9,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>ohsome-output-minio</artifactId>
+    <artifactId>ohsome-output-s3</artifactId>
 
     <properties>
     </properties>

@@ -23,7 +23,7 @@
 
         <dependency>
             <groupId>org.heigit.ohsome</groupId>
-            <artifactId>ohsome-output-minio</artifactId>
+            <artifactId>ohsome-output-s3</artifactId>
             <version>${project.version}</version>
         </dependency>
 
