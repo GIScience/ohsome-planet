@@ -13,7 +13,6 @@ import java.util.Map.Entry;
 import java.util.function.Predicate;
 
 import static java.util.Optional.ofNullable;
-import static org.heigit.ohsome.osm.OSMType.RELATION;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionGeometry {
@@ -21,7 +20,6 @@ public class ContributionGeometry {
     public static final Map<String, Predicate<String>> polygonFeatures;
     private static final GeometryFactory geometryFactory = new GeometryFactory();
     private static final Geometry EMPTY_POINT = geometryFactory.createEmpty(0);
-    private static final int MEMBERS_THRESHOLD = 500;
 
     static {
         var map = new HashMap<String, Predicate<String>>();
@@ -58,27 +56,23 @@ public class ContributionGeometry {
     }
 
     public static Geometry geometry(Contribution contribution) {
+        return geometry(contribution, false);
+    }
+    public static Geometry geometry(Contribution contribution, boolean buildMultipolygon) {
         return switch (contribution.entity().type()) {
             case NODE -> nodeGeometry(contribution);
             case WAY -> wayGeometry(contribution);
-            case RELATION -> relGeometry(contribution);
+            case RELATION -> relGeometry(contribution, buildMultipolygon);
         };
     }
 
     public static boolean relIsMultipolygon(Contribution contribution) {
-        if (contribution.entity().type() != RELATION) {
-            return false;
-        }
-
-        if (contribution.members().size() > MEMBERS_THRESHOLD) {
-            return false;
-        }
         var type = contribution.entity().tags().getOrDefault("type", "");
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
-    public static Geometry relGeometry(Contribution contribution) {
-        if (relIsMultipolygon(contribution)) {
+    public static Geometry relGeometry(Contribution contribution,  boolean buildMultipolygon) {
+        if (buildMultipolygon && relIsMultipolygon(contribution)) {
             return relGeometryMultiPolygon(contribution);
         }
         return relGeometryCollection(contribution);
