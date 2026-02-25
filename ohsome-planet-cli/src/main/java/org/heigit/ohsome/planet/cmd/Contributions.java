@@ -9,6 +9,7 @@ import org.heigit.ohsome.planet.converter.UrlConverter;
 import org.heigit.ohsome.planet.utils.CliUtils;
 import org.heigit.ohsome.planet.utils.ManifestVersionProvider;
 import picocli.CommandLine;
+import picocli.CommandLine.Option;
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -32,18 +33,18 @@ public class Contributions implements Callable<Integer> {
 
     private static final String OHSOME_PLANET_METRICS_PORT = "OHSOME_PLANET_METRICS_PORT";
 
-    @CommandLine.Option(names = {"--pbf"}, required = true,
+    @Option(names = {"--pbf"}, required = true,
             paramLabel = "path/to/osm.pbf",
             description = "OSM (history/latest) .pbf file path.")
     private Path pbfPath;
 
-    @CommandLine.Option(names = {"--data"},
+    @Option(names = {"--data"},
             paramLabel = "path/to/ohsome-planet-data",
             description = """
                     ohsome-planet working directory, defaults to ohsome-planet, for parquet-data (contributions), temp files (temp) and optional replication-store (replication).""")
     private Path data = Path.of("ohsome-planet");
 
-    @CommandLine.Option(names = {"--parquet-data"},
+    @Option(names = {"--parquet-data"},
             paramLabel = "s3://BUCKET/PATH",
             description = """
                     Write parquet files into separate output directory in your filesystem or S3 cloud storage.
@@ -51,18 +52,18 @@ public class Contributions implements Callable<Integer> {
                     """)
     private String parquetData;
 
-    @CommandLine.Option(names = {"--keep-temp-data"},
+    @Option(names = {"--keep-temp-data"},
             description = "Do not remove temp folder in data directory after processing. For debug purposes only!")
     private boolean keepTempData = false;
 
-    @CommandLine.Option(names = {"--parallel"},
+    @Option(names = {"--parallel"},
             description = """
                 Number of threads used for processing.
                 Defaults to all available cpus minus 1.
                 Dictates the number of output parquet files which will created.""")
     private int parallel = Runtime.getRuntime().availableProcessors() - 1;
 
-    @CommandLine.Option(names = {"--country-file"},
+    @Option(names = {"--country-file"},
             paramLabel = "path/to/countries.csv",
             description = """
                     Enrich osm-contributions with country-codes.
@@ -72,7 +73,7 @@ public class Contributions implements Callable<Integer> {
                     """)
     private Path countryFilePath;
 
-    @CommandLine.Option(names = {"--changeset-db"},
+    @Option(names = {"--changeset-db"},
             paramLabel = "jdbc:postgresql://HOST[:PORT]/DATABASE",
             description = """
                     Enrich osm-contributions with osm-changeset information.
@@ -82,7 +83,7 @@ public class Contributions implements Callable<Integer> {
                     """)
     private String changesetDbUrl = "";
 
-    @CommandLine.Option(names = {"--replication-endpoint"},
+    @Option(names = {"--replication-endpoint"},
             converter = UrlConverter.class,
             paramLabel = "https://planet.openstreetmap.org/replication/minute/",
             description = """
@@ -91,14 +92,21 @@ public class Contributions implements Callable<Integer> {
                     """)
     private URL replicationEndpoint;
 
-    @CommandLine.Option(names = {"--filter-relation-tag-keys"},
+    @Option(names = {"--filter-relation-tag-keys"},
             paramLabel = "highway,building,landuse",
             description = """
                     Filter osm relations with comma separated list of osm tag keys.
                     """)
     private String includeTags = "";
 
-    @CommandLine.Option(names = {"-v"},
+    @Option(names = {"--multipolygon-member-limit"},
+            description = """
+                    Limits the building of relation multipolygon for relations with members count lesser or equal than the specified limit. Default 500.
+                    Use '-1' to build all and '0' to not build any multipolygon geometry.
+                    """ )
+    private int multipolygonMembersLimit = 500;
+
+    @Option(names = {"-v"},
             description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
 
@@ -146,7 +154,7 @@ public class Contributions implements Callable<Integer> {
                     pbfPath, data, outputLocation, parallel,
                     changesetDbUrl, countryFilePath,
                     replicationEndpoint,
-                    includeTags);
+                    includeTags, multipolygonMembersLimit < 0 ? Integer.MAX_VALUE: multipolygonMembersLimit);
 
             if (!keepTempData) {
                 MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
