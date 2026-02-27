@@ -1,5 +1,7 @@
 package org.heigit.ohsome.osm.pbf.group;
 
+import static java.time.Instant.EPOCH;
+
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.pbf.Block;
 import org.heigit.ohsome.util.io.Input;
@@ -12,10 +14,10 @@ public abstract class GroupPrimitive<T extends OSMEntity> extends Group<T> {
 
     protected long id;
     protected int version;
-    protected Instant timestamp;
+    protected Instant timestamp = EPOCH;
     protected long changeset;
     protected int userId;
-    protected String user;
+    protected String user = "";
     protected boolean visible = true;
 
     protected final List<String> keys = new ArrayList<>();
