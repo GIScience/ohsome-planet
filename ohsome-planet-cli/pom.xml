@@ -12,6 +12,8 @@
 
     <properties>
         <main.class>org.heigit.ohsome.planet.OhsomePlanet</main.class>
+
+        <maven.deploy.skip>false</maven.deploy.skip>
     </properties>
 
     <dependencies>

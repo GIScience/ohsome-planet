@@ -27,6 +27,8 @@
         <prometheus.version>1.4.1</prometheus.version>
         <slf4j.version>2.0.17</slf4j.version>
 
+        <maven.deploy.skip>true</maven.deploy.skip>
+
         <sonar.moduleKey>${project.artifactId}</sonar.moduleKey>
         <sonar.projectKey>${project.groupId}:ohsome-planet</sonar.projectKey>
         <sonar.projectName>ohsome-planet</sonar.projectName>
