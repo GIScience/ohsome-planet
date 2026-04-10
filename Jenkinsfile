@@ -60,6 +60,7 @@ pipeline {
                 }
             }
             steps {
+                setup_basic_env()
                 deploy_snapshot('clean compile javadoc:jar source:jar deploy -P sign,git')
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
