@@ -50,6 +50,7 @@ pipeline {
                 }
             }
             steps {
+                deploy_snapshot('clean compile javadoc:jar source:jar deploy -P sign,git')
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage = docker.build(DOCKER_REPOSITORY + ':' + env.BRANCH_NAME)
@@ -71,6 +72,7 @@ pipeline {
                 }
             }
             steps {
+                deploy_release('clean compile javadoc:jar source:jar deploy -P sign,git')
                 script {
                     docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage = docker.build(DOCKER_REPOSITORY + ':' + VERSION)
