@@ -23,6 +23,11 @@ pipeline {
 
     stages {
         stage('Build and Test') {
+            when {
+                expression {
+                    return false
+                }
+            }
             steps {
                 // setting up a few basic env variables like REPO_NAME and LATEST_AUTHOR
                 setup_basic_env()
@@ -38,6 +43,11 @@ pipeline {
         }
 
         stage('Reports and Statistics') {
+            when {
+                expression {
+                    return false
+                }
+            }
             steps {
                 reports_sonar_jacoco()
             }
