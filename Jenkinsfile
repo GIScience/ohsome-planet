@@ -56,7 +56,8 @@ pipeline {
         stage('Build and Deploy Snapshot Image') {
             when {
                 expression {
-                    return env.BRANCH_NAME ==~ SNAPSHOT_BRANCH_REGEX && VERSION ==~ /.*-SNAPSHOT$/
+                    // return env.BRANCH_NAME ==~ SNAPSHOT_BRANCH_REGEX && VERSION ==~ /.*-SNAPSHOT$/
+                    return true
                 }
             }
             steps {
