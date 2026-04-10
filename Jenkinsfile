@@ -12,7 +12,7 @@ pipeline {
     environment {
         MAVEN_TEST_OPTIONS = ' '
         // this regex determines which branch is deployed as a snapshot
-        SNAPSHOT_BRANCH_REGEX = /(^main$)/
+        SNAPSHOT_BRANCH_REGEX = /(^push-maven$)/   // TODO change to main
         RELEASE_REGEX = /^([0-9]+(\.[0-9]+)*)(-(RC|beta-|alpha-)[0-9]+)?$/
         RELEASE_DEPLOY = false
         SNAPSHOT_DEPLOY = false
