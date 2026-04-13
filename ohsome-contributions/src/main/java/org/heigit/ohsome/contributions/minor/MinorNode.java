@@ -54,7 +54,7 @@ public class MinorNode {
 
         public void add(OSMNode node) {
             if (node.visible() || visible) {
-                if (!node.visible() || !visible || node.lon() != lon && node.lat() != lat) {
+                if (!node.visible() || !visible || node.lon() != lon || node.lat() != lat) {
                     versions.add(node);
                     lon = node.lon();
                     lat = node.lat();
