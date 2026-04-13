@@ -62,7 +62,7 @@ ENV JAVA_HOME=/opt/java/openjdk
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=jre-builder /javaruntime $JAVA_HOME
 
-COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet.jar /ohsome-planet.jar
+COPY --from=app-builder ohsome-planet-cli/target/ohsome-planet-cli-*-fatJar.jar /ohsome-planet.jar
 
 ENV JAVA_OPTS=""
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /ohsome-planet.jar $0 $@"]
