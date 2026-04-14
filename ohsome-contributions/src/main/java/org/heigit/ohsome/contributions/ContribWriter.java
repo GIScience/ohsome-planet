@@ -1,7 +1,5 @@
 package org.heigit.ohsome.contributions;
 
-import java.util.function.Function;
-
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.osm.OSMType;
@@ -13,20 +11,18 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Consumer;
 
 public class ContribWriter implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ContribWriter.class);
-
-    private final Map<String, ParquetWriter<Contrib>> writers = new HashMap<>();
 
     private final int writerId;
     private final OSMType type;
     private final Path temp;
     private final OutputLocation outputDir;
     private final Consumer<AvroGeoParquetBuilder<Contrib>> additionalConfig;
+
+    private ParquetWriter<Contrib> writer;
 
     final Output output = new Output(4 << 10);
 
@@ -39,35 +35,34 @@ public class ContribWriter implements AutoCloseable {
     }
 
     public void write(Contrib contrib) throws IOException {
-        var status = "latest".contentEquals(contrib.getStatus()) ? "latest" : "history";
-        writers.computeIfAbsent(status, this::openWriter).write(contrib);
+        if (writer == null) {
+            writer = openWriter();
+        }
+        writer.write(contrib);
     }
 
-    private ParquetWriter<Contrib> openWriter(String status) {
-        var path = progressPath(status);
-        return ContribUtil.openWriter(path, additionalConfig);
+    private ParquetWriter<Contrib> openWriter() {
+        return ContribUtil.openWriter(progressPath(), additionalConfig);
     }
 
-    private Path progressPath(String status) {
+    private Path progressPath() {
         return temp.resolve("progress")
-                .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
+                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
     }
 
-    private Path finalPath(String status) {
+    private Path finalPath() {
         return outputDir
-                .resolve(status)
-                .resolve("%s-%d-%s-contribs.parquet".formatted(type, writerId, status));
+                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
     }
 
-    private Path canceledPath(String status) {
+    private Path canceledPath() {
         return outputDir.resolve("canceled")
-            .resolve(status)
-            .resolve("%s-%d-%s-contribs-canceled.parquet".formatted(type, writerId, status));
+                .resolve("%s-%d-contribs-canceled.parquet".formatted(type, writerId));
     }
 
     @Override
     public void close() {
-        close(this::finalPath);
+        close(finalPath());
     }
 
     public Output output() {
@@ -83,23 +78,19 @@ public class ContribWriter implements AutoCloseable {
         if (!canceled) {
             close();
         } else {
-            close(this::canceledPath);
+            close(canceledPath());
         }
     }
 
-    private void close(Function<String, Path> pathFnt) {
-        writers.forEach((key, writer) -> {
-            logger.debug("closing writer {} {}", getId(), key);
-            var path = progressPath(key);
-            var finalPath = pathFnt.apply(key);
-            try {
-                writer.close();
-
-                outputDir.move(path, finalPath);
-            } catch (Exception e) {
-                logger.error("closing writer {}: {} - {}", getId(), key, finalPath, e);
-                // ignore exception
-            }
-        });
+    private void close(Path finalPath) {
+        var path = progressPath();
+        logger.debug("closing writer {}", getId());
+        try {
+            writer.close();
+            outputDir.move(path, finalPath);
+        } catch(Exception e){
+            logger.error("closing writer {}: {}", getId(), finalPath, e);
+            // ignore exception
+        }
     }
 }
