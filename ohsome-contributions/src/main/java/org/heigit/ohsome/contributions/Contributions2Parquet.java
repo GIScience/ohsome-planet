@@ -53,9 +53,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -230,7 +228,13 @@ public class Contributions2Parquet implements Callable<Integer> {
                      .setTaskName("process %8s".formatted(RELATION))
                      .setInitialMax(blobTypes.get(RELATION).size())
                      .setUnit(" blk", 1)
-                     .build()) {
+                     .build();
+
+             var contribWorkers = (ThreadPoolExecutor) Executors.newFixedThreadPool(numFiles, new ThreadFactoryBuilder()
+                     .setNameFormat("contrib-worker-%d")
+                     .setDaemon(true)
+                     .build())
+             ) {
 
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
@@ -246,10 +250,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                             .subscribeOn(parallel()), parallel)
                     .toIterable(10).iterator();
 
-            var contribWorkers = Executors.newFixedThreadPool(numFiles, new ThreadFactoryBuilder()
-                    .setNameFormat("contrib-worker-%d")
-                    .setDaemon(true)
-                    .build());
+
 
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
@@ -261,7 +262,6 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var canceled = new AtomicBoolean(false);
             var batch = new ArrayList<List<OSMEntity>>(1_000);
-
 
             while (entities.hasNext() && !canceled.get()) {
                 batch.clear();
@@ -341,7 +341,14 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
             for (var i = 0; i < numFiles; i++) {
                 var writer = writers.take();
-                writer.close(canceled.get());
+                contribWorkers.execute(() -> writer.close(canceled.get()));
+            }
+
+            contribWorkers.shutdown();
+            while(!contribWorkers.awaitTermination(1, TimeUnit.MINUTES)) {
+                var active = contribWorkers.getActiveCount();
+                var queued = contribWorkers.getQueue().size();
+                logger.info("waiting for writers to close. active: {}, queued: {}", active, queued);
             }
 
             return new Transformer.Summary(Instant.ofEpochSecond(replicationLatestTimestamp), replicationElementsCount);
