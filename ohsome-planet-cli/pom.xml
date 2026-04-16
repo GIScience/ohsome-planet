@@ -89,7 +89,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <shadedClassifierName>fatJar</shadedClassifierName>
+                            <!--shadedClassifierName>fatJar</shadedClassifierName> -->
+                            <finalName>ohsome-planet</finalName>
                             <minimizeJar>true</minimizeJar>
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <transformers>
