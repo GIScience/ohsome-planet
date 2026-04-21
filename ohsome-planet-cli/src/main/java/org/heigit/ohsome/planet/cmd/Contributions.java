@@ -131,13 +131,14 @@ public class Contributions implements Callable<Integer> {
 
             if (outputLocation.exists()){
                 System.out.println("parquet-data directory is not empty!");
-                System.exit(0);
+                return CommandLine.ExitCode.USAGE;
             }
+
             if (Files.exists(replicationDir)) {
                 try (var files = Files.list(replicationDir)) {
                     if (files.iterator().hasNext()) {
                         System.out.println("replication directory is not empty!");
-                        System.exit(0);
+                        return CommandLine.ExitCode.USAGE;
                     }
                 }
             }
