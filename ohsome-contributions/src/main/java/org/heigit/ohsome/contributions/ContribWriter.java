@@ -83,6 +83,10 @@ public class ContribWriter implements AutoCloseable {
     }
 
     private void close(Path finalPath) {
+        if (writer == null){
+            return;
+        }
+
         var path = progressPath();
         logger.debug("closing writer {}", getId());
         try {
