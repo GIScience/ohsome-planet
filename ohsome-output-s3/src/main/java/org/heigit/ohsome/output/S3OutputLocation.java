@@ -35,45 +35,67 @@ public class S3OutputLocation implements OutputLocation {
         return "%s%s/%s".formatted(S3OutputLocationProvider.protocol, bucket, path);
     }
 
-    @Override
-    public void move(Path src, Path dest) throws Exception {
-        var retries = 0;
-        while (true) {
+    private interface WithRetry {
+        void run(int retry) throws Exception;
+    }
+
+    private interface WithRetryFailure {
+        void log(int retry, Exception e);
+    }
+
+    private void withRetry(WithRetry withRetry, WithRetryFailure failure) throws Exception {
+        var exception = (Exception) null;
+        for (var retry = 0; retry < MAX_RETRIES; ) {
             try {
-                logger.debug("uploading file {} {} -> {}", bucket, src, dest);
-                client.uploadObject(UploadObjectArgs.builder()
-                        .bucket(bucket)
-                        .filename(src.toString())
-                        .object(dest.toString())
-                        .build());
-                break;
+                withRetry.run(++retry);
+                return;
             } catch (Exception e) {
-                if (retries++ < MAX_RETRIES) {
-                    logger.warn("Failed to upload object %s to %s. Retry %d/%d.".formatted(src, dest, retries, MAX_RETRIES),  e);
-                    Thread.sleep(100);
-                    continue;
-                }
-                throw e;
+                failure.log(retry, e);
+                exception = e;
             }
         }
+        throw exception;
+    }
+
+    @Override
+    public void move(Path src, Path dest) throws Exception {
+        withRetry(retry -> {
+                    logger.debug("uploading file {} {} -> {}. Retry {}/{}", bucket, src, dest, retry, MAX_RETRIES);
+                    client.uploadObject(UploadObjectArgs.builder()
+                            .bucket(bucket)
+                            .filename(src.toString())
+                            .object(dest.toString())
+                            .build());
+                }, (retry, e) ->
+                        logger.warn("Failed to upload object {} to {}. Retry {}/{}.", src, dest, retry, MAX_RETRIES, e)
+        );
         Files.deleteIfExists(src);
     }
 
     @Override
     public void delete(Path dest) throws Exception {
-        client.removeObject(RemoveObjectArgs.builder()
-                .bucket(bucket)
-                .object(dest.toString())
-                .build());
+        withRetry(retry -> {
+                    logger.debug("deleting file {} {}.  Retry {}/{}", bucket, dest, retry, MAX_RETRIES);
+                    client.removeObject(RemoveObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(dest.toString())
+                            .build());
+                }, (retry, e) ->
+                        logger.warn("Failed to delete object {}. Retry {}/{}.", dest, retry, MAX_RETRIES, e)
+        );
     }
 
     @Override
     public void write(Path dest, byte[] data) throws Exception {
-        client.putObject(PutObjectArgs.builder()
-                .bucket(bucket)
-                .object(dest.toString())
-                .stream(new ByteArrayInputStream(data), data.length, -1)
-                .build());
+        withRetry(retry -> {
+                    client.putObject(PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(dest.toString())
+                            .stream(new ByteArrayInputStream(data), data.length, -1)
+                            .build());
+                }, (retry, e) ->
+                        logger.warn("Failed to write object {}. Retry {}/{}.", dest, retry, MAX_RETRIES, e)
+        );
     }
 
     @Override
