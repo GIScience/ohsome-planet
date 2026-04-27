@@ -11,7 +11,10 @@ import picocli.CommandLine.Option;
 
 import java.nio.file.Path;
 import java.security.InvalidParameterException;
+import java.util.Optional;
 import java.util.concurrent.Callable;
+
+import static java.util.function.Predicate.not;
 
 @Command(name = "replications",
         versionProvider = ManifestVersionProvider.class,
@@ -141,9 +144,11 @@ public class Replications implements Callable<Integer> {
             throw new InvalidParameterException("Either just-contributions or just-changesets can be specified");
         }
 
-        var metricsPort = System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT));
-        try (var ignored = (metricsPort != null ) ?
-                HTTPServer.builder().port(Integer.parseInt(metricsPort)).buildAndStart() : null ) {
+        var httpServer = Optional.ofNullable(System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT)))
+                .filter(not(String::isBlank))
+                .map(Integer::parseInt)
+                .map(port -> HTTPServer.builder().port(port));
+        try (var ignored = (httpServer.isPresent()) ? httpServer.get().buildAndStart() : null) {
 
             JvmMetrics.builder().register();
 

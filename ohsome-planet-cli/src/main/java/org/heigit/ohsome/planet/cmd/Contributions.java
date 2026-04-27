@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static java.util.function.Predicate.not;
 
 @CommandLine.Command(name = "contributions",
         mixinStandardHelpOptions = true,
@@ -123,6 +124,7 @@ public class Contributions implements Callable<Integer> {
         }
 
         var httpServer = Optional.ofNullable(System.getProperty(OHSOME_PLANET_METRICS_PORT, System.getenv(OHSOME_PLANET_METRICS_PORT)))
+                .filter(not(String::isBlank))
                 .map(Integer::parseInt)
                 .map(port -> HTTPServer.builder().port(port));
         try (var ignored = (httpServer.isPresent()) ? httpServer.get().buildAndStart() : null;
