@@ -5,6 +5,7 @@ import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.xml.OSMXmlIterator;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.locationtech.jts.geom.Coordinate;
@@ -46,11 +47,29 @@ class GeometryBuilderTest {
     test7xx(testId, GeometryBuilder::buildMultiPolygon);
   }
 
+  @Disabled
+  @ParameterizedTest
+  @MethodSource("testCasesOsm")
+  void test7xxOSHDB(String testId) throws Exception {
+    test7xx(testId, OSHDBGeometryBuilder::buildMultiPolygon);
+  }
+
   @ParameterizedTest
   @MethodSource("testCasesMod")
   void test7xxMod(String testId) throws Exception {
     test7xx(testId, GeometryBuilder::buildMultiPolygonLegacy);
   }
+
+  @Disabled
+  @ParameterizedTest
+  @MethodSource("testCasesMod")
+  void test7xxOSHDBMod(String testId) throws Exception {
+    test7xx(testId, OSHDBGeometryBuilder::buildMultiPolygon);
+  }
+
+
+
+
 
   void test7xx(String testId, Builder builder) throws Exception {
     try (var data = this.getClass().getResourceAsStream("/" + testId + "/data.osm");
