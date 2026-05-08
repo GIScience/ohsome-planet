@@ -88,10 +88,10 @@ public class MinorNode {
                 var userName = version.user();
                 output.writeU32(userId);
                 output.writeUTF8(userName);
-                var l = Math.round((version.lon() * 1_0000000L));
+                var l = version.visible() ? Math.round((version.lon() * 1_0000000L)) : lon;
                 output.writeS64(l - lon);
                 lon = l;
-                l = Math.round(version.lat() * 1_0000000L);
+                l = version.visible() ? Math.round(version.lat() * 1_0000000L) : lat;
                 output.writeS64(l - lat);
                 lat = l;
             }

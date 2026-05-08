@@ -14,6 +14,29 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MinorTest {
 
+
+    @Test
+    void testNode() throws IOException {
+        var builder = MinorNode.newBuilder();
+        builder.add(new OSMEntity.OSMNode(123, 0, ofEpochSecond(0), 0, 1, "test", true, Map.of(), 8.7244722, 52.3270159));
+        builder.add(new OSMEntity.OSMNode(123, 1, ofEpochSecond(1), 1, 1, "test", false, Map.of(), 214.7483647, 214.7483647));
+
+        try (var output = new Output(4 << 10)) {
+            builder.serialize(output);
+            var bytes = output.array();
+            var osh = MinorNode.deserialize(123L, bytes);
+            var node1 = osh.get(0);
+            System.out.println("node1 = " + node1);
+
+            var node2 = osh.get(1);
+            System.out.println("node2 = " + node2);
+
+            assertFalse(node2.visible());
+
+        }
+
+    }
+
     @Test
     void testMinorNode() throws IOException {
         var builder = MinorNode.newBuilder();
