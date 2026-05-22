@@ -19,7 +19,7 @@ public class Arc {
 
     public Arc(Segment segment, Junction junction, Coordinate touching) {
         this(segment, junction);
-        this.touching.add(touching);
+        this.touching(touching);
     }
 
     public Arc(Segment segment, Junction junction) {
@@ -72,15 +72,34 @@ public class Arc {
             if (coordinate.getX() == event.getX() && coordinate.getY() < event.getY()) {
                 return coordinate.getY();
             }
-            if ( i == 0 && coordinate.equals2D(event)) {
-                return Double.NaN;
+
+            if (coordinate.equals2D(event)) {
+                continue;
             }
+
             if (i == 0 || coordinate.getX() < event.getX()) {
-                return Math.max(coordinate.getY(), coord.getY());
+                return getYForX(coordinate, coord, event.getX());
             }
             coord = coordinate;
         }
         return Double.NaN;
+    }
+
+    public static double getYForX(Coordinate a, Coordinate b, double x) {
+        // Safety check: Avoid division by zero if the line is perfectly vertical
+        if (Double.compare(a.x, b.x) == 0) {
+            if (Double.compare(x, a.x) == 0) {
+                return a.y; // x is exactly on the vertical line; return an endpoint Y
+            }
+            return Math.max(a.y, b.y);
+//            throw new IllegalArgumentException("The line is vertical. An infinite number of Y values exist for X = " + x);
+        }
+
+        // 1. Find the ratio: how far is 'x' along the distance from a.x to b.x
+        double t = (x - a.x) / (b.x - a.x);
+
+        // 2. Apply that same ratio to interpolate the Y value
+        return a.y + t * (b.y - a.y);
     }
 
     public void appendForward(Arc other) {
@@ -101,10 +120,14 @@ public class Arc {
 
     public void addHole(Ring ring) {
         this.holes.add(ring);
+        this.holes.addAll(ring.sideHoles());
+        ring.sideHoles().clear();
     }
 
     public void touching(Coordinate event) {
-        this.touching.add(event);
+        if (event != null) {
+            this.touching.add(event);
+        }
     }
 
     public List<Coordinate> touching() {

@@ -46,8 +46,13 @@ public class GeometryAssembler {
         }
 
         if (!junctions.isEmpty()) {
-            // TODO replace later with a log and return null!
-            throw new UnsupportedOperationException("Cannot assemble junctions");
+            for(var event : junctions.keySet()) {
+                var junction =  junctions.get(event);
+                if (junction == null || junction.incomings().isEmpty()) {
+                    continue;
+                }
+                handleEvent(junction.event(), junction.incomings(), List.of());
+            }
         }
 
         if (rings.isEmpty()) {
@@ -65,17 +70,52 @@ public class GeometryAssembler {
         var numberOfSegments = incomingArcs.size() + outgoingSegments.size();
         if (numberOfSegments == 0 || numberOfSegments == 1) return;
 
-        outgoing.sort(comparingDouble(Segment::angle));
-        incoming.sort(comparingDouble(Arc::endAngle).reversed());
+        if (outgoing.size() > 1) outgoing.sort(comparingDouble(Segment::angle));
 
-        if (incoming.size() == 1 && outgoing.size() == 1) {
-            extend(incoming.getFirst(), outgoing.getFirst());
-        } else if (incoming.isEmpty() && outgoing.size() == 2) {
-            startRing(event, outgoing.get(0), outgoing.get(1));
-        } else if (incoming.size() == 2 && outgoing.isEmpty()) {
-            merge(event, incoming.get(0), incoming.get(1));
+        if (incoming.size() > 1) incoming.sort(comparingDouble(Arc::endAngle).reversed());
+
+
+        var touching = numberOfSegments > 2 ? event : null;
+
+        incoming.forEach(arc -> arc.touching(touching));
+
+        var rootRings = new ArrayList<Ring>();
+        var leftovers = (List<Arc>) new ArrayList<Arc>();
+        if (incoming.size() > 1) {
+            matchingRings(incoming, rootRings, leftovers);
         } else {
-            touching(event, incoming, outgoing);
+            leftovers = incoming;
+        }
+
+        if (leftovers.size() == 1 && outgoing.size() == 1) {
+            extend(leftovers.getFirst(), outgoing.getFirst());
+        } else if (leftovers.isEmpty() && outgoing.size() == 2) {
+            startRing(event, outgoing.get(0), outgoing.get(1), touching);
+        } else if (leftovers.size() == 2 && outgoing.isEmpty()) {
+            merge(leftovers.get(0), leftovers.get(1));
+        } else if (!leftovers.isEmpty() || !outgoing.isEmpty()) {
+            var junction = junctions.computeIfAbsent(event, Junction::new);
+            junction.incomings().addAll(leftovers);
+            for (var out : outgoing) {
+                var arc = new Arc(out, junction, event);
+                junction.outgoings().add(arc);
+                activeArcs.add(arc);
+            }
+        }
+
+        if (rootRings.isEmpty()) {
+            return;
+        }
+
+        var upperArc = inside(event);
+        if (upperArc == null) {
+            rings.addAll(rootRings);
+        } else {
+            rootRings.forEach(ring -> {
+                rings.addAll(ring.holes());
+                upperArc.addHole(ring);
+                ring.holes().clear();
+            });
         }
     }
 
@@ -83,16 +123,16 @@ public class GeometryAssembler {
         int index = 0;
     }
 
-    private void matchingRings(Coordinate event, List<Arc> list, List<Ring> siblingRings, List<Arc> unmatched) {
-        matchingRings(event, list, new ListCursor(), null, siblingRings, unmatched);
+    private void matchingRings(List<Arc> list, List<Ring> siblingRings, List<Arc> unmatched) {
+        matchingRings(list, new ListCursor(), null, siblingRings, unmatched);
     }
 
-    private Ring matchingRings(Coordinate event, List<Arc> list, ListCursor cursor, Arc boundary, List<Ring> siblingRings, List<Arc> unmatched) {
+    private Ring matchingRings(List<Arc> list, ListCursor cursor, Arc boundary, List<Ring> siblingRings, List<Arc> unmatched) {
         while (cursor.index < list.size()) {
             var current = list.get(cursor.index);
 
             if (boundary != null) {
-                var ring = findClosedRing(event, boundary, current);
+                var ring = findClosedRing(boundary, current);
                 if (ring != null) {
                     cursor.index++;
                     return ring;
@@ -100,7 +140,7 @@ public class GeometryAssembler {
             }
 
             if (cursor.index + 1 < list.size()) {
-                var ring = findClosedRing(event, current, list.get(cursor.index + 1));
+                var ring = findClosedRing(current, list.get(cursor.index + 1));
                 if (ring != null) {
                     siblingRings.add(ring);
                     cursor.index += 2;
@@ -111,7 +151,7 @@ public class GeometryAssembler {
             cursor.index++;
             var nestedRings = new ArrayList<Ring>();
             var nestedUnmatched = new ArrayList<Arc>();
-            var closedRing = matchingRings(event, list, cursor, current, nestedRings, nestedUnmatched);
+            var closedRing = matchingRings(list, cursor, current, nestedRings, nestedUnmatched);
 
             if (closedRing != null) {
                 if (!nestedUnmatched.isEmpty()) {
@@ -128,37 +168,17 @@ public class GeometryAssembler {
         return null;
     }
 
-    // TODO understand better the inside function!
     private Arc inside(Coordinate event) {
-        // Arcs whose last segment approaches (event.x, y>event.y) from the left
-        // form a closing vertex directly above. An even number of such arcs at the
-        // same endpoint is a tangent (net 0 crossings); an odd number is a crossing.
-        // Track parity with merge: even count → key removed, odd count → key kept.
-        // Vertical arrivals (start.x == event.x) are genuine crossings, not tangents.
-        var leftApproachAbove = new HashMap<Coordinate, Arc>();
-        var candidates = new ArrayList<Arc>(activeArcs.size());
-        for (var arc : activeArcs) {
-            var lastSegment = arc.lastSegment();
-            var start = lastSegment.start();
-            var end = lastSegment.end();
-            // TODO we need to understand this condition better
-            if (end.getX() == event.getX() && end.getY() > event.getY() && start.getX() < event.getX()) {
-                leftApproachAbove.merge(end, arc, (a, b) -> null); // parity: even→absent, odd→present
-            } else  if (start.getY() >= event.getY() || end.getY() >= event.getY()){
-                candidates.add(arc);
-            }
-        }
-        candidates.addAll(leftApproachAbove.values()); // odd-parity survivors are genuine crossings
-
         var upperArcs = 0;
         var minYAbove = Double.MAX_VALUE;
         var arcAbove = (Arc) null;
-        for (var arc : candidates) {
+        for (var arc : activeArcs) {
+            if (event.equals(arc.start())) continue;
             var y = arc.yForEvent(event);
             if (Double.isNaN(y)) continue;
             if (y > event.getY()) {
                 upperArcs++;
-                if (y < minYAbove) {
+                if (y < minYAbove || (y == minYAbove && arcAbove.endAngle() > arc.endAngle())) {
                     minYAbove = y;
                     arcAbove = arc;
                 }
@@ -168,93 +188,23 @@ public class GeometryAssembler {
         return null;
     }
 
-    private void touching(Coordinate event, List<Arc> incoming, List<Segment> outgoing) {
-        incoming.forEach(arc -> arc.touching(event));
-
-        var rootRings = new ArrayList<Ring>();
-        var leftovers = new ArrayList<Arc>();
-        matchingRings(event, incoming, rootRings, leftovers);
-
-        if (leftovers.size() == 1 && outgoing.size() == 1) {
-            extend(leftovers.getFirst(), outgoing.getFirst());
-        } else if (leftovers.isEmpty() && outgoing.size() == 2) {
-            var junction = junctions.computeIfAbsent(event, Junction::new);
-            var arcs = List.of(
-                    new Arc(outgoing.get(0), junction, event),
-                    new Arc(outgoing.get(1), junction, event));
-            junction.outgoings().addAll(arcs);
-            activeArcs.addAll(arcs);
-        } else if (leftovers.size() == 2 && outgoing.isEmpty()) {
-            merge(event, leftovers.get(0), leftovers.get(1));
-        } else if (!leftovers.isEmpty() || !outgoing.isEmpty()) {
-            var junction = junctions.computeIfAbsent(event, Junction::new);
-            junction.incomings().addAll(leftovers);
-            for (var out : outgoing) {
-                var arc = new Arc(out, junction, event);
-                junction.outgoings().add(arc);
-                activeArcs.add(arc);
-            }
-        }
-        if (rootRings.isEmpty()) {
-            return;
-        }
-
-        var upperArc = inside(event);
-        for (var ring : rootRings) {
-            if (upperArc != null) {
-                rings.addAll(ring.holes());
-                ring.holes().clear();
-                upperArc.addHole(ring);
-            } else {
-                rings.add(ring);
-            }
-        }
-
-    }
-
 
     private void extend(Arc arc, Segment segment) {
         arc.extend(segment);
         activeArcs.add(arc);
     }
 
-    private void startRing(Coordinate event, Segment upper, Segment lower) {
+    private void startRing(Coordinate event, Segment upper, Segment lower, Coordinate touching) {
         var junction = junctions.computeIfAbsent(event, Junction::new);
-        var upperArc = new Arc(upper, junction);
-        var lowerArc = new Arc(lower, junction);
+        var upperArc = new Arc(upper, junction, touching);
+        var lowerArc = new Arc(lower, junction, touching);
         junction.outgoings().add(upperArc);
         junction.outgoings().add(lowerArc);
         activeArcs.add(upperArc);
         activeArcs.add(lowerArc);
     }
 
-    private Ring findClosedRing(Coordinate event, Arc left, Arc right) {
-        var leftJunction = left.junction();
-        var rightJunction = right.junction();
-
-        if (leftJunction == rightJunction) {
-            junctions.remove(leftJunction.event());
-            return new Ring(left, right);
-        }
-
-        for (var outgoing : leftJunction.outgoings()) {
-            if (outgoing == left) continue;
-            if (rightJunction.incomings().contains(outgoing)) {
-                outgoing.appendForward(right);
-                var ring = new Ring(left, outgoing);
-                junctions.remove(ring.upper().junction().event());
-                leftJunction.outgoings().removeIf(arc -> arc == left || arc == outgoing);
-                rightJunction.outgoings().removeIf(arc -> arc == right);
-                rightJunction.incomings().removeIf(arc -> arc == outgoing);
-                cleanUpJunction(event, leftJunction);
-                cleanUpJunction(event, rightJunction);
-                return ring;
-            }
-        }
-        return null;
-    }
-
-    private void merge(Coordinate event, Arc arc1, Arc arc2) {
+    private Ring findClosedRing(Arc arc1, Arc arc2) {
         Arc left;
         Arc right;
         if (arc1.junction().event().compareTo(arc2.junction().event()) <= 0) {
@@ -269,60 +219,80 @@ public class GeometryAssembler {
         var rightJunction = right.junction();
 
         if (leftJunction == rightJunction) {
-            closeRing(event, left, right);
-        } else {
-            left.appendReversed(right);
-            rightJunction.outgoings().removeIf(arc -> arc == right);
-            if (rightJunction.outgoings().size() == 1 && rightJunction.incomings().isEmpty()) {
-                left.appendForward(rightJunction.outgoings().getFirst());
-                activeArcs.removeIf(arc -> arc == rightJunction.outgoings().getFirst());
-                activeArcs.add(left);
-                junctions.remove(rightJunction.event());
-            } else {
-                rightJunction.incomings().add(left);
-                var possibleClosedRingArc = leftJunction.outgoings()
-                        .stream()
-                        .filter(arc -> arc != left && arc.end().equals2D(right.start()))
-                        .findAny();
-                if (possibleClosedRingArc.isPresent()) {
-                    var leftToRightArc = possibleClosedRingArc.get();
-                    closeRing(event, left, leftToRightArc);
-                    leftJunction.outgoings().removeIf(arc -> arc == left || arc == leftToRightArc);
-                    rightJunction.incomings().removeIf(arc -> arc == left || arc == leftToRightArc);
-                }
+            leftJunction.outgoings().removeIf(arc -> arc == left || arc == right);
+            cleanUpJunction(leftJunction);
+            return new Ring(left, right);
+        }
+
+        for (var outgoing : leftJunction.outgoings()) {
+            if (outgoing == left) continue;
+            if (rightJunction.incomings().contains(outgoing)) {
+                outgoing.appendForward(right);
+                var ring = new Ring(left, outgoing);
+                var ringJunction = ring.upper().junction();
+                ringJunction.incomings().removeIf(arc -> arc == left || arc == outgoing);
+                ringJunction.outgoings().removeIf(arc -> arc == right || arc == outgoing);
+                cleanUpJunction(ringJunction);
+                leftJunction.outgoings().removeIf(arc -> arc == left || arc == outgoing);
+                rightJunction.outgoings().removeIf(arc -> arc == right);
+                rightJunction.incomings().removeIf(arc -> arc == outgoing);
+                cleanUpJunction(leftJunction);
+                cleanUpJunction(rightJunction);
+                return ring;
             }
         }
-        cleanUpJunction(event, leftJunction);
-        cleanUpJunction(event, rightJunction);
+        return null;
     }
 
-    private void closeRing(Coordinate event, Arc left, Arc right) {
-        var ring = new Ring(left, right);
-        junctions.remove(ring.upper().junction().event());
-
-        var inside = inside(event);
-        if (inside != null) {
-            inside.addHole(ring);
+    private void merge(Arc arc1, Arc arc2) {
+        Arc left;
+        Arc right;
+        if (arc1.junction().event().compareTo(arc2.junction().event()) <= 0) {
+            left = arc1;
+            right = arc2;
         } else {
-            rings.add(ring);
+            left = arc2;
+            right = arc1;
         }
+
+        var leftJunction = left.junction();
+        var rightJunction = right.junction();
+
+        left.appendReversed(right);
+        rightJunction.outgoings().removeIf(arc -> arc == right);
+        if (rightJunction.outgoings().size() == 1 && rightJunction.incomings().isEmpty()) {
+            left.appendForward(rightJunction.outgoings().getFirst());
+            activeArcs.removeIf(arc -> arc == rightJunction.outgoings().getFirst());
+            activeArcs.add(left);
+        } else {
+            rightJunction.incomings().add(left);
+        }
+        cleanUpJunction(leftJunction);
+        cleanUpJunction(rightJunction);
     }
 
-    private void cleanUpJunction(Coordinate event, Junction junction) {
+    private void cleanUpJunction(Junction junction) {
         if (junction.isEmpty()) {
             junctions.remove(junction.event());
         } else if (junction.incomings().size() == 1 && junction.outgoings().size() == 1) {
             var incoming = junction.incomings().getFirst();
             var outgoing = junction.outgoings().getFirst();
             incoming.appendForward(outgoing);
-            activeArcs.removeIf(arc -> arc == outgoing);
-            activeArcs.add(incoming);
+            var outgoingJunction = junctions.get(outgoing.end());
+            if (outgoingJunction != null) {
+                if (outgoingJunction.outgoings().removeIf(arc -> arc == outgoing)){
+                    outgoingJunction.outgoings().add(incoming);
+                }
+                if (outgoingJunction.incomings().removeIf(arc -> arc == outgoing)){
+                    outgoingJunction.incomings().add(incoming);
+                }
+            }
+            if (activeArcs.removeIf(arc -> arc == outgoing)) {
+                activeArcs.add(incoming);
+            }
             junctions.remove(junction.event());
-        } else if (junction.incomings().size() == 2 && junction.outgoings().isEmpty()) {
-            merge(event, junction.incomings().get(0), junction.incomings().get(1));
         }
     }
-
 
     private List<Arc> incoming(Coordinate event) {
         incomingArcs.clear();

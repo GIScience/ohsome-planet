@@ -11,6 +11,7 @@ public class Ring {
     private final Arc upper;
     private final Arc lower;
     private final List<Ring> holes;
+    private final List<Ring> sideRings = new ArrayList<>();
     private final Set<Coordinate> touching = new HashSet<>();
 
 
@@ -28,7 +29,7 @@ public class Ring {
         }
         this.holes = holes;
         this.holes.addAll(upper.holes());
-        this.holes.addAll(lower.holes());
+        this.sideRings.addAll(lower.holes());
         this.touching.addAll(upper.touching());
         this.touching.addAll(lower.touching());
     }
@@ -45,7 +46,17 @@ public class Ring {
         return holes;
     }
 
+    public List<Ring> sideHoles() {
+        return sideRings;
+    }
+
     public Set<Coordinate> touching() {
         return touching;
+    }
+
+
+    @Override
+    public String toString() {
+        return "Ring: " + upper.start();
     }
 }

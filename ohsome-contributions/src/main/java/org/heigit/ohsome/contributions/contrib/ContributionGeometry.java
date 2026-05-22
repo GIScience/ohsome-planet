@@ -3,8 +3,10 @@ package org.heigit.ohsome.contributions.contrib;
 import com.google.common.base.Predicates;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
-import org.heigit.ohsome.osm.geometry.GeometryBuilder;
+import org.heigit.ohsome.osm.geometry.assembler.GeometryAssembler;
 import org.locationtech.jts.geom.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -16,6 +18,7 @@ import static java.util.Optional.ofNullable;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionGeometry {
+    private static final Logger logger = LoggerFactory.getLogger(ContributionGeometry.class);
 
     public static final Map<String, Predicate<String>> polygonFeatures;
     private static final GeometryFactory geometryFactory = new GeometryFactory();
@@ -58,6 +61,7 @@ public class ContributionGeometry {
     public static Geometry geometry(Contribution contribution) {
         return geometry(contribution, false);
     }
+
     public static Geometry geometry(Contribution contribution, boolean buildMultipolygon) {
         return switch (contribution.entity().type()) {
             case NODE -> nodeGeometry(contribution);
@@ -71,29 +75,39 @@ public class ContributionGeometry {
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
-    public static Geometry relGeometry(Contribution contribution,  boolean buildMultipolygon) {
+    public static Geometry relGeometry(Contribution contribution, boolean buildMultipolygon) {
         if (buildMultipolygon && relIsMultipolygon(contribution)) {
             return relGeometryMultiPolygon(contribution);
         }
         return relGeometryCollection(contribution);
     }
 
+    private static LineString toLineString(Contribution.ContribMember member) {
+        var geometry = member.contrib().data("geometry", ContributionGeometry::geometry);
+        if (geometry instanceof LineString lineString) {
+            return lineString;
+        } else if (geometry instanceof Polygon polygon) {
+            return polygon.getExteriorRing();
+        } else {
+            return geometryFactory.createLineString();
+        }
+    }
+
     public static Geometry relGeometryMultiPolygon(Contribution contribution) {
-        var ways = contribution.members().stream().filter(member -> member.type().equals(WAY) && member.contrib()!=null).toList();
-        var outer = ways.stream()
-                .filter(member -> "outer".equals(member.role()) || member.role().isBlank())
-                .map(member -> member.contrib().data("geometry", ContributionGeometry::geometry))
-                .map(geometry -> Arrays.asList(geometry.getCoordinates()))
-                .toList();
-        var inner = ways.stream()
-                .filter(member -> "inner".equals(member.role()))
-                .map(member -> member.contrib().data("geometry", ContributionGeometry::geometry))
-                .map(geometry -> Arrays.asList(geometry.getCoordinates()))
-                .toList();
+        var ways = new HashMap<Long, LineString>();
+
+        contribution.members().stream()
+                .filter(member -> member.type().equals(WAY) && member.contrib() != null)
+                .forEach(contrib -> ways.computeIfAbsent(contrib.id(), x -> toLineString(contrib)));
+
         try {
-            var geometry = GeometryBuilder.buildMultiPolygon(outer, inner);
-            if (geometry.isValid()) {
-                return geometry;
+            var assembler = new GeometryAssembler();
+            var geometry = assembler.assemble(ways, Set.of());
+            if (geometry != null) {
+                if (geometry.isValid()) {
+                    return geometry;
+                }
+                //logger.debug("Invalid geometry for relation {}: {}", contribution.entity().id(), contribution.timestamp());
             }
         } catch (Exception ignored) {
             // fallback to empty geometry
@@ -109,23 +123,6 @@ public class ContributionGeometry {
                 .filter(Predicate.not(Geometry::isEmpty))
                 .toArray(Geometry[]::new);
         return geometryFactory.createGeometryCollection(geometries);
-//        var types = Arrays.stream(geometries).map(Geometry::getGeometryType).collect(Collectors.toSet());
-//        if (types.size() != 1) {
-//            return geometryFactory.createGeometryCollection(geometries);
-//        }
-//        var type = types.iterator().next();
-//        return switch (type) {
-//            case Geometry.TYPENAME_LINESTRING -> geometryFactory.createMultiLineString(Arrays.stream(geometries)
-//                            .map(LineString.class::cast)
-//                            .toArray(LineString[]::new));
-//            case Geometry.TYPENAME_POLYGON -> geometryFactory.createMultiPolygon(Arrays.stream(geometries)
-//                            .map(Polygon.class::cast)
-//                            .toArray(Polygon[]::new));
-//            case Geometry.TYPENAME_POINT -> geometryFactory.createMultiPoint(Arrays.stream(geometries)
-//                            .map(Point.class::cast)
-//                            .toArray(Point[]::new));
-//            default -> throw new IllegalStateException("unknown single geometry_type: " + type);
-//        };
     }
 
     public static Geometry wayGeometry(Contribution contribution) {

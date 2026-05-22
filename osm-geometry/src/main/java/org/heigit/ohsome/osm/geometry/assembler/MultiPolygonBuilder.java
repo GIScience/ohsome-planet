@@ -38,7 +38,7 @@ public class MultiPolygonBuilder {
     // A cycle means holes collectively disconnect the polygon interior.
     // All holes sharing ONE point form a star (tree) — valid.
     // Holes forming a loop via DISTINCT points form a cycle — invalid.
-    private static void checkTouchingPairs(List<Ring> rings) {
+    private static void checkTouchingPairs(List<Ring> rings) throws InvalidGeometryException {
         var touching = rings.stream().filter(r -> !r.touching().isEmpty()).toList();
         if (touching.size() < 2) return;
         var coordIds = new HashMap<Coordinate, Integer>();
