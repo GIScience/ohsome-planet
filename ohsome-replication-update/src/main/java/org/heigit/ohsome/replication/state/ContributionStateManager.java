@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.state;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.io.MoreFiles;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.heigit.ohsome.changesets.IChangesetDB;
 import org.heigit.ohsome.contributions.ContribUtil;
@@ -29,6 +30,7 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.time.Instant.now;
 import static reactor.core.publisher.Mono.fromCallable;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
@@ -69,6 +71,10 @@ public class ContributionStateManager implements IContributionStateManager {
 
         Files.createDirectories(directory);
         this.tmpDir = directory.resolve("tmp");
+
+        if (Files.exists(tmpDir)) {
+            MoreFiles.deleteRecursively(tmpDir, ALLOW_INSECURE);
+        }
         Files.createDirectories(tmpDir);
 
         this.localStatePath = directory.resolve("state.txt");
