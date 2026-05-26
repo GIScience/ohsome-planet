@@ -1,14 +1,18 @@
 package org.heigit.ohsome.osm.geometry.assembler;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.util.stream.Collectors.*;
+
 public class Arc {
     private final List<Coordinate> coordinates = new ArrayList<>();
+    private final Envelope envelope;
     private final Junction junction;
     private final Set<Long> wayIds = new HashSet<>();
     private final Segment firstSegment;
@@ -25,6 +29,7 @@ public class Arc {
     public Arc(Segment segment, Junction junction) {
         this.coordinates.add(segment.start());
         this.coordinates.add(segment.end());
+        this.envelope = new Envelope(segment.start(), segment.end());
 
         this.junction = junction;
 
@@ -36,6 +41,10 @@ public class Arc {
 
     public List<Coordinate> coordinates() {
         return coordinates;
+    }
+
+    public Envelope envelope() {
+        return envelope;
     }
 
     public Coordinate start() {
@@ -63,6 +72,7 @@ public class Arc {
         this.coordinates.add(segment.end());
         this.lastSegment = segment;
         this.wayIds.add(segment.wayId());
+        this.envelope.expandToInclude(segment.end());
     }
 
     public double yForEvent(Coordinate event) {
@@ -74,6 +84,7 @@ public class Arc {
             }
 
             if (coordinate.equals2D(event)) {
+                if (i > 0) return coordinates.get(i-1).getY();
                 continue;
             }
 
@@ -108,6 +119,7 @@ public class Arc {
         this.wayIds.addAll(other.wayIds);
         this.holes.addAll(other.holes);
         this.touching.addAll(other.touching);
+        this.envelope.expandToInclude(other.envelope);
     }
 
     public void appendReversed(Arc other) {
@@ -116,6 +128,7 @@ public class Arc {
         this.wayIds.addAll(other.wayIds);
         this.holes.addAll(other.holes);
         this.touching.addAll(other.touching);
+        this.envelope.expandToInclude(other.envelope);
     }
 
     public void addHole(Ring ring) {
@@ -138,4 +151,8 @@ public class Arc {
         return holes;
     }
 
+    @Override
+    public String toString() {
+        return coordinates.stream().map(c -> c.getX() + " " + c.getY()).collect(joining(", ", "LINESTRING (", ")"));
+    }
 }

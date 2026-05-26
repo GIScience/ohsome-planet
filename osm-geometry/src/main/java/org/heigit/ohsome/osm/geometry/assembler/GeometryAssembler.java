@@ -68,7 +68,20 @@ public class GeometryAssembler {
 
     private void handleEvent(Coordinate event, List<Arc> incoming, List<Segment> outgoing) {
         var numberOfSegments = incomingArcs.size() + outgoingSegments.size();
-        if (numberOfSegments == 0 || numberOfSegments == 1) return;
+        if (numberOfSegments == 0 || numberOfSegments == 1) {
+            if (!incoming.isEmpty()) {
+                var arc = incoming.getFirst();
+                var junction = arc.junction();
+                junction.outgoings().removeIf(a -> a == arc);
+                junction.incomings().removeIf(a -> a == arc);
+                if (junction.outgoings().size() == 1) {
+                    activeArcs.removeIf(a -> a == junction.outgoings().getFirst());
+                    junction.outgoings().clear();
+                }
+                cleanUpJunction(junction);
+            }
+            return;
+        }
 
         if (outgoing.size() > 1) outgoing.sort(comparingDouble(Segment::angle));
 
@@ -111,11 +124,11 @@ public class GeometryAssembler {
         if (upperArc == null) {
             rings.addAll(rootRings);
         } else {
-            rootRings.forEach(ring -> {
-                rings.addAll(ring.holes());
+            for(var ring : rootRings) {
                 upperArc.addHole(ring);
+                ring.holes().forEach(upperArc::addHole);
                 ring.holes().clear();
-            });
+            }
         }
     }
 

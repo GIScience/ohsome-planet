@@ -13,25 +13,37 @@ public class MultiPolygonBuilder {
 
     public static MultiPolygon build(List<Ring> rings) {
         var polygons = rings.stream()
-                .map(MultiPolygonBuilder::toPolygon)
+                .mapMulti(MultiPolygonBuilder::toPolygon)
                 .toArray(Polygon[]::new);
         return FACTORY.createMultiPolygon(polygons);
     }
 
-    private static Polygon toPolygon(Ring ring) {
+    private static void toPolygon(Ring ring, Consumer<Polygon> consumer) {
         var allRings = new ArrayList<Ring>(ring.holes().size() + 1);
         allRings.add(ring);
         allRings.addAll(ring.holes());
         checkTouchingPairs(allRings);
+        var holes = new ArrayList<Ring>();
+        for(var hole : ring.holes()) {
+            if (!ring.envelope().covers(hole.envelope())) {
+                ringToPolygon(hole, hole.holes(), consumer);
+            } else {
+                holes.add(hole);
+            }
+        }
+        ringToPolygon(ring, holes, consumer);
+    }
+
+    private static void ringToPolygon(Ring ring, List<Ring> ringHoles, Consumer<Polygon> consumer) {
         var shell = toLinearRing(ring);
-        var holes = ring.holes().stream()
-                .<Ring>mapMulti((r, downstream) -> {
-                    downstream.accept(r);
-                    r.holes().forEach(downstream);
-                })
+        var holes = ringHoles.stream()
+//                .<Ring>mapMulti((r, downstream) -> {
+//                    downstream.accept(r);
+//                    ringHoles.forEach(rh -> ringToPolygon(rh, rh.holes(), consumer));
+//                })
                 .map(MultiPolygonBuilder::toLinearRing)
                 .toArray(LinearRing[]::new);
-        return FACTORY.createPolygon(shell, holes);
+        consumer.accept(FACTORY.createPolygon(shell, holes));
     }
 
     // Bipartite graph: holes (0..n-1) and touching coordinates (n..n+m-1).

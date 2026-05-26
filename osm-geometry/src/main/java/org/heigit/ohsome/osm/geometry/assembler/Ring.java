@@ -1,6 +1,7 @@
 package org.heigit.ohsome.osm.geometry.assembler;
 
 import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Envelope;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -10,6 +11,7 @@ import java.util.Set;
 public class Ring {
     private final Arc upper;
     private final Arc lower;
+    private final Envelope envelope;
     private final List<Ring> holes;
     private final List<Ring> sideRings = new ArrayList<>();
     private final Set<Coordinate> touching = new HashSet<>();
@@ -27,11 +29,19 @@ public class Ring {
             this.upper = arc2;
             this.lower = arc1;
         }
+        this.envelope = new Envelope(upper.envelope());
+        this.envelope.expandToInclude(lower.envelope());
+
         this.holes = holes;
         this.holes.addAll(upper.holes());
-        this.sideRings.addAll(lower.holes());
+        this.holes.addAll(lower.holes());
+        //this.sideRings.addAll(lower.holes());
         this.touching.addAll(upper.touching());
         this.touching.addAll(lower.touching());
+    }
+
+    public Envelope envelope() {
+        return envelope;
     }
 
     public Arc upper() {
