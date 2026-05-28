@@ -24,46 +24,41 @@ public class GeometryAssembler {
 
     public Geometry assemble(Map<Long, LineString> ways, Set<Long> inner) {
         var segments = peekingIterator(extractFromWays(ways).iterator());
-        while (true) {
-            var incomingEvent = activeArcs.isEmpty() ? null : activeArcs.peek().end();
-            var outgoingEvent = !segments.hasNext() ? null : segments.peek().start();
-
-            if (incomingEvent == null && outgoingEvent == null) break;
-
-            var event = incomingEvent == null ? outgoingEvent :
-                    outgoingEvent == null ? incomingEvent :
-                    incomingEvent.compareTo(outgoingEvent) <= 0 ? incomingEvent : outgoingEvent;
-
-            var incoming = incoming(event);
-            var outgoing = outgoing(event, segments);
-
-            if (hasIntersection(outgoing, activeArcs)) return null; // invalid geometry
-            try {
-                handleEvent(event, incoming, outgoing);
-            } catch (InvalidGeometryException e) {
-                return null; // invalid geometry
-            }
-        }
-
-        if (!junctions.isEmpty()) {
-            for(var event : junctions.keySet()) {
-                var junction =  junctions.get(event);
-                if (junction == null || junction.incomings().isEmpty()) {
-                    continue;
-                }
-                handleEvent(junction.event(), junction.incomings(), List.of());
-            }
-        }
-
-        if (rings.isEmpty()) {
-            return null;
-        }
-
         try {
-            return MultiPolygonBuilder.build(rings);
+            while (true) {
+                var incomingEvent = activeArcs.isEmpty() ? null : activeArcs.peek().end();
+                var outgoingEvent = !segments.hasNext() ? null : segments.peek().start();
+
+                if (incomingEvent == null && outgoingEvent == null) break;
+
+                var event = incomingEvent == null ? outgoingEvent :
+                        outgoingEvent == null ? incomingEvent :
+                        incomingEvent.compareTo(outgoingEvent) <= 0 ? incomingEvent : outgoingEvent;
+
+                var incoming = incoming(event);
+                var outgoing = outgoing(event, segments);
+
+                if (hasIntersection(outgoing, activeArcs)) return null; // invalid geometry
+                handleEvent(event, incoming, outgoing);
+            }
+
+            if (!junctions.isEmpty()) {
+                for (var event : junctions.keySet()) {
+                    var junction = junctions.get(event);
+                    if (junction == null || junction.incomings().isEmpty()) {
+                        continue;
+                    }
+                    handleEvent(junction.event(), junction.incomings(), List.of());
+                }
+            }
+
+            if (!rings.isEmpty()) {
+                return MultiPolygonBuilder.build(rings);
+            }
         } catch (InvalidGeometryException e) {
-            return null; // invalid geometry
+            // fall through
         }
+        return null; // invalid geometry
     }
 
     private void handleEvent(Coordinate event, List<Arc> incoming, List<Segment> outgoing) {
@@ -124,7 +119,7 @@ public class GeometryAssembler {
         if (upperArc == null) {
             rings.addAll(rootRings);
         } else {
-            for(var ring : rootRings) {
+            for (var ring : rootRings) {
                 upperArc.addHole(ring);
                 ring.holes().forEach(upperArc::addHole);
                 ring.holes().clear();
@@ -184,7 +179,7 @@ public class GeometryAssembler {
     private Arc inside(Coordinate event) {
         var upperArcs = 0;
         var minYAbove = Double.MAX_VALUE;
-        var arcAbove = (Arc) null;
+        var arcAbove = activeArcs.peek();
         for (var arc : activeArcs) {
             if (event.equals(arc.start())) continue;
             var y = arc.yForEvent(event);
@@ -293,10 +288,10 @@ public class GeometryAssembler {
             incoming.appendForward(outgoing);
             var outgoingJunction = junctions.get(outgoing.end());
             if (outgoingJunction != null) {
-                if (outgoingJunction.outgoings().removeIf(arc -> arc == outgoing)){
+                if (outgoingJunction.outgoings().removeIf(arc -> arc == outgoing)) {
                     outgoingJunction.outgoings().add(incoming);
                 }
-                if (outgoingJunction.incomings().removeIf(arc -> arc == outgoing)){
+                if (outgoingJunction.incomings().removeIf(arc -> arc == outgoing)) {
                     outgoingJunction.incomings().add(incoming);
                 }
             }

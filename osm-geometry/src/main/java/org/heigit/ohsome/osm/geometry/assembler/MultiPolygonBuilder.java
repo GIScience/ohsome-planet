@@ -7,6 +7,7 @@ import org.locationtech.jts.geom.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class MultiPolygonBuilder {
     private static final GeometryFactory FACTORY = new GeometryFactory(new PrecisionModel(1e7));
@@ -15,6 +16,9 @@ public class MultiPolygonBuilder {
         var polygons = rings.stream()
                 .mapMulti(MultiPolygonBuilder::toPolygon)
                 .toArray(Polygon[]::new);
+        if (polygons.length == 0) {
+            return null;
+        }
         return FACTORY.createMultiPolygon(polygons);
     }
 
@@ -22,7 +26,10 @@ public class MultiPolygonBuilder {
         var allRings = new ArrayList<Ring>(ring.holes().size() + 1);
         allRings.add(ring);
         allRings.addAll(ring.holes());
-        checkTouchingPairs(allRings);
+        if(!checkTouchingPairs(allRings)){
+            // throw new InvalidGeometryException("holes form a touching cycle, disconnecting interior");
+            return;
+        }
         var holes = new ArrayList<Ring>();
         for(var hole : ring.holes()) {
             if (!ring.envelope().covers(hole.envelope())) {
@@ -50,9 +57,9 @@ public class MultiPolygonBuilder {
     // A cycle means holes collectively disconnect the polygon interior.
     // All holes sharing ONE point form a star (tree) — valid.
     // Holes forming a loop via DISTINCT points form a cycle — invalid.
-    private static void checkTouchingPairs(List<Ring> rings) throws InvalidGeometryException {
+    private static boolean checkTouchingPairs(List<Ring> rings) throws InvalidGeometryException {
         var touching = rings.stream().filter(r -> !r.touching().isEmpty()).toList();
-        if (touching.size() < 2) return;
+        if (touching.size() < 2) return true;
         var coordIds = new HashMap<Coordinate, Integer>();
         for (var ring : touching) {
             for (var c : ring.touching()) {
@@ -65,10 +72,11 @@ public class MultiPolygonBuilder {
             for (var c : touching.get(i).touching()) {
                 var ri = find(parent, i);
                 var rc = find(parent, coordIds.get(c));
-                if (ri == rc) throw new InvalidGeometryException("holes form a touching cycle, disconnecting interior");
+                if (ri == rc) return false;
                 parent[ri] = rc;
             }
         }
+        return true;
     }
 
     private static int find(int[] parent, int i) {
