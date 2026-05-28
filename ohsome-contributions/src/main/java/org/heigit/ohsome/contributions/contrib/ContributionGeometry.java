@@ -59,14 +59,10 @@ public class ContributionGeometry {
     }
 
     public static Geometry geometry(Contribution contribution) {
-        return geometry(contribution, false);
-    }
-
-    public static Geometry geometry(Contribution contribution, boolean buildMultipolygon) {
         return switch (contribution.entity().type()) {
             case NODE -> nodeGeometry(contribution);
             case WAY -> wayGeometry(contribution);
-            case RELATION -> relGeometry(contribution, buildMultipolygon);
+            case RELATION -> relGeometry(contribution);
         };
     }
 
@@ -75,9 +71,12 @@ public class ContributionGeometry {
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
-    public static Geometry relGeometry(Contribution contribution, boolean buildMultipolygon) {
-        if (buildMultipolygon && relIsMultipolygon(contribution)) {
-            return relGeometryMultiPolygon(contribution);
+    public static Geometry relGeometry(Contribution contribution) {
+        if (relIsMultipolygon(contribution)) {
+            var geom = relGeometryMultiPolygon(contribution);
+            if (!geom.isEmpty()) {
+                return geom;
+            }
         }
         return relGeometryCollection(contribution);
     }

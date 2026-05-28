@@ -100,13 +100,6 @@ public class Contributions implements Callable<Integer> {
                     """)
     private String includeTags = "";
 
-    @Option(names = {"--multipolygon-member-limit"},
-            description = """
-                    Limits the building of relation multipolygon for relations with members count lesser or equal than the specified limit. Default 500.
-                    Use '-1' to build all and '0' to not build any multipolygon geometry.
-                    """ )
-    private int multipolygonMembersLimit = 500;
-
     @Option(names = {"-v"},
             description = "By default verbosity is set to warn, by repeating this flag the verbosity can be increased. -v=info, -vv=debug, -vvv=trace")
     boolean[] verbosity;
@@ -157,7 +150,7 @@ public class Contributions implements Callable<Integer> {
                     pbfPath, data, outputLocation, parallel,
                     changesetDbUrl, countryFilePath,
                     replicationEndpoint,
-                    includeTags, multipolygonMembersLimit < 0 ? Integer.MAX_VALUE: multipolygonMembersLimit);
+                    includeTags);
 
             if (!keepTempData) {
                 MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);

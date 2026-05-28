@@ -36,7 +36,6 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
     private final WKBWriter wkb = new WKBWriter();
     private final SpatialJoiner countryJoiner;
-    private final int multipolygonMembersLimit;
 
     private int minorVersion;
     private int edits;
@@ -45,14 +44,10 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
     private double lengthBefore;
 
     public ContributionsAvroConverter(Contributions contributions, Function<Long, ContribChangeset> changesets, SpatialJoiner countryJoiner) {
-        this(contributions,changesets, countryJoiner, Integer.MAX_VALUE);
-    }
-    public ContributionsAvroConverter(Contributions contributions, Function<Long, ContribChangeset> changesets, SpatialJoiner countryJoiner, int multipolygonMembersLimit) {
         this.contributions = contributions;
         this.changesets = changesets;
         this.type = contributions.type();
         this.countryJoiner = countryJoiner;
-        this.multipolygonMembersLimit = multipolygonMembersLimit;
         builder.setOsmType(type.toString());
         builder.setOsmId(contributions.id());
     }
@@ -107,10 +102,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         builder.setTags(Map.copyOf(entity.tags()));
         builder.setTagsBefore(Map.copyOf(entityBefore.map(OSMEntity::tags).orElse(Map.of())));
 
-        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution,
-                multipolygonMembersLimit != 0
-                && ("latest".equals(status)
-                    || contribution.members().size() <= multipolygonMembersLimit));
+        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution);
 
         final double area;
         final double length;

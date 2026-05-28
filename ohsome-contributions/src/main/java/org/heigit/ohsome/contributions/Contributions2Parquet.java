@@ -87,14 +87,13 @@ public class Contributions2Parquet implements Callable<Integer> {
     private final Path countryFilePath;
     private final Path replication;
 
-    private final int multipolygonMembersLimit;
     private final String includeTags;
 
 
     private final URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
 
-    public Contributions2Parquet(Path pbfPath, Path data, OutputLocation outputLocation, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags, int multipolygonMembersLimit) throws IOException {
+    public Contributions2Parquet(Path pbfPath, Path data, OutputLocation outputLocation, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
         this.pbfPath = pbfPath;
         this.temp = data.resolve("temp");
         this.outputLocation = outputLocation;
@@ -103,7 +102,6 @@ public class Contributions2Parquet implements Callable<Integer> {
         this.countryFilePath = countryFilePath;
         this.replicationEndpoint = replicationEndpoint;
         this.includeTags = includeTags;
-        this.multipolygonMembersLimit = multipolygonMembersLimit;
 
         Files.createDirectories(temp);
         if (replicationEndpoint != null) {
@@ -325,7 +323,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     var writer = writers.take();
                     contribWorkers.execute(() -> {
                         try {
-                            processRelation(osh, keyFilter, multipolygonMembersLimit, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
+                            processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
                         } catch (Exception e) {
                             canceled.set(true);
                             System.err.println(e.getMessage());
@@ -376,7 +374,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         config.withMinRowCountForPageSizeCheck(1).withMaxRowCountForPageSizeCheck(2);
     }
 
-    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, int multipolygonMembersLimit, ContribWriter writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
+    private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, ContribWriter writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
@@ -439,7 +437,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
-        var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner, multipolygonMembersLimit);
+        var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
