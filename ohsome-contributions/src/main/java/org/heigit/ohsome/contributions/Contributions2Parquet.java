@@ -36,10 +36,7 @@ import org.heigit.ohsome.replication.ReplicationState;
 import org.heigit.ohsome.replication.Server;
 import org.heigit.ohsome.replication.UpdateStore;
 import org.heigit.ohsome.util.io.Output;
-import org.rocksdb.RocksDB;
-import org.rocksdb.StringAppendOperator;
-import org.rocksdb.WriteBatch;
-import org.rocksdb.WriteOptions;
+import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
@@ -92,6 +89,8 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     private final URL replicationEndpoint;
     private SpatialJoiner countryJoiner;
+
+    private final AtomicBoolean canceled = new AtomicBoolean(false);
 
     public Contributions2Parquet(Path pbfPath, Path data, OutputLocation outputLocation, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
         this.pbfPath = pbfPath;
@@ -156,7 +155,8 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .map(SpatialGridJoiner::fromCSVGrid)
                 .orElseGet(SpatialJoiner::noop);
 
-        try (var changesetDb = openChangesets(changesetDbUrl)) {
+        try (var changesetDb = openChangesets(changesetDbUrl);
+             var cache = new LRUCache(1L << 30 )) {
 
             Files.createDirectories(temp);
 
@@ -171,7 +171,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
             var minorWaysPath = temp.resolve("minorWays");
             var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
-            try (var options = defaultOptions(false);
+            try (var options = defaultOptions(cache).setCreateIfMissing(false);
                  var minorNodes = open(options, minorNodesPath);
                  var optionsWithMerge = defaultOptions(true)
                          .setMergeOperator(new StringAppendOperator((char) 0));
@@ -179,7 +179,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
             }
 
-            var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb);
+            var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb, cache);
 
             System.out.println("summaryNodes = " + summaryNodes);
             System.out.println("summaryWays = " + summaryWays);
@@ -204,7 +204,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
     }
 
-    private Transformer.Summary processRelations(Path pbfPath, Path temp, OutputLocation output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb) throws Exception {
+    private Transformer.Summary processRelations(Path pbfPath, Path temp, OutputLocation output, Path replication, int numFiles, Map<OSMType, List<BlobHeader>> blobTypes, Map<String, Predicate<String>> keyFilter, Changesets changesetDb, LRUCache cache) throws Exception {
         var replicationPath = (Path) null;
         if (replication != null) {
             replicationPath = UpdateStore.updatePath(replication, RELATION);
@@ -212,7 +212,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         }
 
         try (var ch = FileChannel.open(pbfPath, READ);
-             var options = defaultOptions(true);
+             var options = defaultOptions(cache).setCreateIfMissing(true);
              var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, temp.resolve("minorWays").toString());
 
@@ -258,7 +258,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             var backRefsWayRelation = new HashMap<Long, Set<Long>>();
             var outputBackRefs = new Output(4 << 10);
 
-            var canceled = new AtomicBoolean(false);
+
             var batch = new ArrayList<List<OSMEntity>>(1_000);
 
             while (entities.hasNext() && !canceled.get()) {
@@ -314,7 +314,9 @@ public class Contributions2Parquet implements Callable<Integer> {
                 }
 
                 for (var osh : batch) {
-
+                    if (canceled.get()) {
+                        break;
+                    }
                     if (osh.getLast().visible()) {
                         replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
                         replicationElementsCount++;
@@ -332,10 +334,14 @@ public class Contributions2Parquet implements Callable<Integer> {
                         }
                     });
                 }
+                if (canceled.get()) {
+                    break;
+                }
             }
 
             if (canceled.get()) {
                 System.err.println("cancelled");
+                throw new Exception("cancelled");
             }
             for (var i = 0; i < numFiles; i++) {
                 var writer = writers.take();
