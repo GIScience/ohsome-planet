@@ -72,6 +72,10 @@ import static reactor.core.scheduler.Schedulers.parallel;
 
 public class Contributions2Parquet implements Callable<Integer> {
 
+    static {
+        RocksDB.loadLibrary();
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(Contributions2Parquet.class);
 
     public static final boolean WRITE_PARQUET = true;
