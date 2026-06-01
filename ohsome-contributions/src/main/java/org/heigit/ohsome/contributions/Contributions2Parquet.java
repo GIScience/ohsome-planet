@@ -169,25 +169,18 @@ public class Contributions2Parquet implements Callable<Integer> {
             var summaryNodes = Transformer.Summary.EMPTY;
             var summaryWays = Transformer.Summary.EMPTY;
 
-
-            var minorNodesPath = temp.resolve("minorNodes");
-
-            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
-            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
-            var minorWaysPath = temp.resolve("minorWays");
-            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
-            try (var options = defaultOptions(cache).setCreateIfMissing(false);
-                 var minorNodes = open(options, minorNodesPath);
-                 var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
-                         .setMergeOperator(new StringAppendOperator((char) 0));
-                 var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
-                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
-            }
-
-            if (true) {
-                System.out.println("nodes/ways done in " + total);
-                return ExitCode.OK;
-            }
+//            var minorNodesPath = temp.resolve("minorNodes");
+//            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
+//            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+//            var minorWaysPath = temp.resolve("minorWays");
+//            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
+//            try (var options = defaultOptions(cache).setCreateIfMissing(false);
+//                 var minorNodes = open(options, minorNodesPath);
+//                 var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
+//                         .setMergeOperator(new StringAppendOperator((char) 0));
+//                 var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
+//                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+//            }
 
             var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb, cache);
 
@@ -275,7 +268,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 batch.clear();
                 backRefsNodeRelation.clear();
                 backRefsWayRelation.clear();
-                while (entities.hasNext() && !canceled.get() && batch.size() < 1_000) {
+                while (entities.hasNext() && !canceled.get() && batch.size() < 1) {
                     var osh = getNextOSH(entities);
                     batch.add(osh);
                     if (replicationPath != null) {

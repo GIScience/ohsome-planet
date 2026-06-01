@@ -213,8 +213,8 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         if (contrib != null) {
             memberBuilder
                     .setTimestamp(contrib.timestamp())
-                    .setGeometryType(geometry(contrib).getGeometryType())
-                    .setGeometry(wkb(contrib));
+                    .setGeometryType(contributionGeometry(contrib).getGeometryType())
+                    .setGeometry(contributionWkb(contrib));
         } else {
             memberBuilder
                     .setTimestamp(Instant.EPOCH)
@@ -224,16 +224,12 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         return memberBuilder.build();
     }
 
-    private Geometry geometry(Contribution contribution) {
+    private Geometry contributionGeometry(Contribution contribution) {
         return contribution.data("geometry", ContributionGeometry::geometry);
     }
 
-    private ByteBuffer wkb(Contribution contribution) {
-        return contribution.data("wkb", this::contributionWkb);
-    }
-
     private ByteBuffer contributionWkb(Contribution contribution) {
-        return wkb(geometry(contribution));
+        return wkb(contributionGeometry(contribution));
     }
 
     private ByteBuffer wkb(Geometry geometry) {

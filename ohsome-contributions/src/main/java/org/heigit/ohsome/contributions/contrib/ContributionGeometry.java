@@ -97,15 +97,19 @@ public class ContributionGeometry {
 
         contribution.members().stream()
                 .filter(member -> member.type().equals(WAY) && member.contrib() != null)
-                .forEach(contrib -> ways.computeIfAbsent(contrib.id(), x -> toLineString(contrib)));
+                .forEach(contrib -> {
+                    var lineString = toLineString(contrib);
+                    if (!lineString.isEmpty()) {
+                        ways.computeIfAbsent(contrib.id(), x -> lineString);
+                    }
+                });
 
         try {
             var assembler = new GeometryAssembler();
             var geometry = assembler.assemble(ways, Set.of());
             if (geometry != null) {
-                if (geometry.isValid()) {
-                    return geometry;
-                }
+                if (geometry.isValid()) return geometry;
+
                 //logger.debug("Invalid geometry for relation {}: {}", contribution.entity().id(), contribution.timestamp());
             }
         } catch (Exception ignored) {
