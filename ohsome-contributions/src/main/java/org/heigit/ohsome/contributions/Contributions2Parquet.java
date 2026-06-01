@@ -40,6 +40,7 @@ import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
+import picocli.CommandLine.ExitCode;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -78,7 +79,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     private static final Logger logger = LoggerFactory.getLogger(Contributions2Parquet.class);
 
-    public static final boolean WRITE_PARQUET = true;
+    public static final boolean WRITE_PARQUET = false;
 
     private final Path pbfPath;
     private final Path temp;
@@ -177,10 +178,15 @@ public class Contributions2Parquet implements Callable<Integer> {
             var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
             try (var options = defaultOptions(cache).setCreateIfMissing(false);
                  var minorNodes = open(options, minorNodesPath);
-                 var optionsWithMerge = defaultOptions(true)
+                 var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
                          .setMergeOperator(new StringAppendOperator((char) 0));
                  var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
                 summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+            }
+
+            if (true) {
+                System.out.println("nodes/ways done in " + total);
+                return ExitCode.OK;
             }
 
             var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb, cache);
@@ -220,8 +226,8 @@ public class Contributions2Parquet implements Callable<Integer> {
              var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, temp.resolve("minorWays").toString());
 
-             var optionsWithMerge = defaultOptions(true)
-                     .setMergeOperator(new StringAppendOperator((char) 0));
+             var optionsWithMerge =  defaultOptions(cache).setCreateIfMissing(true)
+                 .setMergeOperator(new StringAppendOperator((char) 0));
              var replicationDb = replicationPath != null ? RocksDB.open(options, replicationPath.toString()) : null;
              var nodeRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_RELATION)) : null;
              var wayRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.WAY_RELATION)) : null;

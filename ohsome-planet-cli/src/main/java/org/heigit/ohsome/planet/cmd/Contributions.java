@@ -124,24 +124,24 @@ public class Contributions implements Callable<Integer> {
              var outputLocation = OutputLocationProvider.load(parquetData)) {
 
 
-            if (outputLocation.exists()){
-                System.out.println("parquet-data directory is not empty!");
-                return CommandLine.ExitCode.USAGE;
-            }
-
-            if (Files.exists(replicationDir)) {
-                try (var files = Files.list(replicationDir)) {
-                    if (files.iterator().hasNext()) {
-                        System.out.println("replication directory is not empty!");
-                        return CommandLine.ExitCode.USAGE;
-                    }
-                }
-            }
+//            if (outputLocation.exists()){
+//                System.out.println("parquet-data directory is not empty!");
+//                return CommandLine.ExitCode.USAGE;
+//            }
+//
+//            if (Files.exists(replicationDir)) {
+//                try (var files = Files.list(replicationDir)) {
+//                    if (files.iterator().hasNext()) {
+//                        System.out.println("replication directory is not empty!");
+//                        return CommandLine.ExitCode.USAGE;
+//                    }
+//                }
+//            }
 
             Files.createDirectories(data);
-            if (Files.exists(tempDir)) {
-                MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
-            }
+//            if (Files.exists(tempDir)) {
+//                MoreFiles.deleteRecursively(tempDir, ALLOW_INSECURE);
+//            }
             Files.createDirectories(tempDir);
 
             JvmMetrics.builder().register();
