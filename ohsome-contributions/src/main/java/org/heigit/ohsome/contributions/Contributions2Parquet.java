@@ -450,7 +450,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
-                writer.write(contrib.get());
+// TODO                writer.write(contrib.get());
             }
         }
     }
