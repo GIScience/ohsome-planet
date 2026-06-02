@@ -78,6 +78,21 @@ public class ContributionGeometry {
     private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
             , 280282L  // Nuba-see > 5h
             , 6038068L // Großbritannien > 3h
+            , 1626722L // 1.63h
+            , 9326283L // 1.02h
+            , 9323456L // 1.03h
+            , 3870917L // 1.6h
+            , 9428957L // 1.14h
+            , 9381668L // 1.18h
+            , 11946074L // 1.02h
+            , 9382300L // 1.42h
+            , 13663366L // 1.03h
+            , 6677259L // 1.83h
+            , 4016746L // 2.1h
+            , 9488835L // 1.95h
+            , 9350128L // 2.1h
+            , 4594226L // 2.5h
+            , 5446634L // 5.1h
     );
 
     public static Geometry relGeometry(Contribution contribution, boolean latest) {
