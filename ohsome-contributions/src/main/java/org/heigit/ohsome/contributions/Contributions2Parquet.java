@@ -6,6 +6,8 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.concurrent.atomic.AtomicLong;
+
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
@@ -393,12 +395,12 @@ public class Contributions2Parquet implements Callable<Integer> {
 
 
     private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, ContribWriter writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
-        var minorNodeIds = new HashSet<Long>();
+        var minorNodeIds = new LongOpenHashSet();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
-                WAY, Sets.<Long>newHashSetWithExpectedSize(64_000));
+                WAY,  new LongOpenHashSet());
 
-        var changesetIds = new HashSet<Long>();
+        var changesetIds = new LongOpenHashSet();
         var osh = new ArrayList<OSMRelation>(entities.size());
         entities.forEach(entity -> {
             var osm = (OSMRelation) entity;
@@ -496,6 +498,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
         if (updatedValue == totalBuildTime) {
             logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter, updatedValue / 1_000_000, watch);
+        }
+
+        if (totalBuildTime >= 3_600_000_000_000L) {
+            logger.info("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter, totalBuildTime / 1_000_000, watch);
         }
 
     }

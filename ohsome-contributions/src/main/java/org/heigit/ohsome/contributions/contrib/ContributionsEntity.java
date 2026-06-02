@@ -2,6 +2,7 @@ package org.heigit.ohsome.contributions.contrib;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
@@ -23,10 +24,10 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
   protected T major;
   protected Instant timestamp;
 
-  protected Map<OSMType, Map<Long, Contributions>> oshContributions = new EnumMap<>(OSMType.class);
+  protected Map<OSMType, Long2ObjectMap<Contributions>> oshContributions = new EnumMap<>(OSMType.class);
 
 
-  protected Map<OSMType, Map<Long, Contributions>> active = new EnumMap<>(OSMType.class);
+  protected Map<OSMType, Long2ObjectMap<Contributions>> active = new EnumMap<>(OSMType.class);
   protected PriorityQueue<Contributions> queue = new PriorityQueue<>(
       comparing(this::timestamp).thenComparing(this::changeset));
 

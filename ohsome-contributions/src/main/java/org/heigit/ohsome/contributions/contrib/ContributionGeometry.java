@@ -1,6 +1,7 @@
 package org.heigit.ohsome.contributions.contrib;
 
 import com.google.common.base.Predicates;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.geometry.assembler.GeometryAssembler;
@@ -101,7 +102,7 @@ public class ContributionGeometry {
     }
 
     public static Geometry relGeometryMultiPolygon(Contribution contribution) {
-        var ways = new HashMap<Long, LineString>();
+        var ways = new Long2ObjectOpenHashMap<LineString>();
 
         contribution.members().stream()
                 .filter(member -> member.type().equals(WAY) && member.contrib() != null)
