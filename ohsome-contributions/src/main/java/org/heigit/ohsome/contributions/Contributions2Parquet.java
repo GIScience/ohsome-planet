@@ -457,8 +457,12 @@ public class Contributions2Parquet implements Callable<Integer> {
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
         var id = contributions.id();
         var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
+        var watch = Stopwatch.createStarted();
         var timer = System.nanoTime();
         var counter = 0;
+        var contribBuildTime = 0L;
+        var contribGeomSize = 0L;
+
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
@@ -468,8 +472,9 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var buildTime = System.nanoTime() - timer;
 
                 var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
-                if (updatedTimeValue == buildTime) {
-                    logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms", c.getOsmId(), counter, updatedTimeValue / 1_000_000);
+                if (updatedTimeValue == buildTime && buildTime > contribBuildTime) {
+                    contribBuildTime = buildTime;
+                    logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms {}", c.getOsmId(), counter, updatedTimeValue / 1_000_000, watch);
                 }
 
 
@@ -477,10 +482,11 @@ public class Contributions2Parquet implements Callable<Integer> {
                     var geomSize = geom.limit();
                     var updatedGeomSizeValue = maxGeometrySize.accumulateAndGet(geomSize,
                         Long::max);
-                    if (updatedGeomSizeValue == geomSize) {
+                    if (updatedGeomSizeValue == geomSize && geomSize > contribGeomSize) {
+                        contribGeomSize = geomSize;
                         logger.info(
-                            "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes",
-                            c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue);
+                            "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes {}",
+                            c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue, watch);
                     }
                 }
 // TODO                writer.write(contrib.get());
@@ -489,7 +495,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         var totalBuildTime = System.nanoTime() - timer;
         var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
         if (updatedValue == totalBuildTime) {
-            logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms", id, counter, updatedValue / 1_000_000);
+            logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter, updatedValue / 1_000_000, watch);
         }
 
     }
