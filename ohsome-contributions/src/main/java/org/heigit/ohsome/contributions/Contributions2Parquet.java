@@ -405,7 +405,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         entities.forEach(entity -> {
             var osm = (OSMRelation) entity;
             osm.members((mType, mId, mRole) -> {
-                if (mType.equals(RELATION)) {
+                if (!mType.equals(RELATION)) {
                     minorMemberIds.get(mType).add(mId);
                 }
             });
