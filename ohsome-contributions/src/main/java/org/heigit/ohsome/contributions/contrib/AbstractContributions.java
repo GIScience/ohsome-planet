@@ -1,6 +1,5 @@
 package org.heigit.ohsome.contributions.contrib;
 
-import org.heigit.ohsome.osm.OSMId;
 import org.heigit.ohsome.osm.OSMType;
 
 import java.util.*;
@@ -11,9 +10,12 @@ public abstract class AbstractContributions implements Contributions {
     protected Contribution prev;
     private Contribution next;
 
-    private final OSMId osmId;
-    protected AbstractContributions(OSMId osmId) {
-        this.osmId = osmId;
+    private final long id;
+    private final OSMType type;
+
+    protected AbstractContributions(OSMType type, long id) {
+        this.id = id;
+        this.type = type;
     }
 
     @Override
@@ -45,18 +47,13 @@ public abstract class AbstractContributions implements Contributions {
     }
 
     @Override
-    public OSMId osmId() {
-        return osmId;
-    }
-
-    @Override
     public long id() {
-        return osmId.id();
+        return id;
     }
 
     @Override
     public OSMType type() {
-        return osmId.type();
+        return type;
     }
 
     protected abstract Contribution computeNext();

@@ -2,12 +2,12 @@ package org.heigit.ohsome.contributions.contrib;
 
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.heigit.ohsome.osm.OSMEntity;
-import org.heigit.ohsome.osm.OSMId;
+import org.heigit.ohsome.osm.OSMType;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.function.Function;
 
 import static java.util.Comparator.comparing;
 import static java.util.Optional.ofNullable;
@@ -15,16 +15,22 @@ import static java.util.Optional.ofNullable;
 
 public class ContributionsEntity<T extends OSMEntity> extends AbstractContributions {
 
+  public interface MemberOfFunction {
+    Contributions apply(OSMType type, long id);
+  }
+
   private final PeekingIterator<T> majorVersions;
   protected T major;
   protected Instant timestamp;
 
-  protected Map<OSMId, Contributions> oshContributions = new HashMap<>();
-  protected Map<OSMId, Contributions> active = new HashMap<>();
+  protected Map<OSMType, Map<Long, Contributions>> oshContributions = new EnumMap<>(OSMType.class);
+
+
+  protected Map<OSMType, Map<Long, Contributions>> active = new EnumMap<>(OSMType.class);
   protected PriorityQueue<Contributions> queue = new PriorityQueue<>(
       comparing(this::timestamp).thenComparing(this::changeset));
 
-  protected final Function<OSMId, Contributions> memberContributions;
+  protected final MemberOfFunction memberContributions;
 
   protected List<Contribution.ContribMember> members;
   private long changeset;
@@ -59,8 +65,8 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
     return contributions.peek().user();
   }
 
-  public ContributionsEntity(List<T> osh, Function<OSMId, Contributions> memberContributions) {
-    super(osh.getFirst().osmId());
+  public ContributionsEntity(OSMType type, long id, List<T> osh, MemberOfFunction memberContributions) {
+    super(type, id);
     this.majorVersions = Iterators.peekingIterator(osh.iterator());
     this.memberContributions = memberContributions;
     initNextMajorVersion();
@@ -84,24 +90,28 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
     var mems = new ArrayList<Contribution.ContribMember>(majorMembers.size());
 
     for (var m : majorMembers) {
-      var member = active.computeIfAbsent(m.osmId(),this::getOshContributions);
+      var member = active.computeIfAbsent(m.type(), t -> new Long2ObjectOpenHashMap<>())
+          .computeIfAbsent(m.id(), id -> getOshContributions(m.type(), m.id()));
       while (member.hasNext() && (!member.peek().timestamp().isAfter(timestamp) || member.peek().changeset() == changeset)) {
         member.next();
       }
       mems.add(new Contribution.ContribMember(m.type(), m.id(), member.prev(), m.role()));
     }
 
-    queue.addAll(active.values());
+    active.forEach((type, member) -> queue.addAll(member.values()));
+
     return mems;
   }
 
-  private Contributions getOshContributions(OSMId osmId) {
-    return oshContributions.computeIfAbsent(osmId, this::getContributions);
+  private Contributions getOshContributions(OSMType type, long id) {
+    return oshContributions.computeIfAbsent(type, t -> new Long2ObjectOpenHashMap<>())
+            .computeIfAbsent(id, x -> getContributions(type, id));
   }
 
-  private Contributions getContributions(OSMId osmId) {
-    var contrib = memberContributions.apply(osmId);
-    return contrib != null ? contrib : new EmptyContributions(osmId);
+
+  private Contributions getContributions(OSMType type, long id) {
+    var contrib = memberContributions.apply(type, id);
+    return contrib != null ? contrib : new EmptyContributions(type, id);
   }
 
   @Override
@@ -135,7 +145,7 @@ public class ContributionsEntity<T extends OSMEntity> extends AbstractContributi
       var majorMembers = major.members();
       members = new ArrayList<>(majorMembers.size());
       for (var member : majorMembers) {
-        var memberContribution = active.get(member.osmId());
+        var memberContribution = active.get(member.type()).get(member.id());
         while (memberContribution.hasNext() && !memberContribution.peek().timestamp().isAfter(timestamp)
             && changeset(memberContribution) == changeset) {
           memberContribution.next();

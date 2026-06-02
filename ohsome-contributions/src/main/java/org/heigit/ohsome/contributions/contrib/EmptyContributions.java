@@ -1,10 +1,10 @@
 package org.heigit.ohsome.contributions.contrib;
 
-import org.heigit.ohsome.osm.OSMId;
+import org.heigit.ohsome.osm.OSMType;
 
 public class EmptyContributions extends AbstractContributions {
-    protected EmptyContributions(OSMId osmId) {
-        super(osmId);
+    protected EmptyContributions(OSMType type, long id) {
+        super(type, id);
     }
 
     @Override

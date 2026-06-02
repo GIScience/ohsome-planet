@@ -2,17 +2,17 @@ package org.heigit.ohsome.contributions.contrib;
 
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMId;
+import org.heigit.ohsome.osm.OSMType;
 
 import java.util.*;
-import java.util.function.Function;
 
 public class ContributionsRelation extends ContributionsEntity<OSMRelation> {
 
-    public ContributionsRelation(List<OSMRelation> osh, Function<OSMId, Contributions> members) {
-        super(osh, members);
+    public ContributionsRelation(List<OSMRelation> osh, MemberOfFunction members) {
+        super(OSMType.RELATION, osh.getFirst().id(), osh, members);
     }
 
     public ContributionsRelation(List<OSMRelation> osh, Map<OSMId, Contributions> oshMembers) {
-        super(osh, oshMembers::get);
+        this(osh, (type, id) -> oshMembers.get(new OSMId(type, id)));
     }
 }
