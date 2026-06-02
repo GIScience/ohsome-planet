@@ -5,6 +5,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.util.concurrent.atomic.AtomicLong;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.changesets.ChangesetDB;
 import org.heigit.ohsome.contributions.avro.Contrib;
@@ -96,6 +97,7 @@ public class Contributions2Parquet implements Callable<Integer> {
     private SpatialJoiner countryJoiner;
 
     private final AtomicBoolean canceled = new AtomicBoolean(false);
+
 
     public Contributions2Parquet(Path pbfPath, Path data, OutputLocation outputLocation, int parallel, String changesetDbUrl, Path countryFilePath, URL replicationEndpoint, String includeTags) throws IOException {
         this.pbfPath = pbfPath;
@@ -383,6 +385,13 @@ public class Contributions2Parquet implements Callable<Integer> {
         config.withMinRowCountForPageSizeCheck(1).withMaxRowCountForPageSizeCheck(2);
     }
 
+
+
+    private static final AtomicLong maxBuildTime = new AtomicLong();
+    private static final AtomicLong maxContribBuildTime = new AtomicLong();
+    private static final AtomicLong maxGeometrySize = new AtomicLong();
+
+
     private static void processRelation(List<OSMEntity> entities, Map<String, Predicate<String>> keyFilter, ContribWriter writer, SpatialJoiner spatialJoiner, Changesets changesetDb, RocksDB minorNodesDb, RocksDB minorWaysDb, RocksDB replicationDb) throws Exception {
         var minorNodeIds = new HashSet<Long>();
         var minorMemberIds = Map.of(
@@ -446,13 +455,36 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         var changesets = Utils.fetchChangesets(changesetIds, changesetDb);
         var contributions = new ContributionsRelation(osh, Contributions.memberOf(minorNodes, minorWays));
+        var id = contributions.id();
         var converter = new ContributionsAvroConverter(contributions, changesets::get, spatialJoiner);
+        var timer = System.nanoTime();
+        var counter = 0;
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isPresent()) {
+                counter++;
+                var c = contrib.get();
+                var geomSize = c.getGeometry().limit();
+                var buildTime = System.nanoTime() - timer;
+
+                var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
+                if (updatedTimeValue == buildTime) {
+                    logger.info("buildTime:  https://osm.org/relation/{} [{}] {}ms", c.getOsmId(), counter, updatedTimeValue / 1_000_000);
+                }
+
+                var updatedGeomSizeValue = maxGeometrySize.accumulateAndGet(geomSize, Long::max);
+                if (updatedGeomSizeValue == geomSize) {
+                    logger.info("geomSize: https://osm.org/relation/{} version:{} [{}] {} bytes%n", c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue);
+                }
 // TODO                writer.write(contrib.get());
             }
         }
+        var totalBuildTime = System.nanoTime() - timer;
+        var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
+        if (updatedValue == totalBuildTime) {
+            logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms", id, counter, updatedValue / 1_000_000);
+        }
+
     }
 
 }
