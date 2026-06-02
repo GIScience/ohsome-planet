@@ -469,7 +469,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
                 var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
                 if (updatedTimeValue == buildTime) {
-                    logger.info("buildTime:  https://osm.org/relation/{} [{}] {}ms", c.getOsmId(), counter, updatedTimeValue / 1_000_000);
+                    logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms", c.getOsmId(), counter, updatedTimeValue / 1_000_000);
                 }
 
 
@@ -479,7 +479,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                         Long::max);
                     if (updatedGeomSizeValue == geomSize) {
                         logger.info(
-                            "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes%n",
+                            "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes",
                             c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue);
                     }
                 }
