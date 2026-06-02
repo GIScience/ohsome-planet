@@ -3,7 +3,6 @@ package org.heigit.ohsome.contributions.contrib;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMId;
-import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static java.time.Instant.ofEpochSecond;
+import static java.util.Arrays.copyOf;
 import static java.util.Collections.emptyMap;
 import static org.heigit.ohsome.osm.OSMEntity.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,15 +41,15 @@ class ContributionsRelationTest {
           3L, contributionsListNodeC
   );
 
-  private static final List<OSMWay> contributionsListWayAB = List.of(new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L)));
+  private static final List<OSMWay> contributionsListWayAB = List.of(new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L}));
   private Contributions contributionsWayAB;
 
-  private static final List<OSMWay> contributionsListWayBC = List.of(new OSMWay(23, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(2L, 3L)));
+  private static final List<OSMWay> contributionsListWayBC = List.of(new OSMWay(23, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{2L, 3L}));
   private Contributions contributionsWayBC;
 
   private static final List<OSMWay> contributionsListWayCA = List.of(
-          new OSMWay(31, 1, ofEpochSecond(2), 2, 2, "", true, emptyMap(), List.of(3L, 1L)),
-          new OSMWay(31, 2, ofEpochSecond(3), 3, 3, "", true, emptyMap(), List.of(3L, 1L)));
+          new OSMWay(31, 1, ofEpochSecond(2), 2, 2, "", true, emptyMap(), new long[]{3L, 1L}),
+          new OSMWay(31, 2, ofEpochSecond(3), 3, 3, "", true, emptyMap(), new long[]{3L, 1L}));
   private Contributions contributionsWayCA;
 
 
@@ -66,10 +66,12 @@ class ContributionsRelationTest {
   @Test
   void testSingleNodeRelation() {
     var members = Map.of(new OSMId(OSMType.NODE, 1L), contributionsNodeA);
-    List<OSMMember> membersList = List.of(new OSMMember(OSMType.NODE, 1L, "busstop"));
+    var memTypes = new OSMType[]{OSMType.NODE};
+    var memIds = new long[]{1L};
+    var memRole = new String[]{"busstop"};
 
     var osh = List.of(
-            new OSMRelation(1, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), membersList)
+            new OSMRelation(1, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), memTypes, memIds, memRole, 0,0)
     );
 
     var contributions = new ContributionsRelation(osh, members);
@@ -99,10 +101,19 @@ class ContributionsRelationTest {
             new OSMId(OSMType.NODE, 3L), contributionsNodeC
     );
 
-    List<OSMMember> membersList = members.keySet().stream().map(m -> new OSMMember(m.type(), m.id(), "busstop")).toList();
+    var memTypes = new OSMType[members.size()];
+    var memIds = new long[members.size()];
+    var memRole = new String[members.size()];
+    var i = 0;
+    for(var osmId: members.keySet()) {
+      memTypes[i] = osmId.type();
+      memIds[i] = osmId.id();
+      memRole[i] = "busstop";
+      i++;
+    }
 
     var osh = List.of(
-            new OSMRelation(23, 1, ofEpochSecond(2), 2, 2, "", true, emptyMap(), membersList)
+            new OSMRelation(23, 1, ofEpochSecond(2), 2, 2, "", true, emptyMap(), memTypes, memIds, memRole, 0,0)
     );
 
     var contributions = new ContributionsRelation(osh, members);
@@ -126,10 +137,20 @@ class ContributionsRelationTest {
             new OSMId(OSMType.WAY, 23), contributionsWayBC
     );
 
-    List<OSMMember> membersList = members.keySet().stream().map(m -> new OSMMember(m.type(), m.id(), "busline")).toList();
+    var memTypes = new OSMType[members.size()];
+    var memIds = new long[members.size()];
+    var memRole = new String[members.size()];
+    var i = 0;
+    for(var osmId: members.keySet()) {
+      memTypes[i] = osmId.type();
+      memIds[i] = osmId.id();
+      memRole[i] = "busline";
+      i++;
+    }
+
 
     var osh = List.of(
-            new OSMRelation(123, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), membersList)
+            new OSMRelation(123, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), memTypes, memIds, memRole, 0,0)
     );
 
     var contributions = new ContributionsRelation(osh, members);
@@ -160,10 +181,19 @@ class ContributionsRelationTest {
             new OSMId(OSMType.WAY, 31), contributionsWayCA
     );
 
-    List<OSMMember> membersList = members.keySet().stream().map(m -> new OSMMember(m.type(), m.id(), "busline")).toList();
+    var memTypes = new OSMType[members.size()];
+    var memIds = new long[members.size()];
+    var memRole = new String[members.size()];
+    var i = 0;
+    for(var osmId: members.keySet()) {
+      memTypes[i] = osmId.type();
+      memIds[i] = osmId.id();
+      memRole[i] = "busline";
+      i++;
+    }
 
     var osh = List.of(
-            new OSMRelation(123, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), membersList)
+            new OSMRelation(123, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), memTypes, memIds, memRole, 0,0)
     );
 
     var contributions = new ContributionsRelation(osh, members);
@@ -200,11 +230,20 @@ class ContributionsRelationTest {
             new OSMId(OSMType.WAY, 31), contributionsWayCA
     );
 
-    List<OSMMember> membersList = members.keySet().stream().map(m -> new OSMMember(m.type(), m.id(), "busline")).toList();
+    var memTypes = new OSMType[members.size()];
+    var memIds = new long[members.size()];
+    var memRole = new String[members.size()];
+    var i = 0;
+    for(var osmId: members.keySet()) {
+      memTypes[i] = osmId.type();
+      memIds[i] = osmId.id();
+      memRole[i] = "busline";
+      i++;
+    }
 
     var osh = List.of(
-            new OSMRelation(123, 1, ofEpochSecond(2), 2, 1, "", true, emptyMap(), membersList),
-            new OSMRelation(123, 2, ofEpochSecond(3), 3, 2, "", true, emptyMap(), membersList.subList(0,2))
+            new OSMRelation(123, 1, ofEpochSecond(2), 2, 1, "", true, emptyMap(), memTypes, memIds, memRole, 0,0),
+            new OSMRelation(123, 2, ofEpochSecond(3), 3, 2, "", true, emptyMap(), copyOf(memTypes, 2), copyOf(memIds, 2), copyOf(memRole, 2), 0,0)
     );
 
     var contributions = new ContributionsRelation(osh, members);

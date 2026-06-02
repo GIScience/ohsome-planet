@@ -13,6 +13,7 @@ public class GroupWay extends GroupPrimitive<OSMWay> {
     private final List<Long> lons = new ArrayList<>();
 
     private List<Long> members = new ArrayList<>();
+    private long[] longRefs = new long[0];
 
     // delta encoded
     private long ref = 0;
@@ -63,8 +64,13 @@ public class GroupWay extends GroupPrimitive<OSMWay> {
     public OSMWay entity() {
         if (!members.equals(refs)) {
             members = List.copyOf(refs);
+            longRefs = new long[members.size()];
+            var i=0;
+            for (var l : members) {
+                longRefs[i++] = l;
+            }
         }
-        return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags(), members, 0, 0, lons, lats);
+        return new OSMWay(id, version, timestamp, changeset, userId, user, visible, tags(), longRefs, 0, 0, lons, lats);
     }
 
 }

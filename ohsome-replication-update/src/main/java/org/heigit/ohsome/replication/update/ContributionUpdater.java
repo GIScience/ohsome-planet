@@ -1,6 +1,7 @@
 package org.heigit.ohsome.replication.update;
 
 import com.google.common.collect.Iterators;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
 import org.heigit.ohsome.contributions.contrib.*;
@@ -9,7 +10,6 @@ import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
-import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.replication.UpdateStore;
 import org.slf4j.Logger;
@@ -137,8 +137,8 @@ public class ContributionUpdater {
                     var newVersions = entry.getValue().newVersions();
                     var last = newVersions.getLast();
                     var before = Optional.ofNullable(entry.getValue().before());
-                    var refs = new HashSet<>(last.refs());
-                    before.map(OSMWay::refs).ifPresent(oldRefs -> oldRefs.stream()
+                    var refs = new HashSet<>(LongArrayList.wrap(last.refs()));
+                    before.map(OSMWay::refs).ifPresent(oldRefs -> LongArrayList.wrap(oldRefs).stream()
                             .filter(not(refs::contains))
                             .forEach(refToRemove -> nodeWayBackRefsUpdate.computeIfAbsent(refToRemove, x -> new BackRefsUpdate()).toRemove().add(wayId))
                     );
@@ -170,14 +170,19 @@ public class ContributionUpdater {
                     var memberRefs = Map.of(
                             NODE, new HashSet<Long>(),
                             WAY, new HashSet<Long>());
-                    last.members().stream()
-                            .filter(not(member -> member.type().equals(OSMType.RELATION)))
-                            .forEach(member -> memberRefs.get(member.type()).add(member.id()));
 
-                    before.map(OSMRelation::members).ifPresent(beforeMembers -> beforeMembers.stream()
-                            .filter(not(member -> member.type().equals(OSMType.RELATION)))
-                            .filter(not(member -> memberRefs.get(member.type()).contains(member.id())))
-                            .forEach(memberToRemove -> backRefsUpdate.get(memberToRemove.type()).computeIfAbsent(memberToRemove.id(), x -> new BackRefsUpdate()).toRemove().add(relId))
+                    last.members((mType, mId, mRole) -> {
+                      if (mType.equals(OSMType.RELATION)) {
+                          memberRefs.get(mType).add(mId);
+                      }
+                    });
+
+                    before.ifPresent(osm ->
+                            osm.members((mType, mId, mRole) -> {
+                                if (!mType.equals(OSMType.RELATION) && ! memberRefs.get(mType).contains(mId)) {
+                                    backRefsUpdate.get(mType).computeIfAbsent(mId, x -> new BackRefsUpdate()).toRemove().add(relId);
+                                }
+                            })
                     );
                     memberRefs.forEach((type, refs) -> refs.forEach(refId -> backRefsUpdate.get(type).computeIfAbsent(refId, x -> new BackRefsUpdate()).exist().add(relId)));
                 });
@@ -219,7 +224,7 @@ public class ContributionUpdater {
         var osh = entity.osh();
 
         var refIds = new HashSet<Long>();
-        osh.forEach(osm -> refIds.addAll(osm.refs()));
+        osh.forEach(osm -> refIds.addAll(LongArrayList.wrap(osm.refs())));
 
         var nodes = nodes(refIds).values().stream()
                 .collect(Collectors.toMap(OSMNode::id, List::of));
@@ -247,17 +252,14 @@ public class ContributionUpdater {
 
         var nodeIds = new HashSet<Long>();
         var wayIds = new HashSet<Long>();
-        osh.stream()
-                .map(OSMRelation::members)
-                .<OSMMember>mapMulti(Iterable::forEach)
-                .forEach(member -> {
-                    switch (member.type()) {
-                        case NODE -> nodeIds.add(member.id());
-                        case WAY -> wayIds.add(member.id());
-                        default -> {}
-                    }
-                });
-
+        osh.forEach(osm -> {
+            osm.members((mType, mId, mRole) -> {
+                switch (mType) {
+                    case NODE -> nodeIds.add(mId);
+                    case WAY -> wayIds.add(mId);
+                }
+            });
+        });
 
         var ways = ways(wayIds).values().stream()
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
@@ -265,6 +267,7 @@ public class ContributionUpdater {
 
         ways.values().stream().<OSMWay>mapMulti(Iterable::forEach)
                 .map(OSMWay::refs)
+                .map(LongArrayList::wrap)
                 .forEach(nodeIds::addAll);
 
         var nodes = nodes(nodeIds).values().stream()

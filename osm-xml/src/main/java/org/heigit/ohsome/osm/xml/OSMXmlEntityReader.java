@@ -64,11 +64,24 @@ public class OSMXmlEntityReader {
   }
 
   private OSMEntity way() {
-    return new OSMWay(id, version, Instant.ofEpochSecond(timestamp), changeset, uid, user, visible, Map.copyOf(tags), List.copyOf(refs));
+    var nodes = new long[refs.size()];
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i] = refs.get(i);
+    }
+    return new OSMWay(id, version, Instant.ofEpochSecond(timestamp), changeset, uid, user, visible, Map.copyOf(tags), nodes);
   }
 
   private OSMEntity relation() {
-    return new OSMRelation(id, version, Instant.ofEpochSecond(timestamp), changeset, uid, user, visible, Map.copyOf(tags), List.copyOf(members));
+    var mTypes = new OSMType[members.size()];
+    var mIds = new long[members.size()];
+    var mRoles = new String[members.size()];
+    for (var i = 0; i < members.size(); i++) {
+      var member = members.get(i);
+      mTypes[i] = member.type();
+      mIds[i] = member.id();
+      mRoles[i] = member.role();
+    }
+    return new OSMRelation(id, version, Instant.ofEpochSecond(timestamp), changeset, uid, user, visible, Map.copyOf(tags), mTypes, mIds, mRoles, 0, 0);
   }
 
   private void parseEntity(XMLStreamReader reader, boolean visible) throws XMLStreamException, XMLParseException {

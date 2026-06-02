@@ -1,6 +1,7 @@
 package org.heigit.ohsome.contributions.minor;
 
 import com.google.common.collect.Maps;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.util.io.Output;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
@@ -41,9 +42,9 @@ public class MinorWay {
             userId = input.readU32();
             userName = input.readUTF8();
             var length = input.readU32();
-            var refs = new ArrayList<Long>(length);
+            var refs = new long[length];
             for(var r = 0; r < length; r++) {
-                refs.add(map.get(input.readU32()));
+                refs[r] = map.get(input.readU32());
             }
             osh.add(new OSMWay(id, i, Instant.ofEpochSecond(ts), cs, userId, userName, true, Map.of(),refs));
         }
@@ -80,13 +81,16 @@ public class MinorWay {
                userIds.add(way.userId());
                userNames.add(way.user());
                allRefs.add(List.of());
-            } else if (!way.refs().equals(allRefs.getLast())){
+               return;
+            }
+            var refList = LongArrayList.wrap(way.refs());
+            if (!refList.equals(allRefs.getLast())){
                 changesets.add(way.changeset());
                 timestamps.add(way.timestamp());
                 userIds.add(way.userId());
                 userNames.add(way.user());
-                allRefs.add(way.refs());
-                oshRefs.addAll(way.refs());
+                allRefs.add(refList);
+                oshRefs.addAll(refList);
             }
         }
 

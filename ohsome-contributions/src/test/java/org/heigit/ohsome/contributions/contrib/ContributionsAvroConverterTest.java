@@ -62,7 +62,7 @@ class ContributionsAvroConverterTest {
                 )
         );
         var contributions = new ContributionsWay(List.of(
-               new OSMEntity.OSMWay(1, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+               new OSMEntity.OSMWay(1, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
         ), (type, id) -> new ContributionsNode(members.get(id)));
 
 

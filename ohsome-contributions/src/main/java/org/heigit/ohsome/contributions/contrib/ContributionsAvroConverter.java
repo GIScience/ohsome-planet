@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions.contrib;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.heigit.ohsome.contributions.avro.*;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.AbstractIterator;
@@ -178,8 +179,8 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
         if (type == OSMType.WAY) {
             var refs = ((OSMEntity.OSMWay) entity).refs();
-            builder.setRefsCount(refs.size());
-            builder.setRefs(refs);
+            builder.setRefsCount(refs.length);
+            builder.setRefs(LongArrayList.wrap(refs));
         } else if (type == OSMType.RELATION) {
             var members = contribution.members().stream().map(this::member).toList();
             builder.setMembersCount(members.size());

@@ -7,6 +7,7 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.util.concurrent.atomic.AtomicLong;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import org.heigit.ohsome.changesets.ChangesetDB;
@@ -280,17 +281,16 @@ public class Contributions2Parquet implements Callable<Integer> {
                         if (!last.visible()) {
                             continue;
                         }
-
-                        for (var member : last.members()) {
-                            switch (member.type()) {
+                        last.members((mType, mId, mRole) -> {
+                            switch (mType) {
                                 case NODE ->
-                                        backRefsNodeRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                        backRefsNodeRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
                                 case WAY ->
-                                        backRefsWayRelation.computeIfAbsent(member.id(), k -> new TreeSet<>()).add(last.id());
+                                        backRefsWayRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
                                 default -> {
                                 }
                             }
-                        }
+                        });
                     }
                 }
 
@@ -404,9 +404,11 @@ public class Contributions2Parquet implements Callable<Integer> {
         var osh = new ArrayList<OSMRelation>(entities.size());
         entities.forEach(entity -> {
             var osm = (OSMRelation) entity;
-            osm.members().stream()
-                    .filter(member -> member.type() != RELATION)
-                    .forEach(member -> minorMemberIds.get(member.type()).add(member.id()));
+            osm.members((mType, mId, mRole) -> {
+                if (mType.equals(RELATION)) {
+                    minorMemberIds.get(mType).add(mId);
+                }
+            });
             changesetIds.add(osm.changeset());
             osh.add(osm);
         });
@@ -415,6 +417,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         minorWays.values().stream()
                 .<OSMWay>mapMulti(Iterable::forEach)
                 .map(OSMWay::refs)
+                .map(LongArrayList::wrap)
                 .forEach(minorNodeIds::addAll);
 
         var minorNodes = RocksMap.get(minorNodesDb, minorNodeIds, MinorNode::deserialize);
