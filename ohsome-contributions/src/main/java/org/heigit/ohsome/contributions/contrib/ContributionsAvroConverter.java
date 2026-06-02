@@ -102,7 +102,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         builder.setTags(Map.copyOf(entity.tags()));
         builder.setTagsBefore(Map.copyOf(entityBefore.map(OSMEntity::tags).orElse(Map.of())));
 
-        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution);
+        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution, "latest".equals(status));
 
         final double area;
         final double length;

@@ -59,10 +59,13 @@ public class ContributionGeometry {
     }
 
     public static Geometry geometry(Contribution contribution) {
+        return geometry(contribution, true);
+    }
+    public static Geometry geometry(Contribution contribution, boolean latest) {
         return switch (contribution.entity().type()) {
             case NODE -> nodeGeometry(contribution);
             case WAY -> wayGeometry(contribution);
-            case RELATION -> relGeometry(contribution);
+            case RELATION -> relGeometry(contribution, latest);
         };
     }
 
@@ -71,8 +74,13 @@ public class ContributionGeometry {
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
-    public static Geometry relGeometry(Contribution contribution) {
-        if (relIsMultipolygon(contribution)) {
+    private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
+            , 280282L  // Nuba-see > 5h
+            , 6038068L // Großbritannien > 3h
+    );
+
+    public static Geometry relGeometry(Contribution contribution, boolean latest) {
+        if (relIsMultipolygon(contribution) && (latest || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
             var geom = relGeometryMultiPolygon(contribution);
             if (!geom.isEmpty()) {
                 return geom;
