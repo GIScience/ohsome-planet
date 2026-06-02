@@ -4,9 +4,9 @@ import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static java.util.Collections.emptyList;
@@ -15,11 +15,11 @@ import static org.heigit.ohsome.osm.OSMEntity.*;
 public record Contribution(Instant timestamp, long changeset, int userId, String user, OSMEntity entity,
                            List<ContribMember> members, Map<String, Object> data) {
     public Contribution(Instant timestamp, long changeset, int userId, String user, OSMEntity entity, List<ContribMember> members) {
-        this(timestamp, changeset, userId, user, entity, members, new ConcurrentHashMap<>());
+        this(timestamp, changeset, userId, user, entity, members, new HashMap<>());
     }
 
     public Contribution(OSMNode osmNode) {
-        this(osmNode.timestamp(), osmNode.changeset(), osmNode.userId(), osmNode.user(), osmNode, emptyList(), new ConcurrentHashMap<>());
+        this(osmNode.timestamp(), osmNode.changeset(), osmNode.userId(), osmNode.user(), osmNode, emptyList(), new HashMap<>());
     }
 
     @SuppressWarnings("unchecked")
