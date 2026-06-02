@@ -108,8 +108,7 @@ public class ContributionGeometry {
             var assembler = new GeometryAssembler();
             var geometry = assembler.assemble(ways, Set.of());
             if (geometry != null) {
-//TODO we need to check for validity                if (geometry.isValid()) return geometry;
-                return geometry;
+              if (geometry.isValid()) return geometry;
 
                 //logger.debug("Invalid geometry for relation {}: {}", contribution.entity().id(), contribution.timestamp());
             }
