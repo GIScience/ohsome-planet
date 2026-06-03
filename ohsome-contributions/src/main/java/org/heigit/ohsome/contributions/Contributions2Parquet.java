@@ -500,14 +500,18 @@ public class Contributions2Parquet implements Callable<Integer> {
                 writer.write(contrib.get());
             }
         }
-        var totalBuildTime = System.nanoTime() - timer;
-        var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
-        if (updatedValue == totalBuildTime) {
-            logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter, updatedValue / 1_000_000, watch);
-        }
+        if (logger.isDebugEnabled()) {
+            var totalBuildTime = System.nanoTime() - timer;
+            var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
+            if (updatedValue == totalBuildTime) {
+                logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
+                    updatedValue / 1_000_000, watch);
+            }
 
-        if (totalBuildTime >= 3_600_000_000_000L) {
-            logger.info("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter, totalBuildTime / 1_000_000, watch);
+            if (totalBuildTime >= 3_600_000_000_000L) {
+                logger.info("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
+                    totalBuildTime / 1_000_000, watch);
+            }
         }
 
     }
