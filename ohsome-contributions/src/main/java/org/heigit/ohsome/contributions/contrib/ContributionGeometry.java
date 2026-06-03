@@ -75,6 +75,27 @@ public class ContributionGeometry {
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
+    /*
+
+    https://osm.org/relation/9326283  // 1.02h
+    https://osm.org/relation/11946074 // 1.02h
+    https://osm.org/relation/9323456  // 1.03h
+    https://osm.org/relation/13663366 // 1.03h
+    https://osm.org/relation/9428957  // 1.14h
+    https://osm.org/relation/9381668  // 1.18h
+    https://osm.org/relation/9382300  // 1.42h
+    https://osm.org/relation/3870917  // 1.6h
+    https://osm.org/relation/1626722  // 1.63h
+    https://osm.org/relation/6677259  // 1.83h
+    https://osm.org/relation/9488835  // 1.95h
+    https://osm.org/relation/4016746  // 2.1h
+    https://osm.org/relation/9350128  // 2.1h
+    https://osm.org/relation/4594226  // 2.5h
+    https://osm.org/relation/6038068  // Großbritannien > 3h
+    https://osm.org/relation/5446634  // 5.1h
+    https://osm.org/relation/280282   // Nuba-see > 5h
+
+     */
     private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
 //            , 9326283L  // 1.02h
 //            , 11946074L // 1.02h
