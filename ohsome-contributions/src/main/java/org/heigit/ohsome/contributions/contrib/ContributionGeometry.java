@@ -97,12 +97,17 @@ public class ContributionGeometry {
 
      */
     private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
-//            , 9326283L  // 1.02h
-//            , 11946074L // 1.02h
-//            , 9323456L  // 1.03h
-//            , 13663366L // 1.03h
-//            , 9428957L  // 1.14h
-//            , 9381668L  // 1.18h
+            , 102740L   //
+            , 1754729L
+            , 5631846L
+            , 4095122L
+            , 3723592L
+            , 9326283L  // 1.02h
+            , 11946074L // 1.02h
+            , 9323456L  // 1.03h
+            , 13663366L // 1.03h
+            , 9428957L  // 1.14h
+            , 9381668L  // 1.18h
             , 9382300L  // 1.42h
             , 3870917L  // 1.6h
             , 1626722L  // 1.63h
@@ -117,7 +122,7 @@ public class ContributionGeometry {
     );
 
     public static Geometry relGeometry(Contribution contribution, boolean latest) {
-        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 1000L || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
+        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 500 || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
             var geom = relGeometryMultiPolygon(contribution);
             if (!geom.isEmpty()) {
                 return geom;
