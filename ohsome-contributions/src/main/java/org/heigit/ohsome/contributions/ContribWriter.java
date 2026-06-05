@@ -44,6 +44,7 @@ public class ContribWriter implements AutoCloseable {
     public void write(Contrib contrib) throws IOException {
         if (writer == null) {
             writer = openWriter();
+            split++;
         }
         writer.write(contrib);
     }
@@ -52,9 +53,8 @@ public class ContribWriter implements AutoCloseable {
         if (writer == null) return;
         if (writer.getDataSize() >= maxFileSize){
             close();
+            writer = null;
         }
-        split++;
-        writer = null;
     }
 
     private ParquetWriter<Contrib> openWriter() {

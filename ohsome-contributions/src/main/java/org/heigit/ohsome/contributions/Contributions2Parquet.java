@@ -473,10 +473,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         while (converter.hasNext()) {
             var contrib = converter.next();
             if (contrib.isEmpty()) continue;
+            var c = contrib.get();
 
-            if (logger.isDebugEnabled()) {
-                counter++;
-                var c = contrib.get();
+            counter++;
+            if (logger.isTraceEnabled()) {
                 var geom = c.getGeometry();
                 var buildTime = System.nanoTime() - timer;
 
@@ -500,7 +500,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                     }
                 }
             }
-            writer.write(contrib.get());
+            writer.write(c);
         }
         if (logger.isDebugEnabled()) {
             var totalBuildTime = System.nanoTime() - timer;
