@@ -45,9 +45,9 @@ public class S3OutputLocation implements OutputLocation {
 
     private void withRetry(WithRetry withRetry, WithRetryFailure failure) throws Exception {
         var exception = (Exception) null;
-        for (var retry = 0; retry < MAX_RETRIES; ) {
+        for (var retry = 0; retry <= MAX_RETRIES; ) {
             try {
-                withRetry.run(++retry);
+                withRetry.run(retry++);
                 return;
             } catch (Exception e) {
                 failure.log(retry, e);
@@ -60,14 +60,14 @@ public class S3OutputLocation implements OutputLocation {
     @Override
     public void move(Path src, Path dest) throws Exception {
         withRetry(retry -> {
-                    logger.debug("uploading file {} {} -> {}. Retry {}/{}", bucket, src, dest, retry, MAX_RETRIES);
+                    logger.debug("uploading file {} {} -> {}.{}", bucket, src, dest, retry > 0 ? " Retry %d/%d".formatted(retry, MAX_RETRIES): "");
                     client.uploadObject(UploadObjectArgs.builder()
                             .bucket(bucket)
                             .filename(src.toString())
                             .object(dest.toString())
                             .build());
                 }, (retry, e) ->
-                        logger.warn("Failed to upload object {} to {}. Retry {}/{}.", src, dest, retry, MAX_RETRIES, e)
+                        logger.warn("Failed to upload object {} to {}.", src, dest, e)
         );
         Files.deleteIfExists(src);
     }

@@ -10,9 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.function.Consumer;
 
 public class ContribWriter implements AutoCloseable {
@@ -106,20 +104,11 @@ public class ContribWriter implements AutoCloseable {
         }
 
         var path = progressPath();
-        logger.debug("closing writer {}", getId());
-        logger.debug("closing path {} is regular file: {}", path, Files.isRegularFile(path));
-        if (!Files.isRegularFile(path)) {
-            try {
-                var attrs = Files.readAttributes(path, BasicFileAttributes.class);
-                logger.debug("closing path attributes: {}", attrs);
-            } catch (IOException e) {
-                logger.debug("failed to read attributes of path {}: {}", path, e.getMessage());
-            }
-
-        }
         try {
+            logger.debug("closing writer {}: {} -> {}", getId(), path, finalPath);
             writer.close();
             outputDir.move(path, finalPath);
+            logger.debug("writer closed {}: {}", getId(), finalPath);
         } catch(Exception e){
             logger.error("closing writer {}: {}", getId(), finalPath, e);
             // ignore exception
