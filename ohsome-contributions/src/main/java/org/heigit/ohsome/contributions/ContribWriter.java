@@ -56,6 +56,7 @@ public class ContribWriter implements AutoCloseable {
         if (writer.getDataSize() >= maxFileSize){
             close();
             writer = null;
+            split++;
         }
     }
 

@@ -248,7 +248,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
 
-            var writers = getWriters(temp, output, numFiles, 10L << 30);
+            var writers = getWriters(temp, output, numFiles, 20L << 30);
 
             var blocks = Flux.fromIterable(blobTypes.get(RELATION))
                     // read blob from file
