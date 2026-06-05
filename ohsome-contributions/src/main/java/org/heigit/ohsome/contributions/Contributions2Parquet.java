@@ -137,6 +137,8 @@ public class Contributions2Parquet implements Callable<Integer> {
         var latestState = (ReplicationState) null;
         var server = (Server<OSMEntity>) null;
 
+        logger.info("Loglevel = {}", System.getProperty("org.slf4j.simpleLogger.defaultLogLevel"));
+
         if (replicationEndpoint != null) {
             logger.debug("using replication_endpoint {}", replicationEndpoint);
             try {
