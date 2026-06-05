@@ -117,7 +117,7 @@ public class ContributionGeometry {
     );
 
     public static Geometry relGeometry(Contribution contribution, boolean latest) {
-        if (relIsMultipolygon(contribution) && (latest || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
+        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 1000L || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
             var geom = relGeometryMultiPolygon(contribution);
             if (!geom.isEmpty()) {
                 return geom;
