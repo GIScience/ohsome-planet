@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -107,7 +108,9 @@ public class ContribWriter implements AutoCloseable {
         try {
             logger.debug("closing writer {}: {} -> {}", getId(), path, finalPath);
             writer.close();
-            outputDir.move(path, finalPath);
+            var closed = path.getParent().resolve("closed_" +  path.getFileName());
+            Files.move(path, closed);
+            outputDir.move(closed, finalPath);
             logger.debug("writer closed {}: {}", getId(), finalPath);
         } catch(Exception e){
             logger.error("closing writer {}: {}", getId(), finalPath, e);
