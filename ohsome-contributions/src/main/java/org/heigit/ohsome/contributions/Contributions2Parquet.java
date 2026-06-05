@@ -57,6 +57,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -166,7 +167,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 .orElseGet(SpatialJoiner::noop);
 
         try (var changesetDb = openChangesets(changesetDbUrl);
-             var cache = new LRUCache(1L << 30 )) {
+             var cache = new LRUCache(1L << 30)) {
 
             Files.createDirectories(temp);
 
@@ -224,8 +225,8 @@ public class Contributions2Parquet implements Callable<Integer> {
              var minorNodesDb = RocksDB.open(options, temp.resolve("minorNodes").toString());
              var minorWaysDb = RocksDB.open(options, temp.resolve("minorWays").toString());
 
-             var optionsWithMerge =  defaultOptions(cache).setCreateIfMissing(true)
-                 .setMergeOperator(new StringAppendOperator((char) 0));
+             var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
+                     .setMergeOperator(new StringAppendOperator((char) 0));
              var replicationDb = replicationPath != null ? RocksDB.open(options, replicationPath.toString()) : null;
              var nodeRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_RELATION)) : null;
              var wayRelationBackRefs = replicationPath != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.WAY_RELATION)) : null;
@@ -240,12 +241,12 @@ public class Contributions2Parquet implements Callable<Integer> {
                      .setNameFormat("contrib-worker-%d")
                      .setDaemon(true)
                      .build())
-             ) {
+        ) {
 
             var readerScheduler =
                     Schedulers.newBoundedElastic(10 * Runtime.getRuntime().availableProcessors(), 10_000, "reader", 60, true);
 
-            var writers = getWriters(temp, output, numFiles);
+            var writers = getWriters(temp, output, numFiles, 20L << 30);
 
             var blocks = Flux.fromIterable(blobTypes.get(RELATION))
                     // read blob from file
@@ -337,6 +338,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                             canceled.set(true);
                             System.err.println(e.getMessage());
                         } finally {
+                            writer.flush();
                             writers.add(writer);
                         }
                     });
@@ -356,7 +358,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
 
             contribWorkers.shutdown();
-            while(!contribWorkers.awaitTermination(1, TimeUnit.MINUTES)) {
+            while (!contribWorkers.awaitTermination(1, TimeUnit.MINUTES)) {
                 var active = contribWorkers.getActiveCount();
                 var queued = contribWorkers.getQueue().size();
                 logger.info("waiting for writers to close. active: {}, queued: {}", active, queued);
@@ -375,10 +377,10 @@ public class Contributions2Parquet implements Callable<Integer> {
         return osh;
     }
 
-    private static ArrayBlockingQueue<ContribWriter> getWriters(Path temp, OutputLocation output, int numFiles) {
+    private static ArrayBlockingQueue<ContribWriter> getWriters(Path temp, OutputLocation output, int numFiles, long maxFileSize) {
         var writers = new ArrayBlockingQueue<ContribWriter>(numFiles);
         for (var i = 0; i < numFiles; i++) {
-            writers.add(new ContribWriter(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig));
+            writers.add(new ContribWriter(i, RELATION, temp, output, Contributions2Parquet::relationParquetConfig, maxFileSize));
         }
         return writers;
     }
@@ -398,7 +400,7 @@ public class Contributions2Parquet implements Callable<Integer> {
         var minorNodeIds = new LongOpenHashSet();
         var minorMemberIds = Map.of(
                 NODE, minorNodeIds,
-                WAY,  new LongOpenHashSet());
+                WAY, new LongOpenHashSet());
 
         var changesetIds = new LongOpenHashSet();
         var osh = new ArrayList<OSMRelation>(entities.size());
@@ -470,47 +472,47 @@ public class Contributions2Parquet implements Callable<Integer> {
 
         while (converter.hasNext()) {
             var contrib = converter.next();
-            if (contrib.isPresent()) {
-                if (logger.isDebugEnabled()) {
-                    counter++;
-                    var c = contrib.get();
-                    var geom = c.getGeometry();
-                    var buildTime = System.nanoTime() - timer;
+            if (contrib.isEmpty()) continue;
 
-                    var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
-                    if (updatedTimeValue == buildTime && buildTime > contribBuildTime) {
-                        contribBuildTime = buildTime;
-                        logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms {}",
+            if (logger.isDebugEnabled()) {
+                counter++;
+                var c = contrib.get();
+                var geom = c.getGeometry();
+                var buildTime = System.nanoTime() - timer;
+
+                var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
+                if (updatedTimeValue == buildTime && buildTime > contribBuildTime) {
+                    contribBuildTime = buildTime;
+                    logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms {}",
                             c.getOsmId(), counter, updatedTimeValue / 1_000_000, watch);
-                    }
+                }
 
-                    if (geom != null) {
-                        var geomSize = geom.limit();
-                        var updatedGeomSizeValue = maxGeometrySize.accumulateAndGet(geomSize,
+                if (geom != null) {
+                    var geomSize = geom.limit();
+                    var updatedGeomSizeValue = maxGeometrySize.accumulateAndGet(geomSize,
                             Long::max);
-                        if (updatedGeomSizeValue == geomSize && geomSize > contribGeomSize) {
-                            contribGeomSize = geomSize;
-                            logger.info(
+                    if (updatedGeomSizeValue == geomSize && geomSize > contribGeomSize) {
+                        contribGeomSize = geomSize;
+                        logger.info(
                                 "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes {}",
                                 c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue,
                                 watch);
-                        }
                     }
                 }
-                writer.write(contrib.get());
             }
+            writer.write(contrib.get());
         }
         if (logger.isDebugEnabled()) {
             var totalBuildTime = System.nanoTime() - timer;
             var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
             if (updatedValue == totalBuildTime) {
                 logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
-                    updatedValue / 1_000_000, watch);
+                        updatedValue / 1_000_000, watch);
             }
 
             if (totalBuildTime >= 3_600_000_000_000L) {
                 logger.info("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
-                    totalBuildTime / 1_000_000, watch);
+                        totalBuildTime / 1_000_000, watch);
             }
         }
 

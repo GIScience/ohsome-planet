@@ -21,17 +21,24 @@ public class ContribWriter implements AutoCloseable {
     private final Path temp;
     private final OutputLocation outputDir;
     private final Consumer<AvroGeoParquetBuilder<Contrib>> additionalConfig;
+    private final long maxFileSize;
+    private final Output output = new Output(4 << 10);
 
     private ParquetWriter<Contrib> writer;
 
-    final Output output = new Output(4 << 10);
+    private int split = 0;
 
     public ContribWriter(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroGeoParquetBuilder<Contrib>> config) {
+        this(writerId,type, temp, outputDir, config, Long.MAX_VALUE);
+    }
+    public ContribWriter(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroGeoParquetBuilder<Contrib>> config, long maxFileSize) {
         this.writerId = writerId;
         this.type = type;
         this.temp = temp;
         this.outputDir = outputDir;
         this.additionalConfig = config;
+
+        this.maxFileSize = maxFileSize;
     }
 
     public void write(Contrib contrib) throws IOException {
@@ -41,23 +48,32 @@ public class ContribWriter implements AutoCloseable {
         writer.write(contrib);
     }
 
+    public void flush() {
+        if (writer == null) return;
+        if (writer.getDataSize() >= maxFileSize){
+            close();
+        }
+        split++;
+        writer = null;
+    }
+
     private ParquetWriter<Contrib> openWriter() {
         return ContribUtil.openWriter(progressPath(), additionalConfig);
     }
 
     private Path progressPath() {
         return temp.resolve("progress")
-                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
+                .resolve("%s-%d_%d-contribs.parquet".formatted(type, writerId, split));
     }
 
     private Path finalPath() {
         return outputDir
-                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
+                .resolve("%s-%d_%d-contribs.parquet".formatted(type, writerId, split));
     }
 
     private Path canceledPath() {
         return outputDir.resolve("canceled")
-                .resolve("%s-%d-contribs-canceled.parquet".formatted(type, writerId));
+                .resolve("%s-%d_%d-contribs-canceled.parquet".formatted(type, writerId, split));
     }
 
     @Override
