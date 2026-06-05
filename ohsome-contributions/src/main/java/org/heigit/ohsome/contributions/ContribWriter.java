@@ -46,7 +46,6 @@ public class ContribWriter implements AutoCloseable {
     public void write(Contrib contrib) throws IOException {
         if (writer == null) {
             writer = openWriter();
-            split++;
         }
         writer.write(contrib);
     }
