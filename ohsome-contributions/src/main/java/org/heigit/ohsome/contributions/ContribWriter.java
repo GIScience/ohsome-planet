@@ -106,14 +106,14 @@ public class ContribWriter implements AutoCloseable {
 
         var path = progressPath();
         try {
-            logger.debug("closing writer {}: {} -> {}", getId(), path, finalPath);
+            logger.debug("writer {} closing: {} -> {}", getId(), path.getFileName(), finalPath);
             writer.close();
             var closed = path.getParent().resolve("closed_" +  path.getFileName());
             Files.move(path, closed);
             outputDir.move(closed, finalPath);
-            logger.debug("writer closed {}: {}", getId(), finalPath);
+            logger.debug("writer {} closed: {}", getId(), finalPath);
         } catch(Exception e){
-            logger.error("closing writer {}: {}", getId(), finalPath, e);
+            logger.error("writer {} closing error: {}", getId(), finalPath, e);
             // ignore exception
         }
     }
