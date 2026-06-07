@@ -97,32 +97,34 @@ public class ContributionGeometry {
 
      */
     private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
-            , 102740L   //
-            , 1754729L
-            , 5631846L
-            , 4095122L
-            , 3723592L
-            , 9326283L  // 1.02h
-            , 11946074L // 1.02h
-            , 9323456L  // 1.03h
-            , 13663366L // 1.03h
-            , 9428957L  // 1.14h
-            , 9381668L  // 1.18h
-            , 9382300L  // 1.42h
-            , 3870917L  // 1.6h
-            , 1626722L  // 1.63h
-            , 6677259L  // 1.83h
-            , 9488835L  // 1.95h
-            , 4016746L  // 2.1h
-            , 9350128L  // 2.1h
-            , 4594226L  // 2.5h
-            , 6038068L  // Großbritannien > 3h
-            , 5446634L  // 5.1h
-            , 280282L   // Nuba-see > 5h
+        ,   102740L   //
+        ,   280282L   // Nuba-see > 5h
+        ,   349348L
+        ,  1205151L
+        ,  1626722L  // 1.63h
+        ,  1754729L
+        ,  3723592L
+        ,  3870917L  // 1.6h
+        ,  4016746L  // 2.1h
+        ,  4095122L
+        ,  4594226L  // 2.5h
+        ,  5446634L  // 5.1h
+        ,  5631846L
+        ,  6038068L  // Großbritannien > 3h
+        ,  6677259L  // 1.83h
+        ,  9323456L  // 1.03h
+        ,  9326283L  // 1.02h
+        ,  9350128L  // 2.1h
+        ,  9381668L  // 1.18h
+        ,  9382300L  // 1.42h
+        ,  9428957L  // 1.14h
+        ,  9488835L  // 1.95h
+        , 11946074L // 1.02h
+        , 13663366L // 1.03h
     );
 
     public static Geometry relGeometry(Contribution contribution, boolean latest) {
-        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 500 || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
+        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 1000 || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
             var geom = relGeometryMultiPolygon(contribution);
             if (!geom.isEmpty()) {
                 return geom;
