@@ -60,14 +60,14 @@ public class S3OutputLocation implements OutputLocation {
     @Override
     public void move(Path src, Path dest) throws Exception {
         withRetry(retry -> {
-                    logger.debug("uploading file {} {} -> {}.{}", bucket, src, dest, retry > 0 ? " Retry %d/%d".formatted(retry, MAX_RETRIES): "");
+                    logger.debug("uploading file {} {} -> {}.{}", bucket, src.getFileName(), dest, retry > 0 ? " Retry %d/%d".formatted(retry, MAX_RETRIES): "");
                     client.uploadObject(UploadObjectArgs.builder()
                             .bucket(bucket)
                             .filename(src.toString())
                             .object(dest.toString())
                             .build());
                 }, (retry, e) ->
-                        logger.warn("Failed to upload object {} to {}.", src, dest, e)
+                        logger.warn("Failed to upload object {} to {}.", src.getFileName(), dest, e)
         );
         Files.deleteIfExists(src);
     }
