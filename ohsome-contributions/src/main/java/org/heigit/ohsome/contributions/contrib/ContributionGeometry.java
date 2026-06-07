@@ -112,6 +112,7 @@ public class ContributionGeometry {
         ,  5631846L
         ,  6038068L  // Großbritannien > 3h
         ,  6677259L  // 1.83h
+        ,  7379046L
         ,  9323456L  // 1.03h
         ,  9326283L  // 1.02h
         ,  9350128L  // 2.1h
