@@ -2,6 +2,8 @@ package org.heigit.ohsome.contributions.contrib;
 
 import com.google.common.base.Predicates;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.geometry.assembler.GeometryAssembler;
@@ -147,19 +149,23 @@ public class ContributionGeometry {
 
     public static Geometry relGeometryMultiPolygon(Contribution contribution) {
         var ways = new Long2ObjectOpenHashMap<LineString>();
+        var inner = new LongOpenHashSet();
 
         contribution.members().stream()
                 .filter(member -> member.type().equals(WAY) && member.contrib() != null)
                 .forEach(contrib -> {
                     var lineString = toLineString(contrib);
                     if (!lineString.isEmpty()) {
+                        if ("inner".equals(contrib.role())){
+                            inner.add(contrib.id());
+                        }
                         ways.computeIfAbsent(contrib.id(), x -> lineString);
                     }
                 });
 
         try {
             var assembler = new GeometryAssembler();
-            var geometry = assembler.assemble(ways, Set.of());
+            var geometry = assembler.assemble(ways, inner);
             if (geometry != null) {
               if (geometry.isValid()) return geometry;
 
