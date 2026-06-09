@@ -9,8 +9,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ReplicationEntityTest {
 
@@ -52,7 +51,7 @@ class ReplicationEntityTest {
         var decode = ReplicationEntity.deserializeWay(id, bytes);
 
         assertEntityInfo(encode, decode);
-        assertEquals(encode.refs(), decode.refs());
+        assertArrayEquals(encode.refs(), decode.refs());
     }
 
     @Test

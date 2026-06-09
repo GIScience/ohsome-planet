@@ -19,7 +19,19 @@ class ReplicationEntityTest {
         ReplicationEntity.serialize(expected, output);
         var data = output.array();
         var actual = ReplicationEntity.deserializeWay(1234L, data);
-        assertEquals(expected, actual);
+
+        assertEquals(expected.id(), actual.id());
+        assertEquals(expected.version(), actual.version());
+        assertEquals(expected.timestamp(), actual.timestamp());
+        assertEquals(expected.changeset(), actual.changeset());
+        assertEquals(expected.userId(), actual.userId());
+        assertEquals(expected.user(), actual.user());
+        assertEquals(expected.visible(), actual.visible());
+        assertEquals(expected.tags(), actual.tags());
+        assertArrayEquals(expected.refs(), actual.refs());
+        assertEquals(expected.minorVersion(), actual.minorVersion());
+        assertEquals(expected.edits(), actual.edits());
+
     }
 
 }
