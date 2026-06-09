@@ -230,7 +230,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
     }
 
     private ByteBuffer contributionWkb(Contribution contribution) {
-        return wkb(contributionGeometry(contribution));
+        return contribution.data("wkb", contrib -> wkb(contributionGeometry(contrib)));
     }
 
     private ByteBuffer wkb(Geometry geometry) {

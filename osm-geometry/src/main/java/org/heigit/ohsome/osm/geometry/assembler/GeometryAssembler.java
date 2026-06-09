@@ -333,16 +333,27 @@ public class GeometryAssembler {
     }
 
     private boolean hasIntersection(List<Segment> outgoings, PriorityQueue<Arc> active) {
+        if (hasIntersectionsWithOutgoings(outgoings)) return true;
+        // Check 2: outgoing vs active (incoming from left), active.start() < event
+        if (hasIntersectinonsWithActives(outgoings, active)) return true;
+
+        return false;
+    }
+
+    private static boolean hasIntersectinonsWithActives(List<Segment> outgoings, PriorityQueue<Arc> active) {
+        for (var out : outgoings) {
+            for (var in : active) {
+                if (SegmentIntersector.intersects(in.lastSegment(), out)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasIntersectionsWithOutgoings(List<Segment> outgoings) {
         // Check 1: two outgoing segments from the same event with the same angle → collinear overlap
         for (var i = 0; i < outgoings.size(); i++) {
             for (var j = i + 1; j < outgoings.size(); j++) {
                 if (outgoings.get(i).angle() == outgoings.get(j).angle()) return true;
-            }
-        }
-        // Check 2: outgoing vs active (incoming from left), active.start() < event
-        for (var out : outgoings) {
-            for (var in : active) {
-                if (SegmentIntersector.intersects(in.lastSegment(), out)) return true;
             }
         }
         return false;

@@ -3,10 +3,7 @@ package org.heigit.ohsome.contributions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import java.util.concurrent.atomic.AtomicLong;
-
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import me.tongfei.progressbar.ProgressBarBuilder;
@@ -44,7 +41,6 @@ import org.rocksdb.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine;
-import picocli.CommandLine.ExitCode;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -84,7 +80,7 @@ public class Contributions2Parquet implements Callable<Integer> {
 
     private static final Logger logger = LoggerFactory.getLogger(Contributions2Parquet.class);
 
-    public static final boolean WRITE_PARQUET = false;
+    public static final boolean WRITE_PARQUET = true;
 
     private final Path pbfPath;
     private final Path temp;
@@ -177,18 +173,18 @@ public class Contributions2Parquet implements Callable<Integer> {
             var summaryNodes = Transformer.Summary.EMPTY;
             var summaryWays = Transformer.Summary.EMPTY;
 
-//            var minorNodesPath = temp.resolve("minorNodes");
-//            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
-//            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
-//            var minorWaysPath = temp.resolve("minorWays");
-//            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
-//            try (var options = defaultOptions(cache).setCreateIfMissing(false);
-//                 var minorNodes = open(options, minorNodesPath);
-//                 var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
-//                         .setMergeOperator(new StringAppendOperator((char) 0));
-//                 var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
-//                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
-//            }
+            var minorNodesPath = temp.resolve("minorNodes");
+            var replicationNodesPath = UpdateStore.updatePath(replication, NODE);
+            summaryNodes = processNodes(pbf, blobTypes, temp, outputLocation, parallel, minorNodesPath, countryJoiner, changesetDb, replicationNodesPath);
+            var minorWaysPath = temp.resolve("minorWays");
+            var replicationWaysPath = UpdateStore.updatePath(replication, WAY);
+            try (var options = defaultOptions(cache).setCreateIfMissing(false);
+                 var minorNodes = open(options, minorNodesPath);
+                 var optionsWithMerge = defaultOptions(cache).setCreateIfMissing(true)
+                         .setMergeOperator(new StringAppendOperator((char) 0));
+                 var nodeWayBackRefs = replication != null ? open(optionsWithMerge, UpdateStore.updatePath(replication, UpdateStore.BackRefs.NODE_WAY)) : null) {
+                summaryWays = processWays(pbf, blobTypes, temp, outputLocation, parallel, minorNodes, minorWaysPath, x -> true, countryJoiner, changesetDb, replicationWaysPath, nodeWayBackRefs);
+            }
 
             var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb, cache);
 
@@ -260,7 +256,6 @@ public class Contributions2Parquet implements Callable<Integer> {
                     .toIterable(10).iterator();
 
 
-
             var entities = Iterators.peekingIterator(new OSMIterator(blocks, progress::stepBy));
 
             var replicationLatestTimestamp = 0L;
@@ -270,34 +265,26 @@ public class Contributions2Parquet implements Callable<Integer> {
             var outputBackRefs = new Output(4 << 10);
 
 
-            var batch = new ArrayList<List<OSMEntity>>(1_000);
-
             while (entities.hasNext() && !canceled.get()) {
-                batch.clear();
-                backRefsNodeRelation.clear();
-                backRefsWayRelation.clear();
-                while (entities.hasNext() && !canceled.get() && batch.size() < 1) {
-                    var osh = getNextOSH(entities);
-                    batch.add(osh);
-                    if (replicationPath != null) {
-                        var last = (OSMRelation) osh.getLast();
-                        if (!last.visible()) {
-                            continue;
-                        }
-                        last.members((mType, mId, mRole) -> {
-                            switch (mType) {
-                                case NODE ->
-                                        backRefsNodeRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
-                                case WAY ->
-                                        backRefsWayRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
-                                default -> {
-                                }
-                            }
-                        });
-                    }
-                }
 
+                var osh = getNextOSH(entities);
                 if (replicationPath != null) {
+                    backRefsNodeRelation.clear();
+                    backRefsWayRelation.clear();
+
+                    var last = (OSMRelation) osh.getLast();
+                    if (!last.visible()) {
+                        continue;
+                    }
+                    last.members((mType, mId, mRole) -> {
+                        switch (mType) {
+                            case NODE -> backRefsNodeRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
+                            case WAY -> backRefsWayRelation.computeIfAbsent(mId, k -> new TreeSet<>()).add(last.id());
+                            default -> {
+                            }
+                        }
+                    });
+
                     try (var writeOpts = new WriteOptions()) {
                         try (var writeBatch = new WriteBatch()) {
                             for (var entry : backRefsNodeRelation.entrySet()) {
@@ -323,28 +310,27 @@ public class Contributions2Parquet implements Callable<Integer> {
                     }
                 }
 
-                for (var osh : batch) {
-                    if (canceled.get()) {
-                        break;
-                    }
-                    if (osh.getLast().visible()) {
-                        replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
-                        replicationElementsCount++;
-                    }
-
-                    var writer = writers.take();
-                    contribWorkers.execute(() -> {
-                        try {
-                            processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
-                        } catch (Exception e) {
-                            canceled.set(true);
-                            System.err.println(e.getMessage());
-                        } finally {
-                            writer.flush();
-                            writers.add(writer);
-                        }
-                    });
+                if (canceled.get()) {
+                    break;
                 }
+                if (osh.getLast().visible()) {
+                    replicationLatestTimestamp = Math.max(osh.getLast().timestamp().getEpochSecond(), replicationLatestTimestamp);
+                    replicationElementsCount++;
+                }
+
+                var writer = writers.take();
+                contribWorkers.execute(() -> {
+                    try {
+                        processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
+                    } catch (Exception e) {
+                        canceled.set(true);
+                        System.err.println(e.getMessage());
+                    } finally {
+                        writer.flush();
+                        writers.add(writer);
+                    }
+                });
+
                 if (canceled.get()) {
                     break;
                 }
@@ -390,7 +376,6 @@ public class Contributions2Parquet implements Callable<Integer> {
     private static void relationParquetConfig(AvroGeoParquetBuilder<Contrib> config) {
         config.withMinRowCountForPageSizeCheck(1).withMaxRowCountForPageSizeCheck(2);
     }
-
 
 
     private static final AtomicLong maxBuildTime = new AtomicLong();
