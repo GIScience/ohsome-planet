@@ -1,6 +1,7 @@
 package org.heigit.ohsome.osm.geometry;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.heigit.ohsome.osm.geometry.OSMParser.Osm;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
@@ -23,6 +24,7 @@ import java.util.stream.Stream;
 public record OSMTest(
         int testId,
         String description,
+        Osm osm,
         AreaEntry defaultResult,
         AreaEntry fixResult,
         Map<Long, LineString> ways
@@ -83,6 +85,7 @@ public record OSMTest(
     public static OSMTest load(Path path) throws IOException, ParseException {
         var mapper = new ObjectMapper();
         var raw = mapper.readValue(path.resolve("test.json").toFile(), TestJson.class);
+        var osm = OSMParser.parse(path.resolve("data.osm"));
 
         var ways = new HashMap<Long, LineString>();
         var wktReader = new WKTReader(FACTORY);
@@ -95,6 +98,6 @@ public record OSMTest(
 
         var defaultResult = raw.areas.getOrDefault("location", raw.areas.get("default")).getFirst();
         var fixResult = Optional.ofNullable(raw.areas.get("fix")).map(List::getFirst).orElse(null);
-        return new OSMTest(raw.testId, raw.description, defaultResult, fixResult, ways);
+        return new OSMTest(raw.testId, raw.description, osm, defaultResult, fixResult, ways);
     }
 }

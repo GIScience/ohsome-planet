@@ -68,6 +68,10 @@ public class Arc {
         return junction;
     }
 
+    public Set<Long> wayIds() {
+        return wayIds;
+    }
+
     public void extend(Segment segment) {
         this.coordinates.add(segment.end());
         this.lastSegment = segment;

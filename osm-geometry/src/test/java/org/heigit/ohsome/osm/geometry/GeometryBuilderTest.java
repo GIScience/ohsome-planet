@@ -1,5 +1,6 @@
 package org.heigit.ohsome.osm.geometry;
 
+import org.heigit.ohsome.osm.geometry.OSMParser.Member;
 import org.heigit.ohsome.osm.geometry.assembler.GeometryAssembler;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -12,12 +13,10 @@ import org.locationtech.jts.io.WKTReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toSet;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GeometryBuilderTest {
@@ -68,7 +67,11 @@ class GeometryBuilderTest {
     @MethodSource("osmAllValidTest")
     void osmTestCases(OSMTest test) throws ParseException {
         var assembler = new GeometryAssembler();
-        var geometry = assembler.assemble(test.ways(), Set.of());
+        var inner = Optional.ofNullable(test.osm().relations()).stream()
+                .map(List::getFirst)
+                .map(OSMParser.Relation::members).<Member>mapMulti(Iterable::forEach)
+                .filter(m -> m.type().equals("way") && m.role().equals("inner")).map(Member::ref).collect(toSet());
+        var geometry = assembler.assemble(test.ways(), inner);
         var expected = WKT_READER.read(test.resultWithFix().wkt()).norm();
         if (test.isValid() || test.hasFix() && geometry != null) {
             assertNotNull(geometry, "Null geometry for " + test.testId() + ": " + test.description());
@@ -102,7 +105,7 @@ class GeometryBuilderTest {
             lines.forEach(line -> {
                 var parts = line.split(";");
                 var id = Long.parseLong(parts[0]);
-                Geometry wkt = null;
+                Geometry wkt;
                 try {
                     wkt = WKT_READER.read(parts[1]);
                     ways.put(id, (LineString) wkt);

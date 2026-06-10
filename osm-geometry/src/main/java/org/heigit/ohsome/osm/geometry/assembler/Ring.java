@@ -15,6 +15,7 @@ public class Ring {
     private final List<Ring> holes;
     private final List<Ring> sideRings = new ArrayList<>();
     private final Set<Coordinate> touching = new HashSet<>();
+    private final Set<Long> wayIds = new HashSet<>();
 
 
     public Ring(Arc arc1, Arc arc2) {
@@ -38,6 +39,8 @@ public class Ring {
         //this.sideRings.addAll(lower.holes());
         this.touching.addAll(upper.touching());
         this.touching.addAll(lower.touching());
+        wayIds.addAll(upper.wayIds());
+        wayIds.addAll(lower.wayIds());
     }
 
     public Envelope envelope() {
@@ -64,6 +67,9 @@ public class Ring {
         return touching;
     }
 
+    public Set<Long> wayIds() {
+        return wayIds;
+    }
 
     @Override
     public String toString() {

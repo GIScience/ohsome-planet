@@ -38,9 +38,9 @@
         </dependency>
 
         <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
+            <groupId>tools.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>3.1.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>

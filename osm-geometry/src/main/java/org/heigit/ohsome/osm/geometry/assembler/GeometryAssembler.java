@@ -39,7 +39,7 @@ public class GeometryAssembler {
                 var outgoing = outgoing(event, segments);
 
                 if (hasIntersection(outgoing, activeArcs)) return null; // invalid geometry
-                handleEvent(event, incoming, outgoing);
+                handleEvent(event, incoming, outgoing, inner);
             }
 
             if (!junctions.isEmpty()) {
@@ -48,7 +48,7 @@ public class GeometryAssembler {
                     if (junction == null || junction.incomings().isEmpty()) {
                         continue;
                     }
-                    handleEvent(junction.event(), junction.incomings(), List.of());
+                    handleEvent(junction.event(), junction.incomings(), List.of(), inner);
                 }
             }
 
@@ -61,7 +61,7 @@ public class GeometryAssembler {
         return null; // invalid geometry
     }
 
-    private void handleEvent(Coordinate event, List<Arc> incoming, List<Segment> outgoing) {
+    private void handleEvent(Coordinate event, List<Arc> incoming, List<Segment> outgoing, Set<Long> inner) {
         var numberOfSegments = incomingArcs.size() + outgoingSegments.size();
         if (numberOfSegments == 0 || numberOfSegments == 1) {
 //            throw new InvalidGeometryException("unclosed ends detected!");
@@ -118,7 +118,13 @@ public class GeometryAssembler {
 
         var upperArc = inside(event);
         if (upperArc == null) {
-            rings.addAll(rootRings);
+            for(var ring : rootRings) {
+                if (!Collections.disjoint(inner, ring.wayIds())) {
+                    // this should be a hole and we skip it
+                    continue;
+                }
+                rings.add(ring);
+            }
         } else {
             for (var ring : rootRings) {
                 upperArc.addHole(ring);
