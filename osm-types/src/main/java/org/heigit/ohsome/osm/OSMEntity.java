@@ -1,7 +1,6 @@
 package org.heigit.ohsome.osm;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -10,10 +9,6 @@ public sealed interface OSMEntity {
     long id();
 
     OSMType type();
-
-    default OSMId osmId() {
-        return new OSMId(type(), id());
-    }
 
     int version();
 
@@ -33,8 +28,13 @@ public sealed interface OSMEntity {
 
     Map<String, String> tags();
 
-    List<OSMMember> members();
+    int memberSize();
 
+    interface MembersFunction {
+        void member(OSMType type, long id, String role);
+    }
+
+    void members(MembersFunction consumer);
 
     record OSMNode(long id, int version, Instant timestamp, long changeset, int userId, String user,
                    boolean visible,
@@ -55,20 +55,26 @@ public sealed interface OSMEntity {
             return version;
         }
 
+
         @Override
-        public List<OSMMember> members() {
-            return Collections.emptyList();
+        public int memberSize() {
+            return 0;
+        }
+
+        @Override
+        public void members(MembersFunction consumer) {
+            // no members
         }
     }
 
     record OSMWay(long id, int version, Instant timestamp, long changeset, int userId, String user,
                   boolean visible,
-                  Map<String, String> tags, List<Long> refs, int minorVersion, int edits, List<Long> lons,
+                  Map<String, String> tags, long[] refs, int minorVersion, int edits, List<Long> lons,
                   List<Long> lats) implements OSMEntity {
 
         public OSMWay(long id, int version, Instant timestamp, long changeset, int userId, String user,
                       boolean visible,
-                      Map<String, String> tags, List<Long> refs) {
+                      Map<String, String> tags, long[] refs) {
             this(id, version, timestamp, changeset, userId, user, visible, tags, refs, 0, 0, null, null);
         }
 
@@ -82,19 +88,29 @@ public sealed interface OSMEntity {
         }
 
         @Override
-        public List<OSMMember> members() {
-            return refs.stream().map(ref -> new OSMMember(OSMType.NODE, ref, "")).toList();
+        public int memberSize() {
+            return refs.length;
+        }
+
+
+        @Override
+        public void members(MembersFunction consumer) {
+            for (var ref : refs) {
+                consumer.member(OSMType.NODE, ref, "");
+            }
         }
     }
 
-    record OSMRelation(long id, int version, Instant timestamp, long changeset, int userId,
-                       String user, boolean visible,
-                       Map<String, String> tags, List<OSMMember> members, int minorVersion, int edits) implements OSMEntity {
 
-        public OSMRelation(long id, int version, Instant timestamp, long changeset, int userId,
-                           String user, boolean visible,
-                           Map<String, String> tags, List<OSMMember> members) {
-            this(id, version, timestamp, changeset, userId, user, visible, tags, members, 0, 0);
+    record OSMRelation(long id, int version, Instant timestamp, long changeset, int userId,
+                        String user, boolean visible, Map<String, String> tags,
+                        OSMType[] memberTypes, long[] memberIds, String[] memberRoles,
+                        int minorVersion, int edits) implements OSMEntity {
+
+        public  OSMRelation(long id, int version, Instant timestamp, long changeset, int userId,
+                             String user, boolean visible, Map<String, String> tags,
+                             OSMType[] memberTypes, long[] memberIds, String[] memberRoles) {
+            this(id, version, timestamp, changeset, userId, user, visible, tags, memberTypes, memberIds, memberRoles, 0,0);
         }
 
         @Override
@@ -102,10 +118,21 @@ public sealed interface OSMEntity {
             return OSMType.RELATION;
         }
 
-        public OSMRelation withMinorAndEdits(int minorVersion, int edits) {
-            return new OSMRelation(id, version, timestamp, changeset, userId, user, visible, tags, members, minorVersion, edits);
+        @Override
+        public int memberSize() {
+            return memberTypes.length;
         }
 
+        @Override
+        public void members(MembersFunction consumer) {
+            for (var i = 0; i < memberTypes.length; i++) {
+                consumer.member(memberTypes[i], memberIds[i], memberRoles[i]);
+            }
+        }
+
+        public OSMRelation withMinorAndEdits(int minorVersion, int edits) {
+            return new OSMRelation(id, version, timestamp, changeset, userId, user, visible, tags, memberTypes, memberIds, memberRoles, minorVersion, edits);
+        }
     }
 
 }

@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.Consumer;
 
@@ -21,17 +22,24 @@ public class ContribWriter implements AutoCloseable {
     private final Path temp;
     private final OutputLocation outputDir;
     private final Consumer<AvroGeoParquetBuilder<Contrib>> additionalConfig;
+    private final long maxFileSize;
+    private final Output output = new Output(4 << 10);
 
     private ParquetWriter<Contrib> writer;
 
-    final Output output = new Output(4 << 10);
+    private int split = 0;
 
     public ContribWriter(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroGeoParquetBuilder<Contrib>> config) {
+        this(writerId,type, temp, outputDir, config, Long.MAX_VALUE);
+    }
+    public ContribWriter(int writerId, OSMType type, Path temp, OutputLocation outputDir, Consumer<AvroGeoParquetBuilder<Contrib>> config, long maxFileSize) {
         this.writerId = writerId;
         this.type = type;
         this.temp = temp;
         this.outputDir = outputDir;
         this.additionalConfig = config;
+
+        this.maxFileSize = maxFileSize;
     }
 
     public void write(Contrib contrib) throws IOException {
@@ -41,23 +49,32 @@ public class ContribWriter implements AutoCloseable {
         writer.write(contrib);
     }
 
+    public void flush() {
+        if (writer == null) return;
+        if (writer.getDataSize() >= maxFileSize){
+            close();
+            writer = null;
+            split++;
+        }
+    }
+
     private ParquetWriter<Contrib> openWriter() {
         return ContribUtil.openWriter(progressPath(), additionalConfig);
     }
 
     private Path progressPath() {
         return temp.resolve("progress")
-                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
+                .resolve("%s-%d-%d-contribs.parquet".formatted(type, writerId, split));
     }
 
     private Path finalPath() {
         return outputDir
-                .resolve("%s-%d-contribs.parquet".formatted(type, writerId));
+                .resolve("%s-%d-%d-contribs.parquet".formatted(type, writerId, split));
     }
 
     private Path canceledPath() {
         return outputDir.resolve("canceled")
-                .resolve("%s-%d-contribs-canceled.parquet".formatted(type, writerId));
+                .resolve("%s-%d-%d-contribs-canceled.parquet".formatted(type, writerId, split));
     }
 
     @Override
@@ -88,12 +105,15 @@ public class ContribWriter implements AutoCloseable {
         }
 
         var path = progressPath();
-        logger.debug("closing writer {}", getId());
         try {
+            logger.debug("writer {} closing: {} -> {}", getId(), path.getFileName(), finalPath);
             writer.close();
-            outputDir.move(path, finalPath);
+            var closed = path.getParent().resolve("closed_" +  path.getFileName());
+            Files.move(path, closed);
+            outputDir.move(closed, finalPath);
+            logger.debug("writer {} closed: {}", getId(), finalPath);
         } catch(Exception e){
-            logger.error("closing writer {}: {}", getId(), finalPath, e);
+            logger.error("writer {} closing error: {}", getId(), finalPath, e);
             // ignore exception
         }
     }

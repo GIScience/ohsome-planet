@@ -1,10 +1,14 @@
 package org.heigit.ohsome.contributions.contrib;
 
 import com.google.common.base.Predicates;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
-import org.heigit.ohsome.osm.geometry.GeometryBuilder;
+import org.heigit.ohsome.osm.geometry.assembler.GeometryAssembler;
 import org.locationtech.jts.geom.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -16,6 +20,7 @@ import static java.util.Optional.ofNullable;
 import static org.heigit.ohsome.osm.OSMType.WAY;
 
 public class ContributionGeometry {
+    private static final Logger logger = LoggerFactory.getLogger(ContributionGeometry.class);
 
     public static final Map<String, Predicate<String>> polygonFeatures;
     private static final GeometryFactory geometryFactory = new GeometryFactory();
@@ -56,13 +61,13 @@ public class ContributionGeometry {
     }
 
     public static Geometry geometry(Contribution contribution) {
-        return geometry(contribution, false);
+        return geometry(contribution, true);
     }
-    public static Geometry geometry(Contribution contribution, boolean buildMultipolygon) {
+    public static Geometry geometry(Contribution contribution, boolean latest) {
         return switch (contribution.entity().type()) {
             case NODE -> nodeGeometry(contribution);
             case WAY -> wayGeometry(contribution);
-            case RELATION -> relGeometry(contribution, buildMultipolygon);
+            case RELATION -> relGeometry(contribution, latest);
         };
     }
 
@@ -71,29 +76,99 @@ public class ContributionGeometry {
         return "multipolygon".equalsIgnoreCase(type) || "boundary".equalsIgnoreCase(type);
     }
 
-    public static Geometry relGeometry(Contribution contribution,  boolean buildMultipolygon) {
-        if (buildMultipolygon && relIsMultipolygon(contribution)) {
-            return relGeometryMultiPolygon(contribution);
+    /*
+
+    https://osm.org/relation/9326283  // 1.02h
+    https://osm.org/relation/11946074 // 1.02h
+    https://osm.org/relation/9323456  // 1.03h
+    https://osm.org/relation/13663366 // 1.03h
+    https://osm.org/relation/9428957  // 1.14h
+    https://osm.org/relation/9381668  // 1.18h
+    https://osm.org/relation/9382300  // 1.42h
+    https://osm.org/relation/3870917  // 1.6h
+    https://osm.org/relation/1626722  // 1.63h
+    https://osm.org/relation/6677259  // 1.83h
+    https://osm.org/relation/9488835  // 1.95h
+    https://osm.org/relation/4016746  // 2.1h
+    https://osm.org/relation/9350128  // 2.1h
+    https://osm.org/relation/4594226  // 2.5h
+    https://osm.org/relation/6038068  // Großbritannien > 3h
+    https://osm.org/relation/5446634  // 5.1h
+    https://osm.org/relation/280282   // Nuba-see > 5h
+
+     */
+    private static final Set<Long> IGNORED_MULTIPOLYGONS = Set.of( -1L
+        ,   102740L   //
+        ,   280282L   // Nuba-see > 5h
+        ,   349348L
+        ,  1205151L
+        ,  1626722L  // 1.63h
+        ,  1754729L
+        ,  3723592L
+        ,  3870917L  // 1.6h
+        ,  4016746L  // 2.1h
+        ,  4095122L
+        ,  4594226L  // 2.5h
+        ,  5446634L  // 5.1h
+        ,  5631846L
+        ,  6038068L  // Großbritannien > 3h
+        ,  6677259L  // 1.83h
+        ,  7379046L
+        ,  9323456L  // 1.03h
+        ,  9326283L  // 1.02h
+        ,  9350128L  // 2.1h
+        ,  9381668L  // 1.18h
+        ,  9382300L  // 1.42h
+        ,  9428957L  // 1.14h
+        ,  9488835L  // 1.95h
+        , 11946074L // 1.02h
+        , 13663366L // 1.03h
+    );
+
+    public static Geometry relGeometry(Contribution contribution, boolean latest) {
+        if (relIsMultipolygon(contribution) && (latest || contribution.members().size() <= 1000 || !IGNORED_MULTIPOLYGONS.contains(contribution.entity().id()))) {
+            var geom = relGeometryMultiPolygon(contribution);
+            if (!geom.isEmpty()) {
+                return geom;
+            }
         }
         return relGeometryCollection(contribution);
     }
 
+    private static LineString toLineString(Contribution.ContribMember member) {
+        var geometry = member.contrib().data("geometry", ContributionGeometry::geometry);
+        if (geometry instanceof LineString lineString) {
+            return lineString;
+        } else if (geometry instanceof Polygon polygon) {
+            return polygon.getExteriorRing();
+        } else {
+            return geometryFactory.createLineString();
+        }
+    }
+
     public static Geometry relGeometryMultiPolygon(Contribution contribution) {
-        var ways = contribution.members().stream().filter(member -> member.type().equals(WAY) && member.contrib()!=null).toList();
-        var outer = ways.stream()
-                .filter(member -> "outer".equals(member.role()) || member.role().isBlank())
-                .map(member -> member.contrib().data("geometry", ContributionGeometry::geometry))
-                .map(geometry -> Arrays.asList(geometry.getCoordinates()))
-                .toList();
-        var inner = ways.stream()
-                .filter(member -> "inner".equals(member.role()))
-                .map(member -> member.contrib().data("geometry", ContributionGeometry::geometry))
-                .map(geometry -> Arrays.asList(geometry.getCoordinates()))
-                .toList();
+        var ways = new Long2ObjectOpenHashMap<LineString>();
+        var inner = new LongOpenHashSet();
+
+        contribution.members().stream()
+                .filter(member -> member.type().equals(WAY) && member.contrib() != null)
+                .forEach(contrib -> {
+                    var lineString = toLineString(contrib);
+                    if (!lineString.isEmpty()) {
+                        if ("inner".equals(contrib.role())){
+                            inner.add(contrib.id());
+                        }
+                        ways.computeIfAbsent(contrib.id(), x -> lineString);
+                    }
+                });
+
         try {
-            var geometry = GeometryBuilder.buildMultiPolygon(outer, inner);
-            if (geometry.isValid()) {
-                return geometry;
+            var assembler = new GeometryAssembler();
+            var geometry = assembler.assemble(ways, inner);
+            if (geometry != null) {
+              if (geometry.isValid()) return geometry;
+
+                //logger.debug("Invalid geometry for relation {}: {}", contribution.entity().id(), contribution.timestamp());
             }
         } catch (Exception ignored) {
             // fallback to empty geometry
@@ -109,23 +184,6 @@ public class ContributionGeometry {
                 .filter(Predicate.not(Geometry::isEmpty))
                 .toArray(Geometry[]::new);
         return geometryFactory.createGeometryCollection(geometries);
-//        var types = Arrays.stream(geometries).map(Geometry::getGeometryType).collect(Collectors.toSet());
-//        if (types.size() != 1) {
-//            return geometryFactory.createGeometryCollection(geometries);
-//        }
-//        var type = types.iterator().next();
-//        return switch (type) {
-//            case Geometry.TYPENAME_LINESTRING -> geometryFactory.createMultiLineString(Arrays.stream(geometries)
-//                            .map(LineString.class::cast)
-//                            .toArray(LineString[]::new));
-//            case Geometry.TYPENAME_POLYGON -> geometryFactory.createMultiPolygon(Arrays.stream(geometries)
-//                            .map(Polygon.class::cast)
-//                            .toArray(Polygon[]::new));
-//            case Geometry.TYPENAME_POINT -> geometryFactory.createMultiPoint(Arrays.stream(geometries)
-//                            .map(Point.class::cast)
-//                            .toArray(Point[]::new));
-//            default -> throw new IllegalStateException("unknown single geometry_type: " + type);
-//        };
     }
 
     public static Geometry wayGeometry(Contribution contribution) {

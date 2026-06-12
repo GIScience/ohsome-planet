@@ -4,7 +4,6 @@ import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMEntity.OSMNode;
 import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
-import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
 import org.heigit.ohsome.util.io.Input;
 import org.heigit.ohsome.util.io.Output;
@@ -40,7 +39,7 @@ public class ReplicationEntity {
         serializeEntity(way, output);
         output.writeU32(way.minorVersion());
         output.writeU32(way.edits());
-        output.writeU32(way.refs().size());
+        output.writeU32(way.refs().length);
         var lastRef = 0L;
         for (var ref : way.refs()) {
             output.writeS64(ref - lastRef);
@@ -54,11 +53,11 @@ public class ReplicationEntity {
         var minorVersion = input.readU32();
         var edits = input.readU32();
         var refsSize = input.readU32();
-        var refs = new ArrayList<Long>(refsSize);
+        var refs = new long[refsSize];
         var refId = 0L;
         for (var i = 0; i < refsSize; i++) {
             refId = refId + input.readS64();
-            refs.add(refId);
+            refs[i] = refId;
         }
         return new OSMWay(id,
                 entityInfo.version(),
@@ -69,18 +68,23 @@ public class ReplicationEntity {
                 minorVersion, edits, null, null);
     }
 
+    private static class LastId {
+        private long id;
+    }
+
     public static void serialize(OSMRelation relation, Output output) {
         serializeEntity(relation, output);
         output.writeU32(relation.minorVersion());
         output.writeU32(relation.edits());
-        output.writeU32(relation.members().size());
-        var lastId = 0L;
-        for (var member : relation.members()) {
-            output.writeU32(member.type().id());
-            output.writeS64(member.id() - lastId);
-            output.writeUTF8(member.role());
-            lastId = member.id();
-        }
+        output.writeU32(relation.memberSize());
+        var lastId = new LastId();
+
+        relation.members((type, id, role) -> {
+           output.writeU32(type.id());
+           output.writeS64(id - lastId.id);
+           output.writeUTF8(role);
+           lastId.id = id;
+        });
     }
 
     public static OSMRelation deserializeRelation(long id, byte[] bytes) {
@@ -89,13 +93,19 @@ public class ReplicationEntity {
         var minorVersion = input.readU32();
         var edits = input.readU32();
         var memberSize =  input.readU32();
-        var members = new ArrayList<OSMMember>(memberSize);
         var memId = 0L;
+
+        var memTypes = new OSMType[memberSize];
+        var memIds = new long[memberSize];
+        var memRoles = new String[memberSize];
+
         for (var i = 0; i < memberSize; i++) {
             var typeId =  input.readU32();
             memId += input.readS64();
             var role = input.readUTF8();
-            members.add(new OSMMember(OSMType.parseType(typeId), memId, role));
+            memTypes[i] = OSMType.parseType(typeId);
+            memIds[i] = memId;
+            memRoles[i] = role;
         }
 
         return new OSMRelation(id,
@@ -103,7 +113,7 @@ public class ReplicationEntity {
                 entityInfo.timestamp(),
                 -1, -1, "", true,
                 entityInfo.tags(),
-                members,
+                memTypes, memIds, memRoles,
                 minorVersion, edits);
     }
 

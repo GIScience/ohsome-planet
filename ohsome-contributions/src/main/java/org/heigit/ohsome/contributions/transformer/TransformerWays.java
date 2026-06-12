@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions.transformer;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.heigit.ohsome.contributions.ContribWriter;
 import org.heigit.ohsome.contributions.contrib.Contribution;
 import org.heigit.ohsome.contributions.contrib.ContributionsAvroConverter;
@@ -211,7 +212,7 @@ public class TransformerWays extends Transformer {
     private Map<Long, List<OSMNode>> fetchMinors(List<List<OSMWay>> batch) {
         var refs = batch.stream()
                 .<OSMWay>mapMulti(Iterable::forEach)
-                .<Long>mapMulti((way, down) -> way.refs().forEach(down))
+                .<Long>mapMulti((way, down) -> LongArrayList.wrap(way.refs()).forEach(down))
                 .collect(Collectors.toSet());
         return RocksMap.get(minorNodesStorage, refs, MinorNode::deserialize);
     }

@@ -1,5 +1,6 @@
 package org.heigit.ohsome.contributions.contrib;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.heigit.ohsome.contributions.avro.*;
 import org.heigit.ohsome.contributions.spatialjoin.SpatialJoiner;
 import org.heigit.ohsome.contributions.util.AbstractIterator;
@@ -36,7 +37,6 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
     private final WKBWriter wkb = new WKBWriter();
     private final SpatialJoiner countryJoiner;
-    private final int multipolygonMembersLimit;
 
     private int minorVersion;
     private int edits;
@@ -45,14 +45,10 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
     private double lengthBefore;
 
     public ContributionsAvroConverter(Contributions contributions, Function<Long, ContribChangeset> changesets, SpatialJoiner countryJoiner) {
-        this(contributions,changesets, countryJoiner, Integer.MAX_VALUE);
-    }
-    public ContributionsAvroConverter(Contributions contributions, Function<Long, ContribChangeset> changesets, SpatialJoiner countryJoiner, int multipolygonMembersLimit) {
         this.contributions = contributions;
         this.changesets = changesets;
         this.type = contributions.type();
         this.countryJoiner = countryJoiner;
-        this.multipolygonMembersLimit = multipolygonMembersLimit;
         builder.setOsmType(type.toString());
         builder.setOsmId(contributions.id());
     }
@@ -107,10 +103,7 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         builder.setTags(Map.copyOf(entity.tags()));
         builder.setTagsBefore(Map.copyOf(entityBefore.map(OSMEntity::tags).orElse(Map.of())));
 
-        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution,
-                multipolygonMembersLimit != 0
-                && ("latest".equals(status)
-                    || contribution.members().size() <= multipolygonMembersLimit));
+        var geometry = !entity.visible() ? geometryBefore : ContributionGeometry.geometry(contribution, "latest".equals(status));
 
         final double area;
         final double length;
@@ -186,8 +179,8 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
 
         if (type == OSMType.WAY) {
             var refs = ((OSMEntity.OSMWay) entity).refs();
-            builder.setRefsCount(refs.size());
-            builder.setRefs(refs);
+            builder.setRefsCount(refs.length);
+            builder.setRefs(LongArrayList.wrap(refs));
         } else if (type == OSMType.RELATION) {
             var members = contribution.members().stream().map(this::member).toList();
             builder.setMembersCount(members.size());
@@ -221,8 +214,8 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         if (contrib != null) {
             memberBuilder
                     .setTimestamp(contrib.timestamp())
-                    .setGeometryType(geometry(contrib).getGeometryType())
-                    .setGeometry(wkb(contrib));
+                    .setGeometryType(contributionGeometry(contrib).getGeometryType())
+                    .setGeometry(contributionWkb(contrib));
         } else {
             memberBuilder
                     .setTimestamp(Instant.EPOCH)
@@ -232,16 +225,12 @@ public class ContributionsAvroConverter extends AbstractIterator<Optional<Contri
         return memberBuilder.build();
     }
 
-    private Geometry geometry(Contribution contribution) {
+    private Geometry contributionGeometry(Contribution contribution) {
         return contribution.data("geometry", ContributionGeometry::geometry);
     }
 
-    private ByteBuffer wkb(Contribution contribution) {
-        return contribution.data("wkb", this::contributionWkb);
-    }
-
     private ByteBuffer contributionWkb(Contribution contribution) {
-        return wkb(geometry(contribution));
+        return contribution.data("wkb", contrib -> wkb(contributionGeometry(contrib)));
     }
 
     private ByteBuffer wkb(Geometry geometry) {

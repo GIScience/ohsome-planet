@@ -29,7 +29,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -56,7 +56,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), List.of(1L))
+            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), new long[]{1L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -79,7 +79,7 @@ class ContributionsWayTest {
     );
 
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L))
+            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -105,8 +105,8 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), List.of(1L)),
-            new OSMWay(10, 2, ofEpochSecond(7), 1, 1, "", true, emptyMap(), List.of(1L))
+            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), new long[]{1L}),
+            new OSMWay(10, 2, ofEpochSecond(7), 1, 1, "", true, emptyMap(), new long[]{1L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -153,7 +153,7 @@ class ContributionsWayTest {
 
     );
     var osh = List.of(
-            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -201,7 +201,7 @@ class ContributionsWayTest {
 
     );
     var osh = List.of(
-            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -246,7 +246,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L))
+            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -276,7 +276,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L))
+            new OSMWay(10, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -303,7 +303,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -333,7 +333,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -365,7 +365,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(12, 1, ofEpochSecond(1), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);
@@ -395,7 +395,7 @@ class ContributionsWayTest {
             )
     );
     var osh = List.of(
-            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), List.of(1L, 2L))
+            new OSMWay(10, 1, ofEpochSecond(2), 1, 1, "", true, emptyMap(), new long[]{1L, 2L})
     );
 
     var contributions = new ContributionsWay(osh, nodes);

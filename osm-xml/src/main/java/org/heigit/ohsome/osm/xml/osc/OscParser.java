@@ -20,7 +20,6 @@ import java.util.*;
 
 import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
-import static java.util.List.copyOf;
 import static java.util.Map.copyOf;
 import static javax.xml.stream.XMLStreamConstants.*;
 
@@ -229,15 +228,28 @@ public class OscParser implements Iterator<OSMEntity>, AutoCloseable {
         parseEntity();
         LOG.debug("way/{} {} {} {} {} {} {} {} {}", id, version, visible, timestamp, changeset, user,
                 uid, tags, members.size());
-        return new OSMWay(id, version, timestamp, changeset, uid, user, visible, copyOf(tags),
-                members.stream().map(OSMMember::id).toList());
+        var refs = new long[members.size()];
+        var i = 0;
+        for (var member : members) {
+            refs[i++] = member.id();
+        }
+        return new OSMWay(id, version, timestamp, changeset, uid, user, visible, copyOf(tags), refs);
     }
 
     private OSMRelation nextRelation() throws XMLStreamException, XMLParseException {
         parseEntity();
         LOG.debug("relation/{} {} {} {} {} {} {} {} mems:{}", id, version, visible, timestamp,
                 changeset, user, uid, tags, members.size());
-        return new OSMRelation(id, version, timestamp, changeset, uid, user, visible, copyOf(tags), copyOf(members));
+        var mType = new OSMType[members.size()];
+        var mIds = new long[members.size()];
+        var mRoles = new String[members.size()];
+        for (var i=0; i< members.size(); i++){
+            var member = members.get(i);
+            mType[i] = member.type();
+            mIds[i] = member.id();
+            mRoles[i] = member.role();
+        }
+        return new OSMRelation(id, version, timestamp, changeset, uid, user, visible, copyOf(tags), mType, mIds, mRoles, 0, 0);
     }
 
     private OSMEntity computeNext() {

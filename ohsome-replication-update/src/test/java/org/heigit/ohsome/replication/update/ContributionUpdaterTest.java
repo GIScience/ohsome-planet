@@ -28,7 +28,7 @@ public class ContributionUpdaterTest {
         updater.update(List.of(
                 node(1, 1, 1, 1),
                 node(2, 1, 1, 1),
-                way(23, 1, 1, 1, List.of(1L, 2L))))
+                way(23, 1, 1, 1, new long[]{1L, 2L})))
                 .collectList().blockOptional().orElseThrow().forEach(System.out::println);
         updater.updateStore();
 
@@ -49,7 +49,7 @@ public class ContributionUpdaterTest {
         System.out.println("--");
         updater.update(List.of(
                 node(1, 4, 4, 2),
-                way(23, 2, 4, 2, List.of(1L, 2L))
+                way(23, 2, 4, 2, new long[]{1L, 2L})
         )).collectList().blockOptional().orElseThrow().forEach(System.out::println);
         updater.updateStore();
 
@@ -60,7 +60,7 @@ public class ContributionUpdaterTest {
         return new OSMEntity.OSMNode(id, version, Instant.ofEpochSecond(timebase + 60 * time), cs, 1, "", true, Map.of(), id, version);
     }
 
-    public static OSMEntity way(long id, int version, long time, long cs, List<Long> refs) {
+    public static OSMEntity way(long id, int version, long time, long cs, long[] refs) {
         return new OSMEntity.OSMWay(id, version, Instant.ofEpochSecond(timebase + 60 * time), cs, 1, "", true, Map.of(), refs);
     }
 
