@@ -2,6 +2,7 @@ package org.heigit.ohsome.replication.update;
 
 import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.heigit.ohsome.contributions.avro.Contrib;
 import org.heigit.ohsome.contributions.avro.ContribChangeset;
 import org.heigit.ohsome.contributions.contrib.*;
@@ -137,9 +138,10 @@ public class ContributionUpdater {
                     var newVersions = entry.getValue().newVersions();
                     var last = newVersions.getLast();
                     var before = Optional.ofNullable(entry.getValue().before());
-                    var refs = new HashSet<>(LongArrayList.wrap(last.refs()));
-                    before.map(OSMWay::refs).ifPresent(oldRefs -> LongArrayList.wrap(oldRefs).stream()
-                            .filter(not(refs::contains))
+                    var refs = new LongOpenHashSet(LongArrayList.wrap(last.refs()));
+
+                    before.map(OSMWay::refs).ifPresent(oldRefs -> LongArrayList.wrap(oldRefs).longStream()
+                            .filter(ref -> !refs.contains(ref))
                             .forEach(refToRemove -> nodeWayBackRefsUpdate.computeIfAbsent(refToRemove, x -> new BackRefsUpdate()).toRemove().add(wayId))
                     );
                     refs.forEach(refToExists -> nodeWayBackRefsUpdate.computeIfAbsent(refToExists, x -> new BackRefsUpdate()).exist().add(wayId));
@@ -172,14 +174,14 @@ public class ContributionUpdater {
                             WAY, new HashSet<Long>());
 
                     last.members((mType, mId, mRole) -> {
-                      if (mType.equals(OSMType.RELATION)) {
+                      if (!mType.equals(OSMType.RELATION)) {
                           memberRefs.get(mType).add(mId);
                       }
                     });
 
                     before.ifPresent(osm ->
                             osm.members((mType, mId, mRole) -> {
-                                if (!mType.equals(OSMType.RELATION) && ! memberRefs.get(mType).contains(mId)) {
+                                if (!mType.equals(OSMType.RELATION) && !memberRefs.get(mType).contains(mId)) {
                                     backRefsUpdate.get(mType).computeIfAbsent(mId, x -> new BackRefsUpdate()).toRemove().add(relId);
                                 }
                             })
@@ -252,14 +254,13 @@ public class ContributionUpdater {
 
         var nodeIds = new HashSet<Long>();
         var wayIds = new HashSet<Long>();
-        osh.forEach(osm -> {
+        osh.forEach(osm ->
             osm.members((mType, mId, mRole) -> {
                 switch (mType) {
                     case NODE -> nodeIds.add(mId);
                     case WAY -> wayIds.add(mId);
                 }
-            });
-        });
+            }));
 
         var ways = ways(wayIds).values().stream()
                 .collect(Collectors.toMap(OSMEntity::id, List::of));
