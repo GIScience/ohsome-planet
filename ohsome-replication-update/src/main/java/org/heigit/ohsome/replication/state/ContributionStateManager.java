@@ -24,9 +24,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -149,7 +147,7 @@ public class ContributionStateManager implements IContributionStateManager {
         var timer = Stopwatch.createStarted();
         var statesUpdated = Flux.range(local + 1, steps)
                 .take(maxSize)
-                .flatMapSequential(next -> fromCallable(() -> server.getRemoteState(next)).subscribeOn(boundedElastic()), 8)
+                .flatMapSequential(next -> fromCallable(() -> fetchRemoteStateElements(next)).subscribeOn(boundedElastic()), 8)
                 .takeUntil(state -> shutdownInitiated.get())
                 .index()
                 .concatMap(state -> fromCallable(() -> process(state.getT2(), state.getT1(), statesToUpdate)))
@@ -160,6 +158,18 @@ public class ContributionStateManager implements IContributionStateManager {
         var statesToRemote = remote - local;
         logger.info("{} states updated to state {} in {}. {}", statesUpdated, local, timer,
                 statesToRemote == 0 ? "we are up-to-date with remote." : "%d states left to remote.".formatted(statesToRemote));
+    }
+
+    private record StateElements(ReplicationState state, List<OSMEntity> osc) {
+    }
+
+    private StateElements fetchRemoteStateElements(Integer next) throws Exception {
+        logger.debug("Fetching remote state elements from remote state {}", next);
+        var state = server.getRemoteState(next);
+        var osc = new ArrayList<OSMEntity>();
+        server.getElements(state).forEachRemaining(osc::add);
+        logger.debug("Found {} elements from remote state {}", osc.size(), state);
+        return new StateElements(state, osc);
     }
 
     private Consumer<AvroGeoParquetWriter.AvroGeoParquetBuilder<Contrib>> config(ReplicationState state) {
@@ -179,17 +189,16 @@ public class ContributionStateManager implements IContributionStateManager {
                 .withMaxRowCountForPageSizeCheck(2);
     }
 
-    private int process(ReplicationState state, long index, int statesToUpdate) throws Exception {
-        var stateData = state.toBytes(null);
+    private int process(StateElements stateElements, long index, int statesToUpdate) throws Exception {
+        var state = stateElements.state();
+        var stateData = stateElements.state().toBytes(null);
         var tmpParquetFile = tmpDir.resolve("%d.opc.parquet".formatted(state.getSequenceNumber()));
 
         var timer = Stopwatch.createStarted();
         var changesetIds = new HashSet<Long>();
-        var osc = new ArrayList<OSMEntity>();
-        server.getElements(state).forEachRemaining(osm -> {
-            changesetIds.add(osm.changeset());
-            osc.add(osm);
-        });
+        var osc = stateElements.osc();
+
+        osc.forEach( osm -> changesetIds.add(osm.changeset()));
         changesetIds.add(-1L);
         var changesets = Utils.fetchChangesets(changesetIds, changesetDB);
         var openChangesets = new HashSet<Long>();

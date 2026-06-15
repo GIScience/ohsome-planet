@@ -140,10 +140,9 @@ public class Contributions2Parquet implements Callable<Integer> {
             try {
                 server = Server.osmEntityServer(replicationEndpoint + "/");
                 latestState = server.getLatestRemoteState();
-                System.out.println("latest replication state: " + latestState);
+                logger.info("Latest replication state: {}", latestState);
             } catch (IOException e) {
-                System.err.println(e.getMessage());
-                System.err.println("could not retrieve latest state for replication. " + replicationEndpoint);
+                logger.error("Failed to connect to replication endpoint {}: {}", replicationEndpoint, e.getMessage());
                 return 1;
             }
         }
@@ -188,25 +187,27 @@ public class Contributions2Parquet implements Callable<Integer> {
 
             var summaryRelations = processRelations(pbfPath, temp, outputLocation, replication, parallel, blobTypes, keyFilter, changesetDb, cache);
 
-            System.out.println("summaryNodes = " + summaryNodes);
-            System.out.println("summaryWays = " + summaryWays);
-            System.out.println("summaryRelations = " + summaryRelations);
+
+            logger.info("summary nodes =     {}", summaryNodes);
+            logger.info("summary ways =      {}", summaryWays);
+            logger.info("summary relations = {}", summaryRelations);
 
             var replicationTimestamp = Stream.of(summaryNodes, summaryWays, summaryRelations)
                     .map(Transformer.Summary::replicationTimestamp)
                     .mapToLong(Instant::getEpochSecond)
                     .max().orElseThrow();
-            System.out.println("replicationTimestamp = " + replicationTimestamp);
+            logger.info("max replication timestamp = {}", Instant.ofEpochSecond(replicationTimestamp));
 
             if (replicationEndpoint != null) {
                 var replicationState = server.findStartStateByTimestamp(Instant.ofEpochSecond(replicationTimestamp), latestState);
-                System.out.println("replicationState = " + replicationState);
+                logger.info("found replication state for timestamp {}: {}", Instant.ofEpochSecond(replicationTimestamp), replicationState);
                 var replicationStateData = replicationState.toBytes(server.endpoint());
                 Files.write(replication.resolve("state.txt"), replicationStateData);
                 outputLocation.write(outputLocation.resolve("state.txt"), replicationStateData);
             }
 
-            System.out.println("done in " + total);
+
+            logger.info("done in {}", total);
             return CommandLine.ExitCode.OK;
         }
     }
@@ -324,7 +325,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                         processRelation(osh, keyFilter, writer, countryJoiner, changesetDb, minorNodesDb, minorWaysDb, replicationDb);
                     } catch (Exception e) {
                         canceled.set(true);
-                        System.err.println(e.getMessage());
+                        logger.error("Error processing relation {}:{}", osh.getLast().id(), e.getMessage(), e);
                     } finally {
                         writer.flush();
                         writers.add(writer);
@@ -337,7 +338,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
 
             if (canceled.get()) {
-                System.err.println("cancelled");
+                logger.error("Processing canceled due to errors");
                 throw new Exception("cancelled");
             }
             for (var i = 0; i < numFiles; i++) {

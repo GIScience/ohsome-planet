@@ -153,10 +153,16 @@ public class Server<T> {
     }
 
     public ReplicationState getRemoteState(URL url) throws IOException {
-        var input = getFileStream(url, cookie);
         var props = new Properties();
-        props.load(input);
-        return new ReplicationState(props, sequenceKey, timestampKey, timestampParser);
+        var input = "".getBytes();
+        try {
+            input = getFileStream(url, cookie).readAllBytes();
+            props.load(new ByteArrayInputStream(input));
+            return new ReplicationState(props, sequenceKey, timestampKey, timestampParser);
+        }  catch (Exception e) {
+            logger.error("getRemoteState {} input: {}, props: {} failed", url, new String(input), props, e);
+            throw e;
+        }
     }
 
     public byte[] getReplicationFile(int sequenceNumber) throws IOException {
