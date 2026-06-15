@@ -15,7 +15,7 @@
     <scm>
         <developerConnection>scm:git:git@github.com:GIScience/ohsome-planet.git</developerConnection>
         <url>https://github.com/GIScience/ohsome-planet</url>
-        <tag>1.2.1</tag>
+        <tag>HEAD</tag>
     </scm>
 
     <properties>
