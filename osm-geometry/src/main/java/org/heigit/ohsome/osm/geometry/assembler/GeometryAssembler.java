@@ -4,6 +4,8 @@ import com.google.common.collect.PeekingIterator;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -15,16 +17,19 @@ public class GeometryAssembler {
 
     private static final Comparator<Segment> SEGMENT_ORDER =
             Comparator.comparing(Segment::start).thenComparing(Segment::end);
+    private static final Logger log = LoggerFactory.getLogger(GeometryAssembler.class);
 
     private final PriorityQueue<Arc> activeArcs = new PriorityQueue<>(comparing(Arc::end).thenComparing(Arc::start));
     private final List<Arc> incomingArcs = new ArrayList<>();
     private final List<Segment> outgoingSegments = new ArrayList<>();
     private final Map<Coordinate, Junction> junctions = new HashMap<>();
     private final List<Ring> rings = new ArrayList<>();
+    private final List<Ring> rootRings = new ArrayList<>();
 
     public Geometry assemble(Map<Long, LineString> ways, Set<Long> inner) {
         var segments = peekingIterator(extractFromWays(ways).iterator());
         try {
+            var eventCounter = 0;
             while (true) {
                 var incomingEvent = activeArcs.isEmpty() ? null : activeArcs.peek().end();
                 var outgoingEvent = !segments.hasNext() ? null : segments.peek().start();
@@ -35,6 +40,8 @@ public class GeometryAssembler {
                         outgoingEvent == null ? incomingEvent :
                         incomingEvent.compareTo(outgoingEvent) <= 0 ? incomingEvent : outgoingEvent;
 
+                eventCounter++;
+
                 var incoming = incoming(event);
                 var outgoing = outgoing(event, segments);
 
@@ -43,12 +50,32 @@ public class GeometryAssembler {
             }
 
             if (!junctions.isEmpty()) {
+                log.debug("geometry has {} left over junctions, this should not happen for valid geometries", junctions.size());
+                var sortedEvents = new TreeSet<>(junctions.keySet());
+                for (var event : sortedEvents) {
+                    var junction = junctions.get(event);
+                    var incomings = junction.incomings();
+                    var outgoings = junction.outgoings();
+                    log.debug("junction = {} incoming: {} holes: {} outgoing: {} holes: {}",
+                              junction.event(),
+                              incomings.size(), incomings.stream().mapToInt(arc -> arc.holes().size()).sum(),
+                              outgoings.size(), outgoings.stream().mapToInt(arc -> arc.holes().size()).sum());
+                }
+
                 for (var event : junctions.keySet()) {
                     var junction = junctions.get(event);
-                    if (junction == null || junction.incomings().isEmpty()) {
+                    if (junction == null) {
                         continue;
                     }
-                    handleEvent(junction.event(), junction.incomings(), List.of(), inner);
+                    var incomings = junction.incomings();
+                    var outgoings = junction.outgoings();
+                    if (!incomings.isEmpty()) {
+                        handleEvent(junction.event(), junction.incomings(), List.of(), inner);
+                    }
+                    if (outgoings.size() == 2 && outgoings.get(0).start().equals2D(outgoings.get(1).start())) {
+                        rings.add(new Ring(outgoings.get(0), outgoings.get(1)));
+                        outgoings.clear();
+                    }
                 }
             }
 
@@ -88,7 +115,7 @@ public class GeometryAssembler {
 
         incoming.forEach(arc -> arc.touching(touching));
 
-        var rootRings = new ArrayList<Ring>();
+        rootRings.clear();
         var leftovers = (List<Arc>) new ArrayList<Arc>();
         if (incoming.size() > 1) {
             matchingRings(incoming, rootRings, leftovers);
@@ -108,7 +135,7 @@ public class GeometryAssembler {
             for (var out : outgoing) {
                 var arc = new Arc(out, junction, event);
                 junction.outgoings().add(arc);
-                activeArcs.add(arc);
+                addActive(arc);
             }
         }
 
@@ -118,7 +145,7 @@ public class GeometryAssembler {
 
         var upperArc = inside(event);
         if (upperArc == null) {
-            for(var ring : rootRings) {
+            for (var ring : rootRings) {
                 if (!Collections.disjoint(inner, ring.wayIds())) {
                     // this should be a hole and we skip it
                     continue;
@@ -132,6 +159,10 @@ public class GeometryAssembler {
                 ring.holes().clear();
             }
         }
+    }
+
+    private void addActive(Arc arc) {
+        activeArcs.add(arc);
     }
 
     private static class ListCursor {
@@ -206,17 +237,16 @@ public class GeometryAssembler {
 
     private void extend(Arc arc, Segment segment) {
         arc.extend(segment);
-        activeArcs.add(arc);
+        addActive(arc);
     }
 
     private void startRing(Coordinate event, Segment upper, Segment lower, Coordinate touching) {
         var junction = junctions.computeIfAbsent(event, Junction::new);
         var upperArc = new Arc(upper, junction, touching);
         var lowerArc = new Arc(lower, junction, touching);
-        junction.outgoings().add(upperArc);
-        junction.outgoings().add(lowerArc);
-        activeArcs.add(upperArc);
-        activeArcs.add(lowerArc);
+        junction.outgoings(List.of(upperArc, lowerArc));
+        addActive(upperArc);
+        addActive(lowerArc);
     }
 
     private Ring findClosedRing(Arc arc1, Arc arc2) {
@@ -276,11 +306,30 @@ public class GeometryAssembler {
         left.appendReversed(right);
         rightJunction.outgoings().removeIf(arc -> arc == right);
         if (rightJunction.outgoings().size() == 1 && rightJunction.incomings().isEmpty()) {
-            left.appendForward(rightJunction.outgoings().getFirst());
-            activeArcs.removeIf(arc -> arc == rightJunction.outgoings().getFirst());
-            activeArcs.add(left);
+            var rightOutgoing = rightJunction.outgoings().getFirst();
+            left.appendForward(rightOutgoing);
+            rightJunction.outgoings().clear();
+            if (activeArcs.removeIf(arc -> arc == rightOutgoing)) {
+                addActive(left);
+            }
         } else {
             rightJunction.incomings().add(left);
+        }
+        if (leftJunction.outgoings().size() == 2) {
+            var end = left.end();
+            var leftPartner = leftJunction.outgoings().stream()
+                    .filter(arc -> arc != left && arc.end().equals2D(end))
+                    .findFirst().orElse(null);
+            if (leftPartner != null) {
+                rootRings.add(new Ring(left, leftPartner));
+                leftJunction.outgoings().clear();
+                var leftEndJunction = junctions.get(end);
+                if (leftEndJunction != null) {
+                    leftEndJunction.incomings().removeIf(arc -> arc == leftPartner || arc == left);
+                    cleanUpJunction(leftEndJunction);
+                }
+                activeArcs.removeIf(arc -> arc == leftPartner || arc == left);
+            }
         }
         cleanUpJunction(leftJunction);
         cleanUpJunction(rightJunction);
@@ -288,6 +337,9 @@ public class GeometryAssembler {
 
     private void cleanUpJunction(Junction junction) {
         if (junction.isEmpty()) {
+            junctions.remove(junction.event());
+        } else if (junction.incomings().size() == 2 && junction.outgoings().isEmpty()) {
+            merge(junction.incomings().get(0), junction.incomings().get(1));
             junctions.remove(junction.event());
         } else if (junction.incomings().size() == 1 && junction.outgoings().size() == 1) {
             var incoming = junction.incomings().getFirst();
@@ -303,7 +355,7 @@ public class GeometryAssembler {
                 }
             }
             if (activeArcs.removeIf(arc -> arc == outgoing)) {
-                activeArcs.add(incoming);
+                addActive(incoming);
             }
             junctions.remove(junction.event());
         }
@@ -323,7 +375,9 @@ public class GeometryAssembler {
         outgoingSegments.clear();
         while (segments.hasNext() && segments.peek().start().equals(event)) {
             var segment = segments.next();
-            if (deduplicate(segments, segment)) continue;
+            if (deduplicate(segments, segment)) {
+                continue;
+            }
             outgoingSegments.add(segment);
         }
         return outgoingSegments;

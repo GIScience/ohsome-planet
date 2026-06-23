@@ -26,6 +26,11 @@ public class Junction {
         return incomings;
     }
 
+
+    public void outgoings(List<Arc> outgoings) {
+        this.outgoings.addAll(outgoings);
+    }
+
     public List<Arc> outgoings() {
         return outgoings;
     }
