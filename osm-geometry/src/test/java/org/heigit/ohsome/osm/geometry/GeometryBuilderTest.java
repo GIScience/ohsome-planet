@@ -17,6 +17,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toSet;
+import static org.heigit.ohsome.osm.OSMType.RELATION;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GeometryBuilderTest {
@@ -66,11 +67,13 @@ class GeometryBuilderTest {
     @ParameterizedTest
     @MethodSource("osmAllValidTest")
     void osmTestCases(OSMTest test) throws ParseException {
-        var assembler = new GeometryAssembler();
-        var inner = Optional.ofNullable(test.osm().relations()).stream()
+        var relation = Optional.ofNullable(test.osm().relations()).stream()
                 .map(List::getFirst)
+                .findFirst().orElse(new OSMParser.Relation(test.testId(), 1, "2000-01-01T00:00:00Z", 0, "", -1, List.of(), List.of()));
+        var inner = Stream.of(relation)
                 .map(OSMParser.Relation::members).<Member>mapMulti(Iterable::forEach)
                 .filter(m -> m.type().equals("way") && m.role().equals("inner")).map(Member::ref).collect(toSet());
+        var assembler = new GeometryAssembler(RELATION, relation.id(), relation.version());
         var geometry = assembler.assemble(test.ways(), inner);
         var expected = WKT_READER.read(test.resultWithFix().wkt()).norm();
         if (test.isValid() || test.hasFix() && geometry != null) {
@@ -85,15 +88,20 @@ class GeometryBuilderTest {
     @Disabled
     @Test
     void osmDebugTestCases() throws ParseException {
-        var test = osmTest(764);
+        var test = osmTest(725);
         var expected = WKT_READER.read(test.defaultResult().wkt()).norm();
         System.out.println(expected);
-        var assembler = new GeometryAssembler();
+        System.out.println(waysMultiLine(test.ways()));
+        var assembler = new GeometryAssembler(RELATION, -1, -1);
         var geometry = assembler.assemble(test.ways(), Set.of());
         System.out.println(geometry);
         assertNotNull(geometry, "Null geometry for " + test.testId() + ": " + test.description());
         assertEquals(expected, geometry.norm(), "Test " + test.testId() + ": " + test.description());
         assertTrue(geometry.isValid(), "Invalid " + test.testId() + ": " + test.description());
+    }
+
+    private MultiLineString waysMultiLine(Map<Long, LineString> ways) {
+        return FACTORY.createMultiLineString(ways.values().toArray(new LineString[0]));
     }
 
     @Disabled
@@ -115,7 +123,7 @@ class GeometryBuilderTest {
             });
         }
 
-        var assembler = new GeometryAssembler();
+        var assembler = new GeometryAssembler(RELATION, -1, -1);
         var geometry = assembler.assemble(ways, Set.of());
         assertNotNull(geometry, "Expected non-null geometry for debug test " + debugId);
         System.out.println(geometry);

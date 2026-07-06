@@ -1,12 +1,14 @@
 package org.heigit.ohsome.osm.geometry.assembler;
 
 import com.google.common.collect.PeekingIterator;
+import org.heigit.ohsome.osm.OSMType;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.LineString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 
 import static com.google.common.collect.Iterators.peekingIterator;
@@ -25,6 +27,21 @@ public class GeometryAssembler {
     private final Map<Coordinate, Junction> junctions = new HashMap<>();
     private final List<Ring> rings = new ArrayList<>();
     private final List<Ring> rootRings = new ArrayList<>();
+    private final OSMType type;
+    private final long id;
+    private final int version;
+    private final Instant timestamp;
+
+    public GeometryAssembler(OSMType type, long id, int version, Instant timestamp) {
+        this.type = type;
+        this.id = id;
+        this.version = version;
+        this.timestamp = timestamp;
+    }
+    public GeometryAssembler(OSMType type, long id, int version) {
+        this(type, id, version, Instant.ofEpochSecond(0));
+    }
+
 
     public Geometry assemble(Map<Long, LineString> ways, Set<Long> inner) {
         var segments = peekingIterator(extractFromWays(ways).iterator());
@@ -50,7 +67,11 @@ public class GeometryAssembler {
             }
 
             if (!junctions.isEmpty()) {
-                log.debug("geometry has {} left over junctions, this should not happen for valid geometries", junctions.size());
+                log.debug("https://osm.org/{}/{} version: {} geometry has {} left over junctions, this should not happen for valid geometries",
+                        type, id, version,
+                        junctions.size());
+                log.debug("timestamp: {}", timestamp);
+
                 var sortedEvents = new TreeSet<>(junctions.keySet());
                 for (var event : sortedEvents) {
                     var junction = junctions.get(event);
@@ -305,11 +326,17 @@ public class GeometryAssembler {
 
         left.appendReversed(right);
         rightJunction.outgoings().removeIf(arc -> arc == right);
+        rightJunction.incomings().removeIf(arc -> arc == right);
+
         if (rightJunction.outgoings().size() == 1 && rightJunction.incomings().isEmpty()) {
             var rightOutgoing = rightJunction.outgoings().getFirst();
             left.appendForward(rightOutgoing);
             rightJunction.outgoings().clear();
-            if (activeArcs.removeIf(arc -> arc == rightOutgoing)) {
+            var rightOutgoingJunction = junctions.get(rightOutgoing.end());
+            if (rightOutgoingJunction != null) {
+                rightOutgoingJunction.incomings().removeIf(arc -> arc == rightOutgoing);
+                rightOutgoingJunction.incomings().add(left);
+            } else if (activeArcs.removeIf(arc -> arc == rightOutgoing)) {
                 addActive(left);
             }
         } else {
@@ -326,6 +353,7 @@ public class GeometryAssembler {
                 var leftEndJunction = junctions.get(end);
                 if (leftEndJunction != null) {
                     leftEndJunction.incomings().removeIf(arc -> arc == leftPartner || arc == left);
+                    leftEndJunction.outgoings().removeIf(arc -> arc == leftPartner || arc == left);
                     cleanUpJunction(leftEndJunction);
                 }
                 activeArcs.removeIf(arc -> arc == leftPartner || arc == left);

@@ -163,7 +163,7 @@ public class ContributionGeometry {
                 });
 
         try {
-            var assembler = new GeometryAssembler();
+            var assembler = new GeometryAssembler(contribution.entity().type(), contribution.entity().id(), contribution.entity().version(), contribution.timestamp());
             var geometry = assembler.assemble(ways, inner);
             if (geometry != null) {
               if (geometry.isValid()) return geometry;
