@@ -132,8 +132,9 @@ public class GeometryAssembler {
 
     private void handleEvent(Coordinate event, List<Arc> incoming, List<Segment> outgoing, Set<Long> inner) {
         var numberOfSegments = incoming.size() + outgoing.size();
-        if (numberOfSegments == 0 || numberOfSegments == 1) {
-            throw new InvalidGeometryException("unclosed ends detected!");
+        if (numberOfSegments == 0) return;
+        if (numberOfSegments == 1) {
+          throw new InvalidGeometryException("unclosed ends detected!");
             // try to clean up?
 //            if (!incoming.isEmpty()) {
 //                var arc = incoming.getFirst();
