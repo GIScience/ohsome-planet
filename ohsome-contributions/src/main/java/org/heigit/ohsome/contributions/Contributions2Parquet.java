@@ -490,7 +490,7 @@ public class Contributions2Parquet implements Callable<Integer> {
             }
             writer.write(c);
         }
-        if (logger.isDebugEnabled()) {
+        if (logger.isTraceEnabled()) {
             var totalBuildTime = System.nanoTime() - timer;
             var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
             if (updatedValue == totalBuildTime) {
