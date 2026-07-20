@@ -471,7 +471,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                 var updatedTimeValue = maxBuildTime.accumulateAndGet(buildTime, Long::max);
                 if (updatedTimeValue == buildTime && buildTime > contribBuildTime) {
                     contribBuildTime = buildTime;
-                    logger.info("buildTime: https://osm.org/relation/{} [{}] {}ms {}",
+                    logger.debug("buildTime: https://osm.org/relation/{} [{}] {}ms {}",
                             c.getOsmId(), counter, updatedTimeValue / 1_000_000, watch);
                 }
 
@@ -481,7 +481,7 @@ public class Contributions2Parquet implements Callable<Integer> {
                             Long::max);
                     if (updatedGeomSizeValue == geomSize && geomSize > contribGeomSize) {
                         contribGeomSize = geomSize;
-                        logger.info(
+                        logger.debug(
                                 "geomSize:  https://osm.org/relation/{} version:{} [{}] {} bytes {}",
                                 c.getOsmId(), c.getOsmVersion(), counter, updatedGeomSizeValue,
                                 watch);
@@ -494,12 +494,12 @@ public class Contributions2Parquet implements Callable<Integer> {
             var totalBuildTime = System.nanoTime() - timer;
             var updatedValue = maxContribBuildTime.accumulateAndGet(totalBuildTime, Long::max);
             if (updatedValue == totalBuildTime) {
-                logger.info("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
+                logger.debug("totalTime: https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
                         updatedValue / 1_000_000, watch);
             }
 
             if (totalBuildTime >= 3_600_000_000_000L) {
-                logger.info("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
+                logger.debug("hourTime:  https://osm.org/relation/{} edits: {} {}ms {}", id, counter,
                         totalBuildTime / 1_000_000, watch);
             }
         }
