@@ -9,6 +9,7 @@ import org.heigit.ohsome.osm.changesets.ChangesetDb;
 import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.ReplicationState;
+import org.jspecify.annotations.NonNull;
 import org.postgresql.PGConnection;
 import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
@@ -55,7 +56,11 @@ public class ChangesetDB implements IChangesetDB {
         ofNullable(getenv(OHSOME_PLANET_DB_SCHEMA)).ifPresent(config::setSchema);
 
         dataSource = new HikariDataSource(config);
-        getterDb = new ChangesetDb(dataSource);
+        getterDb = createGetterDb(dataSource);
+    }
+
+    protected @NonNull ChangesetDb createGetterDb(HikariDataSource dataSource) {
+        return new ChangesetDb(dataSource);
     }
 
     public ReplicationState getLocalState() throws NoSuchElementException, SQLException {
@@ -137,9 +142,10 @@ public class ChangesetDB implements IChangesetDB {
                                       user_name,
                                       tags,
                                       hashtags,
+                                      upserted_at,                    
                                       geom
                                   )
-                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?::geometry)
+                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, now(), ?::geometry)
                                   ON CONFLICT (id) DO UPDATE
                                   SET
                                       created_at = EXCLUDED.created_at,
@@ -149,6 +155,7 @@ public class ChangesetDB implements IChangesetDB {
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,
                                       hashtags = EXCLUDED.hashtags,
+                                      upserted_at = now(),
                                       geom = EXCLUDED.geom
                                   WHERE changesets.open;
                         """
@@ -280,9 +287,10 @@ public class ChangesetDB implements IChangesetDB {
                     user_name,
                     open,
                     tags,
-                    hashtags
+                    hashtags,
+                    upserted_at
                 )
-                VALUES (?, '2000-01-01 00:00:00', 0, '', true, '{}', '{}')
+                VALUES (?, '2000-01-01 00:00:00', 0, '', true, '{}', '{}', '2000-01-01 00:00:00')
                 ON CONFLICT (id) DO NOTHING
                 """;
         try (var conn = dataSource.getConnection();
