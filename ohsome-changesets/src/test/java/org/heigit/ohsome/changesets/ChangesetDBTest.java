@@ -38,7 +38,24 @@ class ChangesetDBTest {
         postgresContainer.stop();
     }
 
-    record TestChangeset(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor){}
+    record TestChangeset(
+            long id,
+            Instant created,
+            Instant closed,
+            Map<String, String> tags,
+            List<String> hashtags,
+            String editor
+    ){}
+
+    record TestChangeset2(
+            long id,
+            Instant created,
+            Instant closed,
+            Map<String, String> tags,
+            List<String> hashtags,
+            String editor,
+            Instant upserted
+    ){}
 
     @Test
     void test() throws Exception {
@@ -91,5 +108,63 @@ class ChangesetDBTest {
 
         }
     }
-  
+
+    static TestChangeset2 createChangeset2(long id,
+                                         Instant created,
+                                         Instant closed,
+                                         Map<String, String> tags,
+                                         List<String> hashtags,
+                                         String editor,
+                                         Instant upserted) {
+        return new TestChangeset2(
+                id, created, closed, tags, hashtags, editor, upserted
+        );
+    }
+
+    @Test
+    void upsertTimestampsCanBeWritten() throws Exception {
+        try(var changesetDb = new TestSupportingChangesetDB(dbUrl)) {
+            changesetDb.createTablesIfNotExists();
+
+            changesetDb.upsertChangesets(List.of(
+                    OSMChangesets.OSMChangeset.of(12345L,
+                            "2026-01-05T19:54:13Z",
+                            null,
+                            true,
+                            "ohsome",
+                            23,
+                            List.of())
+            ));
+            var changesets = changesetDb.changesets(Set.of(12345L), TestChangeset2::new);
+            var changeset = (TestChangeset) null;
+
+            changeset = changesets.get(12345L);
+            assertNotNull(changeset);
+            Instant insertTime = changeset.upserted;
+            assertNotNull(insertTime);
+            System.out.println("Inserted: " + insertTime);
+
+
+            changesetDb.upsertChangesets(List.of(
+                    OSMChangesets.OSMChangeset.of(12345L,
+                            "2026-01-05T19:54:13Z",
+                            "2026-01-06T19:54:13Z",
+                            false,
+                            "ohsome",
+                            23,
+                            List.of())
+            ));
+
+            changesets = changesetDb.changesets(Set.of(12345L), ChangesetDBTest::createChangeset2);
+            changeset = changesets.get(12345L);
+            assertNotNull(changeset);
+            Instant updateTime = changeset.upserted;
+            assertNotNull(updateTime);
+            System.out.println("Updated: " + updateTime);
+
+            assertTrue(insertTime.isBefore(updateTime));
+
+        }
+    }
+
 }
