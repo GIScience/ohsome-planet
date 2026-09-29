@@ -8,7 +8,10 @@ import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.ResultSet;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -35,7 +38,7 @@ public class ChangesetDb implements Changesets {
 
     public <T> Map<Long, T> changesets(Set<Long> ids, String table, Factory<T> factory) throws Exception {
         try (var conn = dataSource.getConnection();
-             var pstmt = conn.prepareStatement("select id, created_at, closed_at, tags, hashtags from %s where id = any(?)".formatted(table));
+             var pstmt = conn.prepareStatement(createSelectChangesetsQuery().formatted(table));
              var array = ClosableSqlArray.createArray(conn, "int", ids)) {
             pstmt.setArray(1, array.array());
             var map = Maps.<Long, T>newHashMapWithExpectedSize(ids.size());
@@ -48,11 +51,20 @@ public class ChangesetDb implements Changesets {
                     var tags = (Map<String, String>) mapper.readValue(rst.getString(4), Map.class);
                     var hashTags = ChangesetHashtags.hashTags(tags);
                     var editor = tags.get("created_by");
-                    map.put(id, factory.apply(id, createdAt, closedAt, tags, hashTags, editor));
+                    T changeset = createChangesetInstance(rst, factory, id, createdAt, closedAt, tags, hashTags, editor);
+                    map.put(id, changeset);
                 }
                 return map;
             }
         }
+    }
+
+    protected <T> T createChangesetInstance(ResultSet rst, Factory<T> factory, long id, Instant createdAt, Instant closedAt, Map<String, String> tags, List<String> hashTags, String editor) throws SQLException {
+        return factory.apply(id, createdAt, closedAt, tags, hashTags, editor);
+    }
+
+    protected String createSelectChangesetsQuery() {
+        return "select id, created_at, closed_at, tags, hashtags from %s where id = any(?)";
     }
 
     private record ClosableSqlArray(Array array) implements AutoCloseable {
