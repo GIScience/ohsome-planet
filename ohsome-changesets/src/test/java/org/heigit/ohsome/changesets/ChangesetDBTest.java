@@ -109,17 +109,6 @@ class ChangesetDBTest {
         }
     }
 
-    static TestChangeset2 createChangeset2(long id,
-                                         Instant created,
-                                         Instant closed,
-                                         Map<String, String> tags,
-                                         List<String> hashtags,
-                                         String editor,
-                                         Instant upserted) {
-        return new TestChangeset2(
-                id, created, closed, tags, hashtags, editor, upserted
-        );
-    }
 
     @Test
     void upsertTimestampsCanBeWritten() throws Exception {
@@ -135,10 +124,11 @@ class ChangesetDBTest {
                             23,
                             List.of())
             ));
-            var changesets = changesetDb.changesets(Set.of(12345L), TestChangeset2::new);
-            var changeset = (TestChangeset) null;
+            changesetDb.changesets(Set.of(12345L), TestChangeset::new);
+            TestSupportingChangeset_Db db = (TestSupportingChangeset_Db) changesetDb.getGetterDb();
+            var changeset = (TestChangeset2) null;
+            changeset = db.getChangeset(12345L);
 
-            changeset = changesets.get(12345L);
             assertNotNull(changeset);
             Instant insertTime = changeset.upserted;
             assertNotNull(insertTime);
@@ -155,9 +145,10 @@ class ChangesetDBTest {
                             List.of())
             ));
 
-            changesets = changesetDb.changesets(Set.of(12345L), ChangesetDBTest::createChangeset2);
-            changeset = changesets.get(12345L);
-            assertNotNull(changeset);
+            changesetDb.changesets(Set.of(12345L), TestChangeset::new);
+            changeset = db.getChangeset(12345L);
+
+
             Instant updateTime = changeset.upserted;
             assertNotNull(updateTime);
             System.out.println("Updated: " + updateTime);

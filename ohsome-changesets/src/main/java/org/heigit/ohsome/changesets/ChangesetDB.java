@@ -47,6 +47,12 @@ public class ChangesetDB implements IChangesetDB {
 
     private final ChangesetDb getterDb;
 
+
+    ChangesetDb getGetterDb() {
+        return getterDb;
+    }
+
+
     public ChangesetDB(String connectionString) {
         config.setJdbcUrl(connectionString);
 
