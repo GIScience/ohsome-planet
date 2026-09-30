@@ -9,7 +9,6 @@ import org.heigit.ohsome.osm.changesets.ChangesetDb;
 import org.heigit.ohsome.osm.changesets.ChangesetHashtags;
 import org.heigit.ohsome.osm.changesets.Changesets;
 import org.heigit.ohsome.replication.ReplicationState;
-import org.jspecify.annotations.NonNull;
 import org.postgresql.PGConnection;
 import org.postgresql.util.PGobject;
 import org.slf4j.Logger;
@@ -65,7 +64,7 @@ public class ChangesetDB implements IChangesetDB {
         getterDb = createGetterDb(dataSource);
     }
 
-    protected @NonNull ChangesetDb createGetterDb(HikariDataSource dataSource) {
+    protected ChangesetDb createGetterDb(HikariDataSource dataSource) {
         return new ChangesetDb(dataSource);
     }
 
