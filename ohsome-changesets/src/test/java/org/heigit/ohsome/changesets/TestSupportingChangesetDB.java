@@ -11,6 +11,6 @@ public class TestSupportingChangesetDB extends ChangesetDB{
 
     @Override
     protected @NonNull ChangesetDb createGetterDb(HikariDataSource dataSource) {
-        return new TestSupportingChangesetDb(dataSource);
+        return new TestSupportingChangeset_Db(dataSource);
     }
 }
