@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class TestSupportingChangesetDb extends ChangesetDb {
+public class TestSupportingChangeset_Db extends ChangesetDb {
 
-    public TestSupportingChangesetDb(HikariDataSource dataSource) {
+    public TestSupportingChangeset_Db(HikariDataSource dataSource) {
         super(dataSource);
     }
 
