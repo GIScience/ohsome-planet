@@ -35,15 +35,12 @@ class TestSupportingChangeset_Db extends ChangesetDb {
 
 
     @Override
-    public <T> T createChangesetInstance(ResultSet rst, Factory<T> factory, long id, Instant createdAt, Instant closedAt, Map<String, String> tags, List<String> hashTags, String editor) throws SQLException {
+    public void postProcessInstance(ResultSet rst, long id, Instant createdAt, Instant closedAt, Map<String, String> tags, List<String> hashTags, String editor) throws SQLException {
         var upsertedAt = rst.getTimestamp(6).toInstant();
-        T instance = factory.apply(id, createdAt, closedAt, tags, hashTags, editor);
 
         // grab instance here, augment to desired type, and pass on original instance
         var result = new TestChangeset2(id, createdAt, closedAt, tags, hashTags, editor, upsertedAt);
         this.collectedChangesets.put(id, result);
-
-        return instance;
     }
 
 }
