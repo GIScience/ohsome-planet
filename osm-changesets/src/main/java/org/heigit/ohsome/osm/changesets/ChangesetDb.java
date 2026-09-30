@@ -51,7 +51,9 @@ public class ChangesetDb implements Changesets {
                     var tags = (Map<String, String>) mapper.readValue(rst.getString(4), Map.class);
                     var hashTags = ChangesetHashtags.hashTags(tags);
                     var editor = tags.get("created_by");
-                    T changeset = createChangesetInstance(rst, factory, id, createdAt, closedAt, tags, hashTags, editor);
+                    T changeset = factory.apply(id, createdAt, closedAt, tags, hashTags, editor);
+                    this.postProcessInstance(rst, id, createdAt, closedAt, tags, hashTags, editor);
+
                     map.put(id, changeset);
                 }
                 return map;
@@ -59,9 +61,11 @@ public class ChangesetDb implements Changesets {
         }
     }
 
-    protected <T> T createChangesetInstance(ResultSet rst, Factory<T> factory, long id, Instant createdAt, Instant closedAt, Map<String, String> tags, List<String> hashTags, String editor) throws SQLException {
-        return factory.apply(id, createdAt, closedAt, tags, hashTags, editor);
+
+    protected void postProcessInstance(ResultSet rst, long id, Instant createdAt, Instant closedAt, Map<String, String> tags, List<String> hashTags, String editor) throws SQLException {
+
     }
+
 
     protected String createSelectChangesetsQuery() {
         return "select id, created_at, closed_at, tags, hashtags from %s where id = any(?)";
