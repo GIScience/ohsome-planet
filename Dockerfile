@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk-alpine AS app-builder
+FROM eclipse-temurin:25-jdk-alpine AS app-builder
 
 COPY mvnw pom.xml ./
 COPY .mvn .mvn
@@ -37,7 +37,7 @@ COPY osm-xml/src osm-xml/src
 RUN ./mvnw package -DskipTests
 
 
-FROM eclipse-temurin:21-alpine AS jre-builder
+FROM eclipse-temurin:25-alpine AS jre-builder
 
 RUN $JAVA_HOME/bin/jlink \
     --add-modules java.base \

@@ -18,7 +18,7 @@ The output of ohsome-planet can be used to perform a wide range of geospatial an
 
 ## Installation
 
-Installation requires Java 21.
+Installation requires Java 25.
 
 First, clone the repository and its submodules. Then, build it with Maven.
 
