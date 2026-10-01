@@ -160,7 +160,7 @@ public class ChangesetDB implements IChangesetDB {
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,
                                       hashtags = EXCLUDED.hashtags,
-                                      upserted_at = now(),
+                                      upserted_at = EXCLUDED.upserted_at,
                                       geom = EXCLUDED.geom
                                   WHERE changesets.open;
                         """
