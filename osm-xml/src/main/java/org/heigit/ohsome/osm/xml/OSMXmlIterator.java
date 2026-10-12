@@ -5,7 +5,6 @@ import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import javax.management.modelmbean.XMLParseException;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;

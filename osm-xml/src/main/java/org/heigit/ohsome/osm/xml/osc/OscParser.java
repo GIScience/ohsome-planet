@@ -7,10 +7,10 @@ import org.heigit.ohsome.osm.OSMEntity.OSMRelation;
 import org.heigit.ohsome.osm.OSMEntity.OSMWay;
 import org.heigit.ohsome.osm.OSMMember;
 import org.heigit.ohsome.osm.OSMType;
+import org.heigit.ohsome.osm.xml.XMLParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.management.modelmbean.XMLParseException;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;

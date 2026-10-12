@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
-import javax.management.modelmbean.XMLParseException;
 import javax.xml.stream.XMLStreamException;
 import org.heigit.ohsome.osm.OSMEntity;
 import org.heigit.ohsome.osm.OSMType;
