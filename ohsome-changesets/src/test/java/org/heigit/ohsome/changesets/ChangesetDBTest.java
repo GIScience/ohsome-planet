@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+
 class ChangesetDBTest {
 
     @Container
@@ -38,7 +40,24 @@ class ChangesetDBTest {
         postgresContainer.stop();
     }
 
-    record TestChangeset(long id, Instant created, Instant closed, Map<String, String> tags, List<String> hashtags, String editor){}
+    record TestChangeset(
+            long id,
+            Instant created,
+            Instant closed,
+            Map<String, String> tags,
+            List<String> hashtags,
+            String editor
+    ){}
+
+    record TestChangeset2(
+            long id,
+            Instant created,
+            Instant closed,
+            Map<String, String> tags,
+            List<String> hashtags,
+            String editor,
+            Instant upserted
+    ){}
 
     @Test
     void test() throws Exception {
@@ -91,5 +110,54 @@ class ChangesetDBTest {
 
         }
     }
-  
+
+
+    @Test
+    void upsertTimestampsCanBeWritten() throws Exception {
+        try(var changesetDb = new TestSupportingChangesetDB(dbUrl)) {
+            changesetDb.createTablesIfNotExists();
+
+            changesetDb.upsertChangesets(List.of(
+                    OSMChangesets.OSMChangeset.of(12345L,
+                            "2026-01-05T19:54:13Z",
+                            null,
+                            true,
+                            "ohsome",
+                            23,
+                            List.of())
+            ));
+            changesetDb.changesets(Set.of(12345L), TestChangeset::new);
+            TestSupportingChangeset_Db db = (TestSupportingChangeset_Db) changesetDb.getGetterDb();
+            var changeset = (TestChangeset2) null;
+            changeset = db.getChangeset(12345L);
+
+            assertNotNull(changeset);
+            Instant insertTime = changeset.upserted;
+            assertNotNull(insertTime);
+            System.out.println("Inserted: " + insertTime);
+
+
+            changesetDb.upsertChangesets(List.of(
+                    OSMChangesets.OSMChangeset.of(12345L,
+                            "2026-01-05T19:54:13Z",
+                            "2026-01-06T19:54:13Z",
+                            false,
+                            "ohsome",
+                            23,
+                            List.of())
+            ));
+
+            changesetDb.changesets(Set.of(12345L), TestChangeset::new);
+            changeset = db.getChangeset(12345L);
+
+
+            Instant updateTime = changeset.upserted;
+            assertNotNull(updateTime);
+            System.out.println("Updated: " + updateTime);
+
+            assertTrue(insertTime.isBefore(updateTime));
+
+        }
+    }
+
 }

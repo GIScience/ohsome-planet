@@ -46,6 +46,12 @@ public class ChangesetDB implements IChangesetDB {
 
     private final ChangesetDb getterDb;
 
+
+    ChangesetDb getGetterDb() {
+        return getterDb;
+    }
+
+
     public ChangesetDB(String connectionString) {
         config.setJdbcUrl(connectionString);
 
@@ -55,7 +61,11 @@ public class ChangesetDB implements IChangesetDB {
         ofNullable(getenv(OHSOME_PLANET_DB_SCHEMA)).ifPresent(config::setSchema);
 
         dataSource = new HikariDataSource(config);
-        getterDb = new ChangesetDb(dataSource);
+        getterDb = createGetterDb(dataSource);
+    }
+
+    protected ChangesetDb createGetterDb(HikariDataSource dataSource) {
+        return new ChangesetDb(dataSource);
     }
 
     public ReplicationState getLocalState() throws NoSuchElementException, SQLException {
@@ -137,9 +147,10 @@ public class ChangesetDB implements IChangesetDB {
                                       user_name,
                                       tags,
                                       hashtags,
+                                      upserted_at,                    
                                       geom
                                   )
-                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, ?::geometry)
+                                  VALUES (?, ?, ?::timestamp, ?::timestamp, ?, ?, ?, ?, now(), ?::geometry)
                                   ON CONFLICT (id) DO UPDATE
                                   SET
                                       created_at = EXCLUDED.created_at,
@@ -149,6 +160,7 @@ public class ChangesetDB implements IChangesetDB {
                                       open = EXCLUDED.open,
                                       tags = EXCLUDED.tags,
                                       hashtags = EXCLUDED.hashtags,
+                                      upserted_at = EXCLUDED.upserted_at,
                                       geom = EXCLUDED.geom
                                   WHERE changesets.open;
                         """
@@ -193,17 +205,19 @@ public class ChangesetDB implements IChangesetDB {
             ObjectMapper objectMapper = new ObjectMapper();
             for (var changeset : changesets) {
                 var tags = changeset.tags();
+                var changeset_closed_at = changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt());
                 var line = String.format(
-                        "%d\t%s\t%s\t%s\t%b\t%s\t%s\t%s\t%s%n",
+                        "%d\t%s\t%s\t%s\t%b\t%s\t%s\t%s\t%s\t%s%n",
                         changeset.id(),
                         changeset.userId(),
                         Timestamp.from(changeset.getCreatedAt()),
-                        changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
+                        changeset_closed_at,
                         changeset.getClosedAt() == null,
                         changeset.user() == null ? "\"\"" : escapeCsv(changeset.user()),
                         escapeCsv(objectMapper.writeValueAsString(tags)),
                         escapeCsv("{" + String.join(",", ChangesetHashtags.hashTags(tags)) + "}"),
-                        escapeCsv(changeset.getBBOXasWKT())
+                        escapeCsv(changeset.getBBOXasWKT()),
+                        changeset_closed_at
                 );
                 writer.write(line);
             }
@@ -237,7 +251,8 @@ public class ChangesetDB implements IChangesetDB {
                                     user_name,
                                     tags,
                                     hashtags,
-                                    geom
+                                    geom,
+                                    upserted_at
                                 )
                                 FROM STDIN WITH CSV DELIMITER '\t'
                                 """,
@@ -280,9 +295,10 @@ public class ChangesetDB implements IChangesetDB {
                     user_name,
                     open,
                     tags,
-                    hashtags
+                    hashtags,
+                    upserted_at
                 )
-                VALUES (?, '2000-01-01 00:00:00', 0, '', true, '{}', '{}')
+                VALUES (?, '2000-01-01 00:00:00', 0, '', true, '{}', '{}', '2000-01-01 00:00:00')
                 ON CONFLICT (id) DO NOTHING
                 """;
         try (var conn = dataSource.getConnection();
