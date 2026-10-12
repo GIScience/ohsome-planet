@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS changesets
     user_id            int8 NOT NULL,
     user_name          varchar NOT NULL,
     open               boolean NOT NULL,
-    upserted_at        timestamptz NOT NULL,
+    upserted_at        timestamptz NULL,
     geom               geometry(polygon, 4326) NULL
 );
 

@@ -205,17 +205,19 @@ public class ChangesetDB implements IChangesetDB {
             ObjectMapper objectMapper = new ObjectMapper();
             for (var changeset : changesets) {
                 var tags = changeset.tags();
+                var changeset_closed_at = changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt());
                 var line = String.format(
-                        "%d\t%s\t%s\t%s\t%b\t%s\t%s\t%s\t%s%n",
+                        "%d\t%s\t%s\t%s\t%b\t%s\t%s\t%s\t%s\t%s%n",
                         changeset.id(),
                         changeset.userId(),
                         Timestamp.from(changeset.getCreatedAt()),
-                        changeset.getClosedAt() == null ? NULL : Timestamp.from(changeset.getClosedAt()),
+                        changeset_closed_at,
                         changeset.getClosedAt() == null,
                         changeset.user() == null ? "\"\"" : escapeCsv(changeset.user()),
                         escapeCsv(objectMapper.writeValueAsString(tags)),
                         escapeCsv("{" + String.join(",", ChangesetHashtags.hashTags(tags)) + "}"),
-                        escapeCsv(changeset.getBBOXasWKT())
+                        escapeCsv(changeset.getBBOXasWKT()),
+                        changeset_closed_at
                 );
                 writer.write(line);
             }
@@ -249,7 +251,8 @@ public class ChangesetDB implements IChangesetDB {
                                     user_name,
                                     tags,
                                     hashtags,
-                                    geom
+                                    geom,
+                                    upserted_at
                                 )
                                 FROM STDIN WITH CSV DELIMITER '\t'
                                 """,
